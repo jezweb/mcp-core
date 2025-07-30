@@ -14,21 +14,52 @@ This NPM package is one of **three deployment options** for the Universal OpenAI
 
 Choose the option that best fits your needs. See the [main repository](https://github.com/jezweb/openai-assistants-mcp) for all options.
 
-## ✨ Features
+## ✨ Enhanced Features
 
-- **22 Comprehensive Tools**: Complete OpenAI Assistants API coverage
-- **Assistant Management**: Create, update, list, and delete assistants
+### 🚀 Core Capabilities
+- **22 Comprehensive Tools**: Complete OpenAI Assistants API coverage with enhanced descriptions
+- **Assistant Management**: Create, update, list, and delete assistants with template support
 - **Thread Management**: Full conversation thread lifecycle management
 - **Message Management**: Create, list, update, and delete messages
 - **Run Management**: Execute assistant runs with tool output support
 - **Run Step Management**: Monitor and inspect run execution steps
+
+### 🎯 Enhanced User Experience
+- **9 MCP Resources**: Templates, workflows, and comprehensive documentation
+- **Enhanced Tool Descriptions**: Workflow-oriented descriptions with practical examples
+- **Improved Validation**: Context-aware error messages with actionable guidance
+- **Tool Annotations**: Proper MCP annotations (readOnly, destructive, idempotent)
+- **Assistant Templates**: Pre-configured templates for coding, writing, data analysis, and support
+
+### 🔧 Technical Excellence
 - **Direct Stdio Transport**: No proxy servers required - fastest and most reliable
 - **Universal Compatibility**: Works with Claude Desktop, Roo, and all MCP clients
 - **TypeScript**: Full type safety and modern development experience
 - **Zero Dependencies**: Lightweight with minimal runtime footprint
 - **Easy Installation**: Simple `npx` usage or global installation
-- **Comprehensive Testing**: Built-in test suite for validation
+- **Comprehensive Testing**: Enhanced test suite validating all improvements
 - **Environment Variable Support**: Secure API key management
+
+## 🛠️ Enhanced Tools (22 Total)
+
+All tools now feature **enhanced descriptions** with workflow context, practical examples, and usage guidance.
+
+## 📚 MCP Resources (9 Total)
+
+### 🤖 Assistant Templates (4 resources)
+- **Coding Assistant** - Code review, debugging, and programming help
+- **Writing Assistant** - Content creation, editing, and proofreading
+- **Data Analyst** - Data analysis, visualization, and statistical insights
+- **Customer Support** - Customer service and support ticket handling
+
+### 🔄 Workflow Examples (2 resources)
+- **Create and Run Workflow** - Complete step-by-step assistant setup
+- **Batch Processing Workflow** - Efficient multi-task processing patterns
+
+### 📖 Documentation (3 resources)
+- **API Reference** - ID formats, parameters, and specifications
+- **Error Handling Guide** - Common errors and debugging techniques
+- **Best Practices Guide** - Performance, security, and optimization
 
 ## 🛠️ Available Tools (22 Total)
 
@@ -287,28 +318,57 @@ When using `--scope project`, Claude Code creates a `.mcp.json` file in your pro
 
 ---
 
-## 📖 Usage Examples
+## 📖 Enhanced Usage Examples
+
+### Using MCP Resources
+
+#### Access Assistant Templates
+```
+# Get a pre-configured template
+"Show me the coding assistant template"
+"Use the data analyst template to create a new assistant"
+"What tools does the customer support template include?"
+```
+
+#### Follow Workflow Examples
+```
+# Get step-by-step guidance
+"Show me the complete create and run workflow"
+"How do I implement batch processing?"
+"Walk me through the assistant creation process"
+```
+
+#### Access Documentation
+```
+# Get comprehensive guidance
+"Show me the best practices guide"
+"What are common error handling patterns?"
+"Display the API reference documentation"
+```
 
 ### Complete Assistant Workflow
 
-#### Basic Assistant Creation and Usage
+#### Template-Based Assistant Creation
 ```
-# 1. Create a new assistant
-"Create an assistant named 'Code Helper' using gpt-4 with code interpreter tool"
+# 1. Access a template (via MCP client)
+"Show me the coding assistant template"
 
-# 2. Create a conversation thread
+# 2. Create assistant using template guidance
+"Create an assistant named 'Code Helper' using gpt-4 with code interpreter and file search tools"
+
+# 3. Create a conversation thread
 "Create a new thread for discussing Python programming"
 
-# 3. Add a message to the thread
+# 4. Add a message to the thread
 "Add a user message to the thread asking 'How do I create a list comprehension?'"
 
-# 4. Run the assistant on the thread
+# 5. Run the assistant on the thread
 "Start a run with the Code Helper assistant on this thread"
 
-# 5. Monitor the run progress
+# 6. Monitor the run progress
 "Get the status of the current run"
 
-# 6. List all messages in the thread to see the response
+# 7. List all messages in the thread to see the response
 "List all messages in this thread"
 ```
 
@@ -422,14 +482,30 @@ npm-package/
 └── package.json
 ```
 
-## Error Handling
+## 🔍 Enhanced Error Handling
 
-The server includes comprehensive error handling:
+The server includes **comprehensive enhanced error handling**:
 
+### Enhanced Error Messages
+- **Context-Aware Errors**: Detailed error messages with specific guidance
+- **Format Examples**: Show exactly what valid input looks like
+- **Documentation References**: Link to relevant guides and specifications
+- **Actionable Guidance**: Clear steps to resolve issues
+
+### Error Categories
 - **Invalid API Key**: Clear error message with setup instructions
 - **Network Issues**: Automatic retry logic for transient failures
-- **Invalid Parameters**: Detailed validation error messages
+- **Invalid Parameters**: Enhanced validation with examples and suggestions
 - **OpenAI API Errors**: Proper error code mapping and user-friendly messages
+- **Parameter Relationships**: Validation of tool/resource consistency
+
+### Example Enhanced Error
+```
+Invalid assistant ID format for parameter 'assistant_id'.
+Expected 'asst_' followed by 24 characters (e.g., 'asst_abc123def456ghi789jkl012'),
+but received: 'invalid-id'.
+See docs://openai-assistants-api for ID format specifications.
+```
 
 ## 🛠️ Troubleshooting
 

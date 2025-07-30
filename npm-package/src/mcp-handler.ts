@@ -14,11 +14,28 @@ import {
   MCPToolsListResponse,
   MCPToolsCallRequest,
   MCPToolsCallResponse,
+  MCPResourcesListRequest,
+  MCPResourcesListResponse,
+  MCPResourcesReadRequest,
+  MCPResourcesReadResponse,
   MCPTool,
   MCPError,
   ErrorCodes
 } from './types.js';
 import { OpenAIService } from './openai-service.js';
+import { enhancedTools } from './mcp-handler-tools.js';
+import { mcpResources, getResourceContent } from './resources.js';
+import {
+  validateOpenAIId,
+  validateModel,
+  validateCreateAssistantParams,
+  validateRequiredString,
+  validateMessageRole,
+  validatePaginationParams,
+  validateArray,
+  validateMetadata,
+  ValidationResult
+} from './validation.js';
 
 export class MCPHandler {
   private openaiService: OpenAIService | null = null;
@@ -65,6 +82,10 @@ export class MCPHandler {
           return this.handleToolsList(request as MCPToolsListRequest);
         case 'tools/call':
           return this.handleToolsCall(request as MCPToolsCallRequest);
+        case 'resources/list':
+          return this.handleResourcesList(request as MCPResourcesListRequest);
+        case 'resources/read':
+          return this.handleResourcesRead(request as MCPResourcesReadRequest);
         default:
           return this.createErrorResponse(request.id, ErrorCodes.METHOD_NOT_FOUND, 'Method not found');
       }
@@ -119,6 +140,10 @@ export class MCPHandler {
         capabilities: {
           tools: {
             listChanged: false
+          },
+          resources: {
+            subscribe: false,
+            listChanged: false
           }
         },
         serverInfo: {
@@ -133,560 +158,10 @@ export class MCPHandler {
    * Handle tools list request
    */
   private async handleToolsList(request: MCPToolsListRequest): Promise<MCPToolsListResponse> {
-    const tools: MCPTool[] = [
-      // Assistant Management Tools
-      {
-        name: 'assistant-create',
-        description: 'Create a new OpenAI assistant with specified instructions and tools',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            model: {
-              type: 'string',
-              description: 'The model to use for the assistant (e.g., gpt-4, gpt-3.5-turbo)',
-            },
-            name: {
-              type: 'string',
-              description: 'The name of the assistant',
-            },
-            description: {
-              type: 'string',
-              description: 'The description of the assistant',
-            },
-            instructions: {
-              type: 'string',
-              description: 'The system instructions for the assistant',
-            },
-            tools: {
-              type: 'array',
-              description: 'List of tools enabled for the assistant',
-              items: {
-                type: 'object',
-                properties: {
-                  type: {
-                    type: 'string',
-                    enum: ['code_interpreter', 'file_search', 'function'],
-                  },
-                },
-              },
-            },
-            metadata: {
-              type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
-            },
-          },
-          required: ['model'],
-        },
-      },
-      {
-        name: 'assistant-list',
-        description: 'List all assistants with optional pagination and filtering',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            limit: {
-              type: 'number',
-              description: 'Number of assistants to return (1-100, default: 20)',
-            },
-            order: {
-              type: 'string',
-              enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp',
-            },
-            after: {
-              type: 'string',
-              description: 'Cursor for pagination (assistant ID)',
-            },
-            before: {
-              type: 'string',
-              description: 'Cursor for pagination (assistant ID)',
-            },
-          },
-        },
-      },
-      {
-        name: 'assistant-get',
-        description: 'Retrieve details of a specific assistant',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            assistant_id: {
-              type: 'string',
-              description: 'The ID of the assistant to retrieve',
-            },
-          },
-          required: ['assistant_id'],
-        },
-      },
-      {
-        name: 'assistant-update',
-        description: 'Update an existing assistant',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            assistant_id: {
-              type: 'string',
-              description: 'The ID of the assistant to update',
-            },
-            model: {
-              type: 'string',
-              description: 'The model to use for the assistant',
-            },
-            name: {
-              type: 'string',
-              description: 'The name of the assistant',
-            },
-            description: {
-              type: 'string',
-              description: 'The description of the assistant',
-            },
-            instructions: {
-              type: 'string',
-              description: 'The system instructions for the assistant',
-            },
-            tools: {
-              type: 'array',
-              description: 'List of tools enabled for the assistant',
-            },
-            metadata: {
-              type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
-            },
-          },
-          required: ['assistant_id'],
-        },
-      },
-      {
-        name: 'assistant-delete',
-        description: 'Delete an assistant permanently',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            assistant_id: {
-              type: 'string',
-              description: 'The ID of the assistant to delete',
-            },
-          },
-          required: ['assistant_id'],
-        },
-      },
-
-      // Thread Management Tools
-      {
-        name: 'thread-create',
-        description: 'Create a new conversation thread',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            messages: {
-              type: 'array',
-              description: 'Initial messages for the thread',
-            },
-            metadata: {
-              type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
-            },
-          },
-        },
-      },
-      {
-        name: 'thread-get',
-        description: 'Retrieve details of a specific thread',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread to retrieve',
-            },
-          },
-          required: ['thread_id'],
-        },
-      },
-      {
-        name: 'thread-update',
-        description: 'Update an existing thread',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread to update',
-            },
-            metadata: {
-              type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
-            },
-          },
-          required: ['thread_id'],
-        },
-      },
-      {
-        name: 'thread-delete',
-        description: 'Delete a thread permanently',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread to delete',
-            },
-          },
-          required: ['thread_id'],
-        },
-      },
-
-      // Message Management Tools
-      {
-        name: 'message-create',
-        description: 'Add a message to a thread',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread to add the message to',
-            },
-            role: {
-              type: 'string',
-              enum: ['user', 'assistant'],
-              description: 'The role of the message sender',
-            },
-            content: {
-              type: 'string',
-              description: 'The content of the message',
-            },
-            metadata: {
-              type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
-            },
-          },
-          required: ['thread_id', 'role', 'content'],
-        },
-      },
-      {
-        name: 'message-list',
-        description: 'List messages in a thread with optional pagination',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread to list messages from',
-            },
-            limit: {
-              type: 'number',
-              description: 'Number of messages to return (1-100, default: 20)',
-            },
-            order: {
-              type: 'string',
-              enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp',
-            },
-            after: {
-              type: 'string',
-              description: 'Cursor for pagination (message ID)',
-            },
-            before: {
-              type: 'string',
-              description: 'Cursor for pagination (message ID)',
-            },
-            run_id: {
-              type: 'string',
-              description: 'Filter messages by run ID',
-            },
-          },
-          required: ['thread_id'],
-        },
-      },
-      {
-        name: 'message-get',
-        description: 'Retrieve details of a specific message',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the message',
-            },
-            message_id: {
-              type: 'string',
-              description: 'The ID of the message to retrieve',
-            },
-          },
-          required: ['thread_id', 'message_id'],
-        },
-      },
-      {
-        name: 'message-update',
-        description: 'Update an existing message',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the message',
-            },
-            message_id: {
-              type: 'string',
-              description: 'The ID of the message to update',
-            },
-            metadata: {
-              type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
-            },
-          },
-          required: ['thread_id', 'message_id'],
-        },
-      },
-      {
-        name: 'message-delete',
-        description: 'Delete a message from a thread',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the message',
-            },
-            message_id: {
-              type: 'string',
-              description: 'The ID of the message to delete',
-            },
-          },
-          required: ['thread_id', 'message_id'],
-        },
-      },
-
-      // Run Management Tools
-      {
-        name: 'run-create',
-        description: 'Start a new assistant run on a thread',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread to run the assistant on',
-            },
-            assistant_id: {
-              type: 'string',
-              description: 'The ID of the assistant to use for the run',
-            },
-            model: {
-              type: 'string',
-              description: 'Override the model used by the assistant',
-            },
-            instructions: {
-              type: 'string',
-              description: 'Override the instructions of the assistant',
-            },
-            additional_instructions: {
-              type: 'string',
-              description: 'Additional instructions to append to the assistant instructions',
-            },
-            tools: {
-              type: 'array',
-              description: 'Override the tools used by the assistant',
-            },
-            metadata: {
-              type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
-            },
-          },
-          required: ['thread_id', 'assistant_id'],
-        },
-      },
-      {
-        name: 'run-list',
-        description: 'List runs for a thread with optional pagination',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread to list runs from',
-            },
-            limit: {
-              type: 'number',
-              description: 'Number of runs to return (1-100, default: 20)',
-            },
-            order: {
-              type: 'string',
-              enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp',
-            },
-            after: {
-              type: 'string',
-              description: 'Cursor for pagination (run ID)',
-            },
-            before: {
-              type: 'string',
-              description: 'Cursor for pagination (run ID)',
-            },
-          },
-          required: ['thread_id'],
-        },
-      },
-      {
-        name: 'run-get',
-        description: 'Retrieve details of a specific run',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the run',
-            },
-            run_id: {
-              type: 'string',
-              description: 'The ID of the run to retrieve',
-            },
-          },
-          required: ['thread_id', 'run_id'],
-        },
-      },
-      {
-        name: 'run-update',
-        description: 'Update an existing run',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the run',
-            },
-            run_id: {
-              type: 'string',
-              description: 'The ID of the run to update',
-            },
-            metadata: {
-              type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
-            },
-          },
-          required: ['thread_id', 'run_id'],
-        },
-      },
-      {
-        name: 'run-cancel',
-        description: 'Cancel a running assistant execution',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the run',
-            },
-            run_id: {
-              type: 'string',
-              description: 'The ID of the run to cancel',
-            },
-          },
-          required: ['thread_id', 'run_id'],
-        },
-      },
-      {
-        name: 'run-submit-tool-outputs',
-        description: 'Submit tool call results to continue a run',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the run',
-            },
-            run_id: {
-              type: 'string',
-              description: 'The ID of the run to submit tool outputs for',
-            },
-            tool_outputs: {
-              type: 'array',
-              description: 'List of tool outputs to submit',
-              items: {
-                type: 'object',
-                properties: {
-                  tool_call_id: {
-                    type: 'string',
-                    description: 'The ID of the tool call',
-                  },
-                  output: {
-                    type: 'string',
-                    description: 'The output of the tool call',
-                  },
-                },
-                required: ['tool_call_id', 'output'],
-              },
-            },
-          },
-          required: ['thread_id', 'run_id', 'tool_outputs'],
-        },
-      },
-
-      // Run Step Management Tools
-      {
-        name: 'run-step-list',
-        description: 'List steps in a run execution',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the run',
-            },
-            run_id: {
-              type: 'string',
-              description: 'The ID of the run to list steps from',
-            },
-            limit: {
-              type: 'number',
-              description: 'Number of steps to return (1-100, default: 20)',
-            },
-            order: {
-              type: 'string',
-              enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp',
-            },
-            after: {
-              type: 'string',
-              description: 'Cursor for pagination (step ID)',
-            },
-            before: {
-              type: 'string',
-              description: 'Cursor for pagination (step ID)',
-            },
-          },
-          required: ['thread_id', 'run_id'],
-        },
-      },
-      {
-        name: 'run-step-get',
-        description: 'Get details of a specific run step',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            thread_id: {
-              type: 'string',
-              description: 'The ID of the thread containing the run',
-            },
-            run_id: {
-              type: 'string',
-              description: 'The ID of the run containing the step',
-            },
-            step_id: {
-              type: 'string',
-              description: 'The ID of the step to retrieve',
-            },
-          },
-          required: ['thread_id', 'run_id', 'step_id'],
-        },
-      },
-    ];
-    
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: { tools }
+      result: { tools: enhancedTools }
     };
   }
 
@@ -705,115 +180,421 @@ export class MCPHandler {
       switch (name) {
         // Assistant Management
         case 'assistant-create':
-          // Validate required fields
-          if (!args.model) {
-            throw new MCPError(
-              ErrorCodes.INVALID_PARAMS,
-              'Missing required parameter: model'
-            );
+          // Comprehensive validation for assistant creation
+          const createAssistantValidation = validateCreateAssistantParams(args);
+          if (!createAssistantValidation.isValid) {
+            throw createAssistantValidation.error;
           }
           result = await this.openaiService.createAssistant(args as any);
           break;
         case 'assistant-list':
+          // Validate pagination parameters
+          const listAssistantsValidation = validatePaginationParams(args);
+          if (!listAssistantsValidation.isValid) {
+            throw listAssistantsValidation.error;
+          }
           result = await this.openaiService.listAssistants(args);
           break;
         case 'assistant-get':
+          // Validate assistant ID
+          const getAssistantValidation = validateOpenAIId(args.assistant_id, 'assistant', 'assistant_id');
+          if (!getAssistantValidation.isValid) {
+            throw getAssistantValidation.error;
+          }
           result = await this.openaiService.getAssistant(args.assistant_id);
           break;
         case 'assistant-update':
+          // Validate assistant ID and optional parameters
+          const updateAssistantIdValidation = validateOpenAIId(args.assistant_id, 'assistant', 'assistant_id');
+          if (!updateAssistantIdValidation.isValid) {
+            throw updateAssistantIdValidation.error;
+          }
+          
           const { assistant_id: updateAssistantId, ...updateAssistantData } = args;
+          
+          // Validate model if provided
+          if (updateAssistantData.model) {
+            const modelValidation = validateModel(updateAssistantData.model);
+            if (!modelValidation.isValid) {
+              throw modelValidation.error;
+            }
+          }
+          
+          // Validate metadata if provided
+          if (updateAssistantData.metadata !== undefined) {
+            const metadataValidation = validateMetadata(updateAssistantData.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           result = await this.openaiService.updateAssistant(updateAssistantId, updateAssistantData);
           break;
         case 'assistant-delete':
+          // Validate assistant ID
+          const deleteAssistantValidation = validateOpenAIId(args.assistant_id, 'assistant', 'assistant_id');
+          if (!deleteAssistantValidation.isValid) {
+            throw deleteAssistantValidation.error;
+          }
           result = await this.openaiService.deleteAssistant(args.assistant_id);
           break;
 
         // Thread Management
         case 'thread-create':
+          // Validate metadata if provided
+          if (args.metadata !== undefined) {
+            const metadataValidation = validateMetadata(args.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
           result = await this.openaiService.createThread(args);
           break;
         case 'thread-get':
+          // Validate thread ID
+          const getThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!getThreadValidation.isValid) {
+            throw getThreadValidation.error;
+          }
           result = await this.openaiService.getThread(args.thread_id);
           break;
         case 'thread-update':
+          // Validate thread ID
+          const updateThreadIdValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!updateThreadIdValidation.isValid) {
+            throw updateThreadIdValidation.error;
+          }
+          
           const { thread_id: updateThreadId, ...updateThreadData } = args;
+          
+          // Validate metadata if provided
+          if (updateThreadData.metadata !== undefined) {
+            const metadataValidation = validateMetadata(updateThreadData.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           result = await this.openaiService.updateThread(updateThreadId, updateThreadData);
           break;
         case 'thread-delete':
+          // Validate thread ID
+          const deleteThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!deleteThreadValidation.isValid) {
+            throw deleteThreadValidation.error;
+          }
           result = await this.openaiService.deleteThread(args.thread_id);
           break;
 
         // Message Management
         case 'message-create':
-          // Validate required fields
-          if (!args.thread_id || !args.role || !args.content) {
-            throw new MCPError(
-              ErrorCodes.INVALID_PARAMS,
-              'Missing required parameters: thread_id, role, content'
-            );
+          // Validate required thread ID
+          const createMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!createMessageThreadValidation.isValid) {
+            throw createMessageThreadValidation.error;
           }
+          
+          // Validate required role
+          const roleValidation = validateMessageRole(args.role);
+          if (!roleValidation.isValid) {
+            throw roleValidation.error;
+          }
+          
+          // Validate required content
+          const contentValidation = validateRequiredString(args.content, 'content', ['"Hello, how can I help you?"', '"Please analyze this data."']);
+          if (!contentValidation.isValid) {
+            throw contentValidation.error;
+          }
+          
+          // Validate metadata if provided
+          if (args.metadata !== undefined) {
+            const metadataValidation = validateMetadata(args.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           const { thread_id: createMessageThreadId, ...createMessageData } = args;
           result = await this.openaiService.createMessage(createMessageThreadId, createMessageData as any);
           break;
         case 'message-list':
+          // Validate thread ID
+          const listMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!listMessageThreadValidation.isValid) {
+            throw listMessageThreadValidation.error;
+          }
+          
           const { thread_id: listMessageThreadId, ...listMessageData } = args;
+          
+          // Validate pagination parameters
+          const listMessagePaginationValidation = validatePaginationParams(listMessageData);
+          if (!listMessagePaginationValidation.isValid) {
+            throw listMessagePaginationValidation.error;
+          }
+          
+          // Validate run_id if provided
+          if (listMessageData.run_id) {
+            const runIdValidation = validateOpenAIId(listMessageData.run_id, 'run', 'run_id');
+            if (!runIdValidation.isValid) {
+              throw runIdValidation.error;
+            }
+          }
+          
           result = await this.openaiService.listMessages(listMessageThreadId, listMessageData);
           break;
         case 'message-get':
+          // Validate thread ID
+          const getMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!getMessageThreadValidation.isValid) {
+            throw getMessageThreadValidation.error;
+          }
+          
+          // Validate message ID
+          const getMessageValidation = validateOpenAIId(args.message_id, 'message', 'message_id');
+          if (!getMessageValidation.isValid) {
+            throw getMessageValidation.error;
+          }
+          
           result = await this.openaiService.getMessage(args.thread_id, args.message_id);
           break;
         case 'message-update':
+          // Validate thread ID
+          const updateMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!updateMessageThreadValidation.isValid) {
+            throw updateMessageThreadValidation.error;
+          }
+          
+          // Validate message ID
+          const updateMessageValidation = validateOpenAIId(args.message_id, 'message', 'message_id');
+          if (!updateMessageValidation.isValid) {
+            throw updateMessageValidation.error;
+          }
+          
           const { thread_id: updateMessageThreadId, message_id: updateMessageId, ...updateMessageData } = args;
+          
+          // Validate metadata if provided
+          if (updateMessageData.metadata !== undefined) {
+            const metadataValidation = validateMetadata(updateMessageData.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           result = await this.openaiService.updateMessage(updateMessageThreadId, updateMessageId, updateMessageData);
           break;
         case 'message-delete':
+          // Validate thread ID
+          const deleteMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!deleteMessageThreadValidation.isValid) {
+            throw deleteMessageThreadValidation.error;
+          }
+          
+          // Validate message ID
+          const deleteMessageValidation = validateOpenAIId(args.message_id, 'message', 'message_id');
+          if (!deleteMessageValidation.isValid) {
+            throw deleteMessageValidation.error;
+          }
+          
           result = await this.openaiService.deleteMessage(args.thread_id, args.message_id);
           break;
 
         // Run Management
         case 'run-create':
-          // Validate required fields
-          if (!args.thread_id || !args.assistant_id) {
-            throw new MCPError(
-              ErrorCodes.INVALID_PARAMS,
-              'Missing required parameters: thread_id, assistant_id'
-            );
+          // Validate required thread ID
+          const createRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!createRunThreadValidation.isValid) {
+            throw createRunThreadValidation.error;
           }
+          
+          // Validate required assistant ID
+          const createRunAssistantValidation = validateOpenAIId(args.assistant_id, 'assistant', 'assistant_id');
+          if (!createRunAssistantValidation.isValid) {
+            throw createRunAssistantValidation.error;
+          }
+          
+          // Validate model if provided
+          if (args.model) {
+            const modelValidation = validateModel(args.model);
+            if (!modelValidation.isValid) {
+              throw modelValidation.error;
+            }
+          }
+          
+          // Validate metadata if provided
+          if (args.metadata !== undefined) {
+            const metadataValidation = validateMetadata(args.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           const { thread_id: createRunThreadId, ...createRunData } = args;
           result = await this.openaiService.createRun(createRunThreadId, createRunData as any);
           break;
         case 'run-list':
+          // Validate thread ID
+          const listRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!listRunThreadValidation.isValid) {
+            throw listRunThreadValidation.error;
+          }
+          
           const { thread_id: listRunThreadId, ...listRunData } = args;
+          
+          // Validate pagination parameters
+          const listRunPaginationValidation = validatePaginationParams(listRunData);
+          if (!listRunPaginationValidation.isValid) {
+            throw listRunPaginationValidation.error;
+          }
+          
           result = await this.openaiService.listRuns(listRunThreadId, listRunData);
           break;
         case 'run-get':
+          // Validate thread ID
+          const getRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!getRunThreadValidation.isValid) {
+            throw getRunThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const getRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!getRunValidation.isValid) {
+            throw getRunValidation.error;
+          }
+          
           result = await this.openaiService.getRun(args.thread_id, args.run_id);
           break;
         case 'run-update':
+          // Validate thread ID
+          const updateRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!updateRunThreadValidation.isValid) {
+            throw updateRunThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const updateRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!updateRunValidation.isValid) {
+            throw updateRunValidation.error;
+          }
+          
           const { thread_id: updateRunThreadId, run_id: updateRunId, ...updateRunData } = args;
+          
+          // Validate metadata if provided
+          if (updateRunData.metadata !== undefined) {
+            const metadataValidation = validateMetadata(updateRunData.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           result = await this.openaiService.updateRun(updateRunThreadId, updateRunId, updateRunData);
           break;
         case 'run-cancel':
+          // Validate thread ID
+          const cancelRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!cancelRunThreadValidation.isValid) {
+            throw cancelRunThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const cancelRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!cancelRunValidation.isValid) {
+            throw cancelRunValidation.error;
+          }
+          
           result = await this.openaiService.cancelRun(args.thread_id, args.run_id);
           break;
         case 'run-submit-tool-outputs':
-          // Validate required fields
-          if (!args.thread_id || !args.run_id || !args.tool_outputs) {
-            throw new MCPError(
-              ErrorCodes.INVALID_PARAMS,
-              'Missing required parameters: thread_id, run_id, tool_outputs'
-            );
+          // Validate required thread ID
+          const submitThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!submitThreadValidation.isValid) {
+            throw submitThreadValidation.error;
           }
+          
+          // Validate required run ID
+          const submitRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!submitRunValidation.isValid) {
+            throw submitRunValidation.error;
+          }
+          
+          // Validate required tool_outputs array
+          const toolOutputsValidation = validateArray(args.tool_outputs, 'tool_outputs', true);
+          if (!toolOutputsValidation.isValid) {
+            throw toolOutputsValidation.error;
+          }
+          
+          // Validate each tool output
+          if (args.tool_outputs && Array.isArray(args.tool_outputs)) {
+            for (let i = 0; i < args.tool_outputs.length; i++) {
+              const output = args.tool_outputs[i];
+              
+              if (!output.tool_call_id) {
+                throw new MCPError(
+                  ErrorCodes.INVALID_PARAMS,
+                  `Tool output at index ${i} is missing 'tool_call_id'. Each tool output must include the tool_call_id from the run's required_action. Example: {"tool_call_id": "call_abc123def456ghi789jkl012", "output": "result"}.`
+                );
+              }
+              
+              const toolCallIdValidation = validateOpenAIId(output.tool_call_id, 'tool_call', `tool_outputs[${i}].tool_call_id`);
+              if (!toolCallIdValidation.isValid) {
+                throw toolCallIdValidation.error;
+              }
+              
+              if (!output.output || typeof output.output !== 'string') {
+                throw new MCPError(
+                  ErrorCodes.INVALID_PARAMS,
+                  `Tool output at index ${i} is missing or has invalid 'output'. Provide the function result as a string. Example: {"tool_call_id": "call_abc123def456ghi789jkl012", "output": "The calculation result is 42"}.`
+                );
+              }
+            }
+          }
+          
           const { thread_id: submitThreadId, run_id: submitRunId, ...submitData } = args;
           result = await this.openaiService.submitToolOutputs(submitThreadId, submitRunId, submitData as any);
           break;
 
         // Run Step Management
         case 'run-step-list':
+          // Validate thread ID
+          const listStepThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!listStepThreadValidation.isValid) {
+            throw listStepThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const listStepRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!listStepRunValidation.isValid) {
+            throw listStepRunValidation.error;
+          }
+          
           const { thread_id: listStepThreadId, run_id: listStepRunId, ...listStepData } = args;
+          
+          // Validate pagination parameters
+          const listStepPaginationValidation = validatePaginationParams(listStepData);
+          if (!listStepPaginationValidation.isValid) {
+            throw listStepPaginationValidation.error;
+          }
+          
           result = await this.openaiService.listRunSteps(listStepThreadId, listStepRunId, listStepData);
           break;
         case 'run-step-get':
+          // Validate thread ID
+          const getStepThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!getStepThreadValidation.isValid) {
+            throw getStepThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const getStepRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!getStepRunValidation.isValid) {
+            throw getStepRunValidation.error;
+          }
+          
+          // Validate step ID
+          const getStepValidation = validateOpenAIId(args.step_id, 'step', 'step_id');
+          if (!getStepValidation.isValid) {
+            throw getStepValidation.error;
+          }
+          
           result = await this.openaiService.getRunStep(args.thread_id, args.run_id, args.step_id);
           break;
 
@@ -849,6 +630,49 @@ export class MCPHandler {
         }
       };
     }
+  }
+
+  /**
+   * Handle resources list request
+   */
+  private handleResourcesList(request: MCPResourcesListRequest): MCPResourcesListResponse {
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: {
+        resources: mcpResources,
+      },
+    };
+  }
+
+  /**
+   * Handle resources read request
+   */
+  private handleResourcesRead(request: MCPResourcesReadRequest): MCPResourcesReadResponse {
+    const { uri } = request.params;
+    
+    const resourceData = getResourceContent(uri);
+    if (!resourceData) {
+      return this.createErrorResponse(
+        request.id,
+        ErrorCodes.NOT_FOUND,
+        `Resource not found: ${uri}`
+      ) as MCPResourcesReadResponse;
+    }
+
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: {
+        contents: [
+          {
+            uri,
+            mimeType: resourceData.mimeType,
+            text: resourceData.content,
+          },
+        ],
+      },
+    };
   }
 
   /**

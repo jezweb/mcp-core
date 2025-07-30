@@ -1,7 +1,7 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "1.0.0",
-  "description": "Universal OpenAI Assistants MCP Server - Complete 22-tool implementation for assistant, thread, message, and run management with stdio transport, enhanced Roo compatibility, and direct stdio performance",
+  "version": "2.0.0",
+  "description": "Enhanced Universal OpenAI Assistants MCP Server - Complete 22-tool implementation with 9 MCP resources, enhanced tool descriptions, improved validation, assistant templates, and comprehensive user guidance. Optimized for stdio transport with enhanced Roo and Claude Desktop compatibility.",
   "main": "universal-mcp-server.cjs",
   "type": "commonjs",
   "bin": {
@@ -24,7 +24,14 @@
     "claude-desktop",
     "roo",
     "universal",
-    "typescript"
+    "typescript",
+    "enhanced",
+    "resources",
+    "templates",
+    "validation",
+    "workflows",
+    "documentation",
+    "user-experience"
   ],
   "author": "OpenAI Assistants MCP Server Team",
   "license": "MIT",

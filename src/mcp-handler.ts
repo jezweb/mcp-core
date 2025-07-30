@@ -7,11 +7,27 @@ import {
   MCPToolsListResponse,
   MCPToolsCallRequest,
   MCPToolsCallResponse,
+  MCPResourcesListRequest,
+  MCPResourcesListResponse,
+  MCPResourcesReadRequest,
+  MCPResourcesReadResponse,
   MCPTool,
   MCPError,
   ErrorCodes,
 } from './types.js';
 import { OpenAIService } from './services/openai-service.js';
+import { mcpResources, getResourceContent } from './resources.js';
+import {
+  validateOpenAIId,
+  validateModel,
+  validateCreateAssistantParams,
+  validateRequiredString,
+  validateMessageRole,
+  validatePaginationParams,
+  validateArray,
+  validateMetadata,
+  ValidationResult
+} from './validation.js';
 
 export class MCPHandler {
   private openaiService: OpenAIService;
@@ -29,6 +45,10 @@ export class MCPHandler {
           return this.handleToolsList(request as MCPToolsListRequest);
         case 'tools/call':
           return this.handleToolsCall(request as MCPToolsCallRequest);
+        case 'resources/list':
+          return this.handleResourcesList(request as MCPResourcesListRequest);
+        case 'resources/read':
+          return this.handleResourcesRead(request as MCPResourcesReadRequest);
         default:
           throw new MCPError(
             ErrorCodes.METHOD_NOT_FOUND,
@@ -58,6 +78,10 @@ export class MCPHandler {
           tools: {
             listChanged: false,
           },
+          resources: {
+            subscribe: false,
+            listChanged: false,
+          },
         },
         serverInfo: {
           name: 'openai-assistants-mcp',
@@ -72,29 +96,30 @@ export class MCPHandler {
       // Assistant Management Tools
       {
         name: 'assistant-create',
-        description: 'Create a new OpenAI assistant with specified instructions and tools',
+        title: 'Create AI Assistant',
+        description: 'Create a new AI assistant with custom instructions and capabilities for a specific task or domain. Use this when you need to set up a persistent assistant that can be used across multiple conversations. The assistant will retain its configuration and can be equipped with tools like code interpreter, file search, or custom functions. Perfect for creating specialized assistants for customer support, coding help, content creation, or domain-specific tasks. Returns the assistant ID for future operations.',
         inputSchema: {
           type: 'object',
           properties: {
             model: {
               type: 'string',
-              description: 'The model to use for the assistant (e.g., gpt-4, gpt-3.5-turbo)',
+              description: 'The OpenAI model to use for the assistant (e.g., "gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"). Choose gpt-4 for complex reasoning, gpt-3.5-turbo for faster responses, or gpt-4-turbo for balanced performance.',
             },
             name: {
               type: 'string',
-              description: 'The name of the assistant',
+              description: 'A descriptive name for the assistant (e.g., "Customer Support Bot", "Code Review Assistant", "Content Writer"). This helps identify the assistant\'s purpose.',
             },
             description: {
               type: 'string',
-              description: 'The description of the assistant',
+              description: 'A brief description of what the assistant does and its intended use case (e.g., "Helps customers with product questions and troubleshooting").',
             },
             instructions: {
               type: 'string',
-              description: 'The system instructions for the assistant',
+              description: 'System instructions that define the assistant\'s behavior, personality, and capabilities. Be specific about the assistant\'s role, tone, and how it should respond to users.',
             },
             tools: {
               type: 'array',
-              description: 'List of tools enabled for the assistant',
+              description: 'Array of tools to enable for the assistant. Available tools: code_interpreter (for running Python code), file_search (for searching uploaded files), function (for custom API calls).',
               items: {
                 type: 'object',
                 properties: {
@@ -107,7 +132,7 @@ export class MCPHandler {
             },
             metadata: {
               type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
+              description: 'Custom key-value pairs for storing additional information about the assistant (e.g., {"department": "support", "version": "1.0", "created_by": "admin"}).',
             },
           },
           required: ['model'],
@@ -115,39 +140,43 @@ export class MCPHandler {
       },
       {
         name: 'assistant-list',
-        description: 'List all assistants with optional pagination and filtering',
+        title: 'List All Assistants',
+        description: 'Retrieve a list of all your AI assistants with pagination support. Use this to browse existing assistants, find specific ones by name, or get an overview of your assistant collection. Essential for assistant management workflows and discovering assistants created by your team. Returns assistant metadata including names, descriptions, models, and creation dates.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             limit: {
               type: 'number',
-              description: 'Number of assistants to return (1-100, default: 20)',
+              description: 'Maximum number of assistants to return in one request (1-100, default: 20). Use smaller values for quick previews, larger for comprehensive listings.',
             },
             order: {
               type: 'string',
               enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp',
+              description: 'Sort order by creation date: "desc" for newest first (default), "asc" for oldest first.',
             },
             after: {
               type: 'string',
-              description: 'Cursor for pagination (assistant ID)',
+              description: 'Pagination cursor - assistant ID to start listing after (format: "asst_abc123..."). Use for getting the next page of results.',
             },
             before: {
               type: 'string',
-              description: 'Cursor for pagination (assistant ID)',
+              description: 'Pagination cursor - assistant ID to end listing before (format: "asst_abc123..."). Use for getting the previous page of results.',
             },
           },
         },
       },
       {
         name: 'assistant-get',
-        description: 'Retrieve details of a specific assistant',
+        title: 'Get Assistant Details',
+        description: 'Retrieve comprehensive details about a specific assistant including its configuration, tools, instructions, and metadata. Use this to inspect an assistant\'s current settings before making updates, debugging issues, or understanding how an assistant is configured. Essential for assistant management and troubleshooting workflows.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             assistant_id: {
               type: 'string',
-              description: 'The ID of the assistant to retrieve',
+              description: 'The unique identifier of the assistant to retrieve (format: "asst_abc123..."). Get this from assistant-list or assistant-create operations.',
             },
           },
           required: ['assistant_id'],
@@ -155,37 +184,39 @@ export class MCPHandler {
       },
       {
         name: 'assistant-update',
-        description: 'Update an existing assistant',
+        title: 'Update Assistant Configuration',
+        description: 'Modify an existing assistant\'s configuration including its model, instructions, tools, or metadata. Use this to improve an assistant\'s performance, add new capabilities, change its behavior, or update its description. All parameters are optional - only specify the fields you want to change. The assistant will retain its existing settings for any unspecified parameters.',
+        idempotentHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             assistant_id: {
               type: 'string',
-              description: 'The ID of the assistant to update',
+              description: 'The unique identifier of the assistant to update (format: "asst_abc123...").',
             },
             model: {
               type: 'string',
-              description: 'The model to use for the assistant',
+              description: 'New model to use for the assistant (e.g., "gpt-4", "gpt-3.5-turbo"). Only specify if you want to change the model.',
             },
             name: {
               type: 'string',
-              description: 'The name of the assistant',
+              description: 'New name for the assistant. Only specify if you want to change the name.',
             },
             description: {
               type: 'string',
-              description: 'The description of the assistant',
+              description: 'New description for the assistant. Only specify if you want to change the description.',
             },
             instructions: {
               type: 'string',
-              description: 'The system instructions for the assistant',
+              description: 'New system instructions for the assistant. Only specify if you want to change the behavior or personality.',
             },
             tools: {
               type: 'array',
-              description: 'List of tools enabled for the assistant',
+              description: 'New array of tools for the assistant. This replaces the existing tools entirely. Include all tools you want the assistant to have.',
             },
             metadata: {
               type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
+              description: 'New metadata object. This replaces the existing metadata entirely.',
             },
           },
           required: ['assistant_id'],
@@ -193,13 +224,15 @@ export class MCPHandler {
       },
       {
         name: 'assistant-delete',
-        description: 'Delete an assistant permanently',
+        title: 'Delete Assistant',
+        description: 'Permanently delete an assistant and all its associated data. This action cannot be undone. Use this for cleanup, removing outdated assistants, or when an assistant is no longer needed. Warning: This will also affect any active conversations or runs using this assistant.',
+        destructiveHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             assistant_id: {
               type: 'string',
-              description: 'The ID of the assistant to delete',
+              description: 'The unique identifier of the assistant to permanently delete (format: "asst_abc123..."). Double-check this ID as deletion is irreversible.',
             },
           },
           required: ['assistant_id'],
@@ -209,30 +242,33 @@ export class MCPHandler {
       // Thread Management Tools
       {
         name: 'thread-create',
-        description: 'Create a new conversation thread',
+        title: 'Create Conversation Thread',
+        description: 'Create a new conversation thread to organize a series of messages and assistant interactions. Threads maintain conversation context and history, making them perfect for ongoing conversations, customer support sessions, or multi-turn interactions. You can optionally include initial messages to start the conversation. Returns a thread ID for adding messages and running assistants.',
         inputSchema: {
           type: 'object',
           properties: {
             messages: {
               type: 'array',
-              description: 'Initial messages for the thread',
+              description: 'Optional array of initial messages to start the conversation. Each message should have role ("user" or "assistant") and content.',
             },
             metadata: {
               type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
+              description: 'Custom key-value pairs for organizing threads (e.g., {"customer_id": "12345", "session_type": "support", "priority": "high"}).',
             },
           },
         },
       },
       {
         name: 'thread-get',
-        description: 'Retrieve details of a specific thread',
+        title: 'Get Thread Details',
+        description: 'Retrieve details about a specific conversation thread including its metadata and configuration. Use this to inspect thread properties, check metadata, or verify thread existence before performing operations. Essential for thread management and debugging conversation flows.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread to retrieve',
+              description: 'The unique identifier of the thread to retrieve (format: "thread_abc123..."). Get this from thread-create or other thread operations.',
             },
           },
           required: ['thread_id'],
@@ -240,17 +276,19 @@ export class MCPHandler {
       },
       {
         name: 'thread-update',
-        description: 'Update an existing thread',
+        title: 'Update Thread Metadata',
+        description: 'Update a thread\'s metadata for better organization and tracking. Use this to add tags, update customer information, change priority levels, or store additional context about the conversation. The thread\'s messages and core functionality remain unchanged.',
+        idempotentHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread to update',
+              description: 'The unique identifier of the thread to update (format: "thread_abc123...").',
             },
             metadata: {
               type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
+              description: 'New metadata object that replaces the existing metadata entirely. Include all key-value pairs you want to keep.',
             },
           },
           required: ['thread_id'],
@@ -258,13 +296,15 @@ export class MCPHandler {
       },
       {
         name: 'thread-delete',
-        description: 'Delete a thread permanently',
+        title: 'Delete Conversation Thread',
+        description: 'Permanently delete a conversation thread and all its associated messages, runs, and data. This action cannot be undone. Use this for cleanup, privacy compliance, or when a conversation is no longer needed. Warning: This will delete all messages and run history in the thread.',
+        destructiveHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread to delete',
+              description: 'The unique identifier of the thread to permanently delete (format: "thread_abc123..."). Double-check this ID as deletion is irreversible.',
             },
           },
           required: ['thread_id'],
@@ -274,26 +314,27 @@ export class MCPHandler {
       // Message Management Tools
       {
         name: 'message-create',
-        description: 'Add a message to a thread',
+        title: 'Add Message to Thread',
+        description: 'Add a new message to an existing conversation thread. Use this to continue conversations, add user input, or insert assistant responses. Messages maintain the conversation flow and provide context for assistant runs. Essential for building interactive chat experiences and maintaining conversation history.',
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread to add the message to',
+              description: 'The unique identifier of the thread to add the message to (format: "thread_abc123...").',
             },
             role: {
               type: 'string',
               enum: ['user', 'assistant'],
-              description: 'The role of the message sender',
+              description: 'The role of the message sender: "user" for human input, "assistant" for AI responses.',
             },
             content: {
               type: 'string',
-              description: 'The content of the message',
+              description: 'The text content of the message. This is what will be displayed in the conversation.',
             },
             metadata: {
               type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
+              description: 'Optional metadata for the message (e.g., {"timestamp": "2024-01-01T12:00:00Z", "source": "web_chat", "user_id": "12345"}).',
             },
           },
           required: ['thread_id', 'role', 'content'],
@@ -301,34 +342,36 @@ export class MCPHandler {
       },
       {
         name: 'message-list',
-        description: 'List messages in a thread with optional pagination',
+        title: 'List Thread Messages',
+        description: 'Retrieve messages from a conversation thread with pagination and filtering options. Use this to display conversation history, analyze chat patterns, or export conversation data. You can filter by run ID to see messages from specific assistant interactions, or use pagination to handle long conversations efficiently.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread to list messages from',
+              description: 'The unique identifier of the thread to list messages from (format: "thread_abc123...").',
             },
             limit: {
               type: 'number',
-              description: 'Number of messages to return (1-100, default: 20)',
+              description: 'Maximum number of messages to return (1-100, default: 20). Use smaller values for recent messages, larger for comprehensive history.',
             },
             order: {
               type: 'string',
               enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp',
+              description: 'Sort order by creation time: "desc" for newest first (default), "asc" for oldest first (chronological order).',
             },
             after: {
               type: 'string',
-              description: 'Cursor for pagination (message ID)',
+              description: 'Pagination cursor - message ID to start listing after (format: "msg_abc123..."). Use for getting newer messages.',
             },
             before: {
               type: 'string',
-              description: 'Cursor for pagination (message ID)',
+              description: 'Pagination cursor - message ID to end listing before (format: "msg_abc123..."). Use for getting older messages.',
             },
             run_id: {
               type: 'string',
-              description: 'Filter messages by run ID',
+              description: 'Filter messages by specific run ID (format: "run_abc123..."). Use to see only messages from a particular assistant interaction.',
             },
           },
           required: ['thread_id'],
@@ -336,17 +379,19 @@ export class MCPHandler {
       },
       {
         name: 'message-get',
-        description: 'Retrieve details of a specific message',
+        title: 'Get Message Details',
+        description: 'Retrieve detailed information about a specific message including its content, metadata, timestamps, and any annotations. Use this to inspect message properties, debug conversation issues, or extract specific message data for analysis.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the message',
+              description: 'The unique identifier of the thread containing the message (format: "thread_abc123...").',
             },
             message_id: {
               type: 'string',
-              description: 'The ID of the message to retrieve',
+              description: 'The unique identifier of the message to retrieve (format: "msg_abc123...").',
             },
           },
           required: ['thread_id', 'message_id'],
@@ -354,21 +399,23 @@ export class MCPHandler {
       },
       {
         name: 'message-update',
-        description: 'Update an existing message',
+        title: 'Update Message Metadata',
+        description: 'Update a message\'s metadata for better organization and tracking. Use this to add tags, update status information, or store additional context about the message. The message content itself cannot be changed, only its metadata.',
+        idempotentHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the message',
+              description: 'The unique identifier of the thread containing the message (format: "thread_abc123...").',
             },
             message_id: {
               type: 'string',
-              description: 'The ID of the message to update',
+              description: 'The unique identifier of the message to update (format: "msg_abc123...").',
             },
             metadata: {
               type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
+              description: 'New metadata object that replaces the existing metadata entirely. Include all key-value pairs you want to keep.',
             },
           },
           required: ['thread_id', 'message_id'],
@@ -376,17 +423,19 @@ export class MCPHandler {
       },
       {
         name: 'message-delete',
-        description: 'Delete a message from a thread',
+        title: 'Delete Message',
+        description: 'Permanently delete a message from a conversation thread. This action cannot be undone. Use this for content moderation, privacy compliance, or removing inappropriate content. Note that deleting messages may affect conversation context for future assistant runs.',
+        destructiveHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the message',
+              description: 'The unique identifier of the thread containing the message (format: "thread_abc123...").',
             },
             message_id: {
               type: 'string',
-              description: 'The ID of the message to delete',
+              description: 'The unique identifier of the message to permanently delete (format: "msg_abc123..."). Double-check this ID as deletion is irreversible.',
             },
           },
           required: ['thread_id', 'message_id'],
@@ -396,37 +445,38 @@ export class MCPHandler {
       // Run Management Tools
       {
         name: 'run-create',
-        description: 'Start a new assistant run on a thread',
+        title: 'Start Assistant Run',
+        description: 'Execute an assistant on a conversation thread to generate responses and perform tasks. This is the core operation for getting AI assistance - the assistant will process the thread\'s messages and generate appropriate responses. Use this after adding user messages to a thread. The run may require tool outputs if the assistant needs to call functions. Monitor the run status to know when it completes.',
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread to run the assistant on',
+              description: 'The unique identifier of the thread to run the assistant on (format: "thread_abc123...").',
             },
             assistant_id: {
               type: 'string',
-              description: 'The ID of the assistant to use for the run',
+              description: 'The unique identifier of the assistant to use for this run (format: "asst_abc123...").',
             },
             model: {
               type: 'string',
-              description: 'Override the model used by the assistant',
+              description: 'Override the assistant\'s default model for this run only (e.g., "gpt-4", "gpt-3.5-turbo"). Leave empty to use the assistant\'s configured model.',
             },
             instructions: {
               type: 'string',
-              description: 'Override the instructions of the assistant',
+              description: 'Override the assistant\'s system instructions for this run only. Use this for context-specific behavior changes.',
             },
             additional_instructions: {
               type: 'string',
-              description: 'Additional instructions to append to the assistant instructions',
+              description: 'Additional instructions to append to the assistant\'s existing instructions. Use this to add context without replacing the base instructions.',
             },
             tools: {
               type: 'array',
-              description: 'Override the tools used by the assistant',
+              description: 'Override the assistant\'s tools for this run only. This replaces all tools - include all tools you want available.',
             },
             metadata: {
               type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
+              description: 'Custom metadata for tracking this specific run (e.g., {"session_id": "abc123", "user_intent": "support_request"}).',
             },
           },
           required: ['thread_id', 'assistant_id'],
@@ -434,30 +484,32 @@ export class MCPHandler {
       },
       {
         name: 'run-list',
-        description: 'List runs for a thread with optional pagination',
+        title: 'List Thread Runs',
+        description: 'Retrieve a list of all assistant runs for a specific thread with pagination support. Use this to track run history, monitor assistant performance, or debug conversation flows. Essential for understanding how many times an assistant has been executed on a thread and their outcomes.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread to list runs from',
+              description: 'The unique identifier of the thread to list runs from (format: "thread_abc123...").',
             },
             limit: {
               type: 'number',
-              description: 'Number of runs to return (1-100, default: 20)',
+              description: 'Maximum number of runs to return (1-100, default: 20). Use smaller values for recent runs, larger for comprehensive history.',
             },
             order: {
               type: 'string',
               enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp',
+              description: 'Sort order by creation time: "desc" for newest first (default), "asc" for oldest first.',
             },
             after: {
               type: 'string',
-              description: 'Cursor for pagination (run ID)',
+              description: 'Pagination cursor - run ID to start listing after (format: "run_abc123..."). Use for getting newer runs.',
             },
             before: {
               type: 'string',
-              description: 'Cursor for pagination (run ID)',
+              description: 'Pagination cursor - run ID to end listing before (format: "run_abc123..."). Use for getting older runs.',
             },
           },
           required: ['thread_id'],
@@ -465,17 +517,19 @@ export class MCPHandler {
       },
       {
         name: 'run-get',
-        description: 'Retrieve details of a specific run',
+        title: 'Get Run Details',
+        description: 'Retrieve comprehensive details about a specific assistant run including its status, results, tool calls, and any errors. Use this to monitor run progress, debug issues, or extract run results. Essential for understanding what happened during an assistant execution.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the run',
+              description: 'The unique identifier of the thread containing the run (format: "thread_abc123...").',
             },
             run_id: {
               type: 'string',
-              description: 'The ID of the run to retrieve',
+              description: 'The unique identifier of the run to retrieve (format: "run_abc123...").',
             },
           },
           required: ['thread_id', 'run_id'],
@@ -483,21 +537,23 @@ export class MCPHandler {
       },
       {
         name: 'run-update',
-        description: 'Update an existing run',
+        title: 'Update Run Metadata',
+        description: 'Update a run\'s metadata for better tracking and organization. Use this to add tags, update status information, or store additional context about the run execution. The run\'s core execution data remains unchanged.',
+        idempotentHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the run',
+              description: 'The unique identifier of the thread containing the run (format: "thread_abc123...").',
             },
             run_id: {
               type: 'string',
-              description: 'The ID of the run to update',
+              description: 'The unique identifier of the run to update (format: "run_abc123...").',
             },
             metadata: {
               type: 'object',
-              description: 'Set of key-value pairs for storing additional information',
+              description: 'New metadata object that replaces the existing metadata entirely. Include all key-value pairs you want to keep.',
             },
           },
           required: ['thread_id', 'run_id'],
@@ -505,17 +561,18 @@ export class MCPHandler {
       },
       {
         name: 'run-cancel',
-        description: 'Cancel a running assistant execution',
+        title: 'Cancel Running Assistant',
+        description: 'Cancel an assistant run that is currently in progress. Use this to stop long-running operations, abort unwanted executions, or handle timeout scenarios. The run will transition to a cancelled state and stop processing. Note that cancellation may not be immediate.',
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the run',
+              description: 'The unique identifier of the thread containing the run (format: "thread_abc123...").',
             },
             run_id: {
               type: 'string',
-              description: 'The ID of the run to cancel',
+              description: 'The unique identifier of the run to cancel (format: "run_abc123..."). The run must be in progress to be cancelled.',
             },
           },
           required: ['thread_id', 'run_id'],
@@ -523,31 +580,32 @@ export class MCPHandler {
       },
       {
         name: 'run-submit-tool-outputs',
-        description: 'Submit tool call results to continue a run',
+        title: 'Submit Tool Call Results',
+        description: 'Provide the results of tool calls to continue a paused assistant run. When an assistant needs to call external functions, the run pauses and waits for tool outputs. Use this to submit the function results and allow the assistant to continue processing. Essential for assistants that use custom functions or external APIs.',
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the run',
+              description: 'The unique identifier of the thread containing the run (format: "thread_abc123...").',
             },
             run_id: {
               type: 'string',
-              description: 'The ID of the run to submit tool outputs for',
+              description: 'The unique identifier of the run waiting for tool outputs (format: "run_abc123..."). The run must be in "requires_action" status.',
             },
             tool_outputs: {
               type: 'array',
-              description: 'List of tool outputs to submit',
+              description: 'Array of tool call results. Each output must match a tool call ID from the run\'s required_action.',
               items: {
                 type: 'object',
                 properties: {
                   tool_call_id: {
                     type: 'string',
-                    description: 'The ID of the tool call',
+                    description: 'The unique identifier of the tool call being responded to (format: "call_abc123..."). Get this from the run\'s required_action.',
                   },
                   output: {
                     type: 'string',
-                    description: 'The output of the tool call',
+                    description: 'The result of the tool call as a string. This will be provided to the assistant to continue processing.',
                   },
                 },
                 required: ['tool_call_id', 'output'],
@@ -561,34 +619,36 @@ export class MCPHandler {
       // Run Step Management Tools
       {
         name: 'run-step-list',
-        description: 'List steps in a run execution',
+        title: 'List Run Execution Steps',
+        description: 'Retrieve detailed steps from an assistant run execution to understand the assistant\'s reasoning process and actions. Each step represents a discrete action the assistant took, such as generating a message or calling a tool. Use this for debugging, auditing assistant behavior, or understanding complex multi-step reasoning processes.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the run',
+              description: 'The unique identifier of the thread containing the run (format: "thread_abc123...").',
             },
             run_id: {
               type: 'string',
-              description: 'The ID of the run to list steps from',
+              description: 'The unique identifier of the run to list steps from (format: "run_abc123...").',
             },
             limit: {
               type: 'number',
-              description: 'Number of steps to return (1-100, default: 20)',
+              description: 'Maximum number of steps to return (1-100, default: 20). Use smaller values for recent steps, larger for complete execution traces.',
             },
             order: {
               type: 'string',
               enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp',
+              description: 'Sort order by execution time: "asc" for chronological order (recommended for debugging), "desc" for most recent first.',
             },
             after: {
               type: 'string',
-              description: 'Cursor for pagination (step ID)',
+              description: 'Pagination cursor - step ID to start listing after (format: "step_abc123..."). Use for getting subsequent steps.',
             },
             before: {
               type: 'string',
-              description: 'Cursor for pagination (step ID)',
+              description: 'Pagination cursor - step ID to end listing before (format: "step_abc123..."). Use for getting previous steps.',
             },
           },
           required: ['thread_id', 'run_id'],
@@ -596,21 +656,23 @@ export class MCPHandler {
       },
       {
         name: 'run-step-get',
-        description: 'Get details of a specific run step',
+        title: 'Get Run Step Details',
+        description: 'Retrieve comprehensive details about a specific step in an assistant run execution. This includes the step type (message creation or tool calls), input/output data, timing information, and any errors. Essential for debugging assistant behavior, understanding tool usage, or auditing specific actions taken during a run.',
+        readOnlyHint: true,
         inputSchema: {
           type: 'object',
           properties: {
             thread_id: {
               type: 'string',
-              description: 'The ID of the thread containing the run',
+              description: 'The unique identifier of the thread containing the run (format: "thread_abc123...").',
             },
             run_id: {
               type: 'string',
-              description: 'The ID of the run containing the step',
+              description: 'The unique identifier of the run containing the step (format: "run_abc123...").',
             },
             step_id: {
               type: 'string',
-              description: 'The ID of the step to retrieve',
+              description: 'The unique identifier of the step to retrieve (format: "step_abc123...").',
             },
           },
           required: ['thread_id', 'run_id', 'step_id'],
@@ -636,115 +698,421 @@ export class MCPHandler {
       switch (name) {
         // Assistant Management
         case 'assistant-create':
-          // Validate required fields
-          if (!args.model) {
-            throw new MCPError(
-              ErrorCodes.INVALID_PARAMS,
-              'Missing required parameter: model'
-            );
+          // Comprehensive validation for assistant creation
+          const createAssistantValidation = validateCreateAssistantParams(args);
+          if (!createAssistantValidation.isValid) {
+            throw createAssistantValidation.error;
           }
           result = await this.openaiService.createAssistant(args as any);
           break;
         case 'assistant-list':
+          // Validate pagination parameters
+          const listAssistantsValidation = validatePaginationParams(args);
+          if (!listAssistantsValidation.isValid) {
+            throw listAssistantsValidation.error;
+          }
           result = await this.openaiService.listAssistants(args);
           break;
         case 'assistant-get':
+          // Validate assistant ID
+          const getAssistantValidation = validateOpenAIId(args.assistant_id, 'assistant', 'assistant_id');
+          if (!getAssistantValidation.isValid) {
+            throw getAssistantValidation.error;
+          }
           result = await this.openaiService.getAssistant(args.assistant_id);
           break;
         case 'assistant-update':
+          // Validate assistant ID and optional parameters
+          const updateAssistantIdValidation = validateOpenAIId(args.assistant_id, 'assistant', 'assistant_id');
+          if (!updateAssistantIdValidation.isValid) {
+            throw updateAssistantIdValidation.error;
+          }
+          
           const { assistant_id: updateAssistantId, ...updateAssistantData } = args;
+          
+          // Validate model if provided
+          if (updateAssistantData.model) {
+            const modelValidation = validateModel(updateAssistantData.model);
+            if (!modelValidation.isValid) {
+              throw modelValidation.error;
+            }
+          }
+          
+          // Validate metadata if provided
+          if (updateAssistantData.metadata !== undefined) {
+            const metadataValidation = validateMetadata(updateAssistantData.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           result = await this.openaiService.updateAssistant(updateAssistantId, updateAssistantData);
           break;
         case 'assistant-delete':
+          // Validate assistant ID
+          const deleteAssistantValidation = validateOpenAIId(args.assistant_id, 'assistant', 'assistant_id');
+          if (!deleteAssistantValidation.isValid) {
+            throw deleteAssistantValidation.error;
+          }
           result = await this.openaiService.deleteAssistant(args.assistant_id);
           break;
 
         // Thread Management
         case 'thread-create':
+          // Validate metadata if provided
+          if (args.metadata !== undefined) {
+            const metadataValidation = validateMetadata(args.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
           result = await this.openaiService.createThread(args);
           break;
         case 'thread-get':
+          // Validate thread ID
+          const getThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!getThreadValidation.isValid) {
+            throw getThreadValidation.error;
+          }
           result = await this.openaiService.getThread(args.thread_id);
           break;
         case 'thread-update':
+          // Validate thread ID
+          const updateThreadIdValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!updateThreadIdValidation.isValid) {
+            throw updateThreadIdValidation.error;
+          }
+          
           const { thread_id: updateThreadId, ...updateThreadData } = args;
+          
+          // Validate metadata if provided
+          if (updateThreadData.metadata !== undefined) {
+            const metadataValidation = validateMetadata(updateThreadData.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           result = await this.openaiService.updateThread(updateThreadId, updateThreadData);
           break;
         case 'thread-delete':
+          // Validate thread ID
+          const deleteThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!deleteThreadValidation.isValid) {
+            throw deleteThreadValidation.error;
+          }
           result = await this.openaiService.deleteThread(args.thread_id);
           break;
 
         // Message Management
         case 'message-create':
-          // Validate required fields
-          if (!args.thread_id || !args.role || !args.content) {
-            throw new MCPError(
-              ErrorCodes.INVALID_PARAMS,
-              'Missing required parameters: thread_id, role, content'
-            );
+          // Validate required thread ID
+          const createMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!createMessageThreadValidation.isValid) {
+            throw createMessageThreadValidation.error;
           }
+          
+          // Validate required role
+          const roleValidation = validateMessageRole(args.role);
+          if (!roleValidation.isValid) {
+            throw roleValidation.error;
+          }
+          
+          // Validate required content
+          const contentValidation = validateRequiredString(args.content, 'content', ['"Hello, how can I help you?"', '"Please analyze this data."']);
+          if (!contentValidation.isValid) {
+            throw contentValidation.error;
+          }
+          
+          // Validate metadata if provided
+          if (args.metadata !== undefined) {
+            const metadataValidation = validateMetadata(args.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           const { thread_id: createMessageThreadId, ...createMessageData } = args;
           result = await this.openaiService.createMessage(createMessageThreadId, createMessageData as any);
           break;
         case 'message-list':
+          // Validate thread ID
+          const listMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!listMessageThreadValidation.isValid) {
+            throw listMessageThreadValidation.error;
+          }
+          
           const { thread_id: listMessageThreadId, ...listMessageData } = args;
+          
+          // Validate pagination parameters
+          const listMessagePaginationValidation = validatePaginationParams(listMessageData);
+          if (!listMessagePaginationValidation.isValid) {
+            throw listMessagePaginationValidation.error;
+          }
+          
+          // Validate run_id if provided
+          if (listMessageData.run_id) {
+            const runIdValidation = validateOpenAIId(listMessageData.run_id, 'run', 'run_id');
+            if (!runIdValidation.isValid) {
+              throw runIdValidation.error;
+            }
+          }
+          
           result = await this.openaiService.listMessages(listMessageThreadId, listMessageData);
           break;
         case 'message-get':
+          // Validate thread ID
+          const getMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!getMessageThreadValidation.isValid) {
+            throw getMessageThreadValidation.error;
+          }
+          
+          // Validate message ID
+          const getMessageValidation = validateOpenAIId(args.message_id, 'message', 'message_id');
+          if (!getMessageValidation.isValid) {
+            throw getMessageValidation.error;
+          }
+          
           result = await this.openaiService.getMessage(args.thread_id, args.message_id);
           break;
         case 'message-update':
+          // Validate thread ID
+          const updateMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!updateMessageThreadValidation.isValid) {
+            throw updateMessageThreadValidation.error;
+          }
+          
+          // Validate message ID
+          const updateMessageValidation = validateOpenAIId(args.message_id, 'message', 'message_id');
+          if (!updateMessageValidation.isValid) {
+            throw updateMessageValidation.error;
+          }
+          
           const { thread_id: updateMessageThreadId, message_id: updateMessageId, ...updateMessageData } = args;
+          
+          // Validate metadata if provided
+          if (updateMessageData.metadata !== undefined) {
+            const metadataValidation = validateMetadata(updateMessageData.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           result = await this.openaiService.updateMessage(updateMessageThreadId, updateMessageId, updateMessageData);
           break;
         case 'message-delete':
+          // Validate thread ID
+          const deleteMessageThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!deleteMessageThreadValidation.isValid) {
+            throw deleteMessageThreadValidation.error;
+          }
+          
+          // Validate message ID
+          const deleteMessageValidation = validateOpenAIId(args.message_id, 'message', 'message_id');
+          if (!deleteMessageValidation.isValid) {
+            throw deleteMessageValidation.error;
+          }
+          
           result = await this.openaiService.deleteMessage(args.thread_id, args.message_id);
           break;
 
         // Run Management
         case 'run-create':
-          // Validate required fields
-          if (!args.thread_id || !args.assistant_id) {
-            throw new MCPError(
-              ErrorCodes.INVALID_PARAMS,
-              'Missing required parameters: thread_id, assistant_id'
-            );
+          // Validate required thread ID
+          const createRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!createRunThreadValidation.isValid) {
+            throw createRunThreadValidation.error;
           }
+          
+          // Validate required assistant ID
+          const createRunAssistantValidation = validateOpenAIId(args.assistant_id, 'assistant', 'assistant_id');
+          if (!createRunAssistantValidation.isValid) {
+            throw createRunAssistantValidation.error;
+          }
+          
+          // Validate model if provided
+          if (args.model) {
+            const modelValidation = validateModel(args.model);
+            if (!modelValidation.isValid) {
+              throw modelValidation.error;
+            }
+          }
+          
+          // Validate metadata if provided
+          if (args.metadata !== undefined) {
+            const metadataValidation = validateMetadata(args.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           const { thread_id: createRunThreadId, ...createRunData } = args;
           result = await this.openaiService.createRun(createRunThreadId, createRunData as any);
           break;
         case 'run-list':
+          // Validate thread ID
+          const listRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!listRunThreadValidation.isValid) {
+            throw listRunThreadValidation.error;
+          }
+          
           const { thread_id: listRunThreadId, ...listRunData } = args;
+          
+          // Validate pagination parameters
+          const listRunPaginationValidation = validatePaginationParams(listRunData);
+          if (!listRunPaginationValidation.isValid) {
+            throw listRunPaginationValidation.error;
+          }
+          
           result = await this.openaiService.listRuns(listRunThreadId, listRunData);
           break;
         case 'run-get':
+          // Validate thread ID
+          const getRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!getRunThreadValidation.isValid) {
+            throw getRunThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const getRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!getRunValidation.isValid) {
+            throw getRunValidation.error;
+          }
+          
           result = await this.openaiService.getRun(args.thread_id, args.run_id);
           break;
         case 'run-update':
+          // Validate thread ID
+          const updateRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!updateRunThreadValidation.isValid) {
+            throw updateRunThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const updateRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!updateRunValidation.isValid) {
+            throw updateRunValidation.error;
+          }
+          
           const { thread_id: updateRunThreadId, run_id: updateRunId, ...updateRunData } = args;
+          
+          // Validate metadata if provided
+          if (updateRunData.metadata !== undefined) {
+            const metadataValidation = validateMetadata(updateRunData.metadata);
+            if (!metadataValidation.isValid) {
+              throw metadataValidation.error;
+            }
+          }
+          
           result = await this.openaiService.updateRun(updateRunThreadId, updateRunId, updateRunData);
           break;
         case 'run-cancel':
+          // Validate thread ID
+          const cancelRunThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!cancelRunThreadValidation.isValid) {
+            throw cancelRunThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const cancelRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!cancelRunValidation.isValid) {
+            throw cancelRunValidation.error;
+          }
+          
           result = await this.openaiService.cancelRun(args.thread_id, args.run_id);
           break;
         case 'run-submit-tool-outputs':
-          // Validate required fields
-          if (!args.thread_id || !args.run_id || !args.tool_outputs) {
-            throw new MCPError(
-              ErrorCodes.INVALID_PARAMS,
-              'Missing required parameters: thread_id, run_id, tool_outputs'
-            );
+          // Validate required thread ID
+          const submitThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!submitThreadValidation.isValid) {
+            throw submitThreadValidation.error;
           }
+          
+          // Validate required run ID
+          const submitRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!submitRunValidation.isValid) {
+            throw submitRunValidation.error;
+          }
+          
+          // Validate required tool_outputs array
+          const toolOutputsValidation = validateArray(args.tool_outputs, 'tool_outputs', true);
+          if (!toolOutputsValidation.isValid) {
+            throw toolOutputsValidation.error;
+          }
+          
+          // Validate each tool output
+          if (args.tool_outputs && Array.isArray(args.tool_outputs)) {
+            for (let i = 0; i < args.tool_outputs.length; i++) {
+              const output = args.tool_outputs[i];
+              
+              if (!output.tool_call_id) {
+                throw new MCPError(
+                  ErrorCodes.INVALID_PARAMS,
+                  `Tool output at index ${i} is missing 'tool_call_id'. Each tool output must include the tool_call_id from the run's required_action. Example: {"tool_call_id": "call_abc123def456ghi789jkl012", "output": "result"}.`
+                );
+              }
+              
+              const toolCallIdValidation = validateOpenAIId(output.tool_call_id, 'tool_call', `tool_outputs[${i}].tool_call_id`);
+              if (!toolCallIdValidation.isValid) {
+                throw toolCallIdValidation.error;
+              }
+              
+              if (!output.output || typeof output.output !== 'string') {
+                throw new MCPError(
+                  ErrorCodes.INVALID_PARAMS,
+                  `Tool output at index ${i} is missing or has invalid 'output'. Provide the function result as a string. Example: {"tool_call_id": "call_abc123def456ghi789jkl012", "output": "The calculation result is 42"}.`
+                );
+              }
+            }
+          }
+          
           const { thread_id: submitThreadId, run_id: submitRunId, ...submitData } = args;
           result = await this.openaiService.submitToolOutputs(submitThreadId, submitRunId, submitData as any);
           break;
 
         // Run Step Management
         case 'run-step-list':
+          // Validate thread ID
+          const listStepThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!listStepThreadValidation.isValid) {
+            throw listStepThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const listStepRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!listStepRunValidation.isValid) {
+            throw listStepRunValidation.error;
+          }
+          
           const { thread_id: listStepThreadId, run_id: listStepRunId, ...listStepData } = args;
+          
+          // Validate pagination parameters
+          const listStepPaginationValidation = validatePaginationParams(listStepData);
+          if (!listStepPaginationValidation.isValid) {
+            throw listStepPaginationValidation.error;
+          }
+          
           result = await this.openaiService.listRunSteps(listStepThreadId, listStepRunId, listStepData);
           break;
         case 'run-step-get':
+          // Validate thread ID
+          const getStepThreadValidation = validateOpenAIId(args.thread_id, 'thread', 'thread_id');
+          if (!getStepThreadValidation.isValid) {
+            throw getStepThreadValidation.error;
+          }
+          
+          // Validate run ID
+          const getStepRunValidation = validateOpenAIId(args.run_id, 'run', 'run_id');
+          if (!getStepRunValidation.isValid) {
+            throw getStepRunValidation.error;
+          }
+          
+          // Validate step ID
+          const getStepValidation = validateOpenAIId(args.step_id, 'step', 'step_id');
+          if (!getStepValidation.isValid) {
+            throw getStepValidation.error;
+          }
+          
           result = await this.openaiService.getRunStep(args.thread_id, args.run_id, args.step_id);
           break;
 
@@ -782,5 +1150,41 @@ export class MCPHandler {
         },
       };
     }
+  }
+
+  private handleResourcesList(request: MCPResourcesListRequest): MCPResourcesListResponse {
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: {
+        resources: mcpResources,
+      },
+    };
+  }
+
+  private handleResourcesRead(request: MCPResourcesReadRequest): MCPResourcesReadResponse {
+    const { uri } = request.params;
+    
+    const resourceData = getResourceContent(uri);
+    if (!resourceData) {
+      throw new MCPError(
+        ErrorCodes.NOT_FOUND,
+        `Resource not found: ${uri}`
+      );
+    }
+
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      result: {
+        contents: [
+          {
+            uri,
+            mimeType: resourceData.mimeType,
+            text: resourceData.content,
+          },
+        ],
+      },
+    };
   }
 }

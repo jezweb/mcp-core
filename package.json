@@ -1,7 +1,7 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "1.0.0",
-  "description": "Universal OpenAI Assistants MCP Server - Complete 22-tool implementation for assistant, thread, message, and run management. Deploy via Cloudflare Workers, NPM package, or local development with identical functionality.",
+  "version": "2.0.0",
+  "description": "Enhanced Universal OpenAI Assistants MCP Server - Complete 22-tool implementation with 9 MCP resources, enhanced tool descriptions, improved validation, and comprehensive user guidance. Deploy via Cloudflare Workers, NPM package, or local development with identical functionality.",
   "main": "dist/worker.js",
   "type": "module",
   "scripts": {
@@ -43,7 +43,13 @@
     "roo",
     "claude-desktop",
     "stdio",
-    "typescript"
+    "typescript",
+    "enhanced",
+    "resources",
+    "templates",
+    "validation",
+    "workflows",
+    "documentation"
   ],
   "author": "OpenAI Assistants MCP Server Team",
   "license": "MIT",

@@ -28,26 +28,39 @@ Choose the deployment option that best fits your needs:
 - ✅ Development and testing
 - ✅ Private deployment options
 
-## ✨ Features
+## ✨ Enhanced Features
 
+### 🚀 Core Capabilities
 - **Complete Assistants API Coverage** - All 22 tools for full assistant, thread, message, and run management
 - **Universal Deployment** - Three deployment options with identical functionality
 - **Production Ready** - Deployed on Cloudflare Workers with global edge distribution
 - **Zero Dependencies** - Lightweight implementation with no runtime dependencies
 - **Type Safe** - Full TypeScript implementation with comprehensive type definitions
+
+### 🎯 Enhanced User Experience
+- **Enhanced Tool Descriptions** - Workflow-oriented descriptions with practical examples and usage context
+- **MCP Resources** - 9 comprehensive resources including templates, workflows, and documentation
+- **Improved Validation** - Detailed error messages with examples, suggestions, and documentation references
+- **Tool Annotations** - Proper MCP annotations (readOnlyHint, destructiveHint, idempotentHint) for better client understanding
+- **Assistant Templates** - Pre-configured templates for common use cases (coding, writing, data analysis, customer support)
+
+### 🔧 Technical Excellence
 - **Secure Authentication** - URL-based API key authentication (Workers) or environment variables (NPM)
-- **Error Handling** - Robust error handling with detailed error messages
+- **Advanced Error Handling** - Context-aware error messages with actionable guidance and examples
 - **CORS Support** - Ready for web-based MCP clients
 - **Real-time Operations** - Support for streaming and real-time assistant interactions
-- **Comprehensive Testing** - Built-in test suites for both deployment options
+- **Comprehensive Testing** - Built-in test suites for both deployment options with enhanced functionality validation
 
 ## 📊 Current Status
 
 ✅ **Phase 1 - COMPLETED** - Project structure setup and core architecture
 ✅ **Phase 2 - COMPLETED** - All 22 Assistants API tools implemented and tested
-🎯 **Next Phase** - Advanced features and optimizations
+✅ **Phase 3 - COMPLETED** - Enhanced user experience with resources, validation, and tool annotations
+🎯 **Next Phase** - Advanced features (streaming, file attachments, webhooks)
 
-**🎉 Deployment Parity Achieved**: Both Cloudflare Workers and NPM package now provide identical functionality with all 22 tools working seamlessly across both deployment options.
+**🎉 Enhanced MCP Server**: Now featuring 9 comprehensive resources, enhanced tool descriptions with workflow context, improved validation with actionable error messages, and proper MCP annotations for optimal client integration.
+
+**🚀 Deployment Parity Maintained**: Both Cloudflare Workers and NPM package provide identical enhanced functionality with all 22 tools and 9 resources working seamlessly across both deployment options.
 
 ## 🛠️ Planned Tools
 
@@ -255,7 +268,43 @@ npm run dev
 
 ---
 
-## 📖 Usage Examples
+## 📚 MCP Resources Available
+
+This server provides **9 comprehensive MCP resources** to help you get started quickly and follow best practices:
+
+### 🎯 Assistant Templates (4 resources)
+- **`assistant://templates/coding-assistant`** - Pre-configured coding assistant with code review and debugging capabilities
+- **`assistant://templates/writing-assistant`** - Professional writing assistant for content creation and editing
+- **`assistant://templates/data-analyst`** - Data analysis assistant with statistical and visualization capabilities
+- **`assistant://templates/customer-support`** - Customer support assistant with friendly and helpful responses
+
+### 🔄 Workflow Examples (2 resources)
+- **`examples://workflows/create-and-run`** - Complete step-by-step workflow from creating an assistant to running conversations
+- **`examples://workflows/batch-processing`** - Efficient batch processing with concurrent operations
+
+### 📖 Documentation (3 resources)
+- **`docs://openai-assistants-api`** - Comprehensive API reference with ID formats, parameters, and examples
+- **`docs://error-handling`** - Common errors, solutions, and debugging techniques
+- **`docs://best-practices`** - Guidelines for optimal usage, performance, security, and cost optimization
+
+### 🔍 Accessing Resources
+Resources can be accessed through any MCP client that supports the resources protocol:
+
+```bash
+# List all available resources
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": {}}'
+
+# Read a specific resource
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "resources/read", "params": {"uri": "assistant://templates/coding-assistant"}}'
+```
+
+---
+
+## 📖 Enhanced Usage Examples
 
 ### Assistant Management
 
@@ -322,6 +371,33 @@ npm run dev
 
 # Submit tool outputs
 "Submit tool outputs for run run_abc123"
+```
+
+### 🎯 Using Assistant Templates
+
+```
+# Ask your MCP client to access a template
+"Show me the coding assistant template"
+"Use the data analyst template to create a new assistant"
+"What tools does the customer support template include?"
+```
+
+### 📚 Accessing Documentation Resources
+
+```
+# Get comprehensive guidance
+"Show me the best practices guide"
+"What are common error handling patterns?"
+"Display the API reference documentation"
+```
+
+### 🔄 Following Workflow Examples
+
+```
+# Use workflow guidance
+"Show me the complete create and run workflow"
+"How do I implement batch processing?"
+"Walk me through the step-by-step assistant creation process"
 ```
 
 ---
@@ -529,11 +605,54 @@ The server will be available at your Cloudflare Workers domain.
 
 ---
 
+## 🔍 Enhanced Validation & Error Handling
+
+### 🎯 Intelligent Error Messages
+The server now provides **context-aware error messages** with actionable guidance:
+
+- **Format Examples**: Error messages include correct format examples (e.g., `asst_abc123def456ghi789jkl012`)
+- **Documentation References**: Errors link to relevant documentation resources (e.g., `docs://openai-assistants-api`)
+- **Suggestion Guidance**: Invalid values show supported alternatives with examples
+- **Parameter Relationships**: Validates tool/resource relationships and provides configuration guidance
+
+### 📋 Validation Features
+- **ID Format Validation**: Strict OpenAI ID format checking with helpful error messages
+- **Model Validation**: Comprehensive model name validation with supported model lists
+- **Parameter Range Validation**: Numeric ranges with clear boundary explanations
+- **Tool Configuration Validation**: Validates tool types and required configurations
+- **Metadata Validation**: Size limits and format checking with examples
+
+### 🛠️ Error Message Examples
+
+**Invalid ID Format:**
+```
+Invalid assistant ID format for parameter 'assistant_id'.
+Expected 'asst_' followed by 24 characters (e.g., 'asst_abc123def456ghi789jkl012'),
+but received: 'invalid-id'.
+See docs://openai-assistants-api for ID format specifications.
+```
+
+**Missing Required Parameter:**
+```
+Required parameter 'model' is missing.
+Specify a supported model like 'gpt-4', 'gpt-4-turbo', or 'gpt-3.5-turbo'.
+See docs://openai-assistants-api for the complete list of supported models.
+```
+
+**Parameter Relationship Error:**
+```
+Cannot specify 'file_search' in 'tool_resources' without including file_search tool in tools array.
+Add {"type": "file_search"} to tools or remove file_search from tool_resources.
+See docs://best-practices for configuration guidance.
+```
+
+---
+
 ## 🔒 Security
 
 - **API Key Protection** - API keys are passed via URL path, not logged
-- **Input Validation** - All inputs validated before processing
-- **Error Handling** - Errors don't expose sensitive information
+- **Enhanced Input Validation** - All inputs validated with comprehensive error feedback
+- **Secure Error Handling** - Errors provide helpful guidance without exposing sensitive information
 - **CORS Security** - Proper CORS headers for web clients
 - **Rate Limiting** - Inherits OpenAI API rate limits
 
@@ -574,7 +693,16 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [x] **Testing**: Complete test suites for both deployment options
 - [x] **Deployment Parity**: Both Cloudflare Workers and NPM package provide identical functionality
 
-### Phase 3 - Advanced Features 🔄 PLANNED
+### Phase 3 - Enhanced User Experience ✅ COMPLETED
+- [x] **Enhanced Tool Descriptions**: Workflow-oriented descriptions with practical examples
+- [x] **MCP Resources**: 9 comprehensive resources (templates, workflows, documentation)
+- [x] **Improved Validation**: Context-aware error messages with actionable guidance
+- [x] **Tool Annotations**: Proper MCP annotations for better client understanding
+- [x] **Assistant Templates**: Pre-configured templates for common use cases
+- [x] **Documentation Resources**: Comprehensive guides and best practices
+- [x] **Enhanced Testing**: Validation of all enhanced features and functionality
+
+### Phase 4 - Advanced Features 🔄 PLANNED
 - [ ] **Streaming Support**: Real-time streaming for run executions
 - [ ] **Tool Calling**: Advanced tool calling and function execution
 - [ ] **File Attachments**: Support for file uploads and attachments
@@ -582,11 +710,11 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [ ] **Batch Operations**: Bulk operations for efficiency
 - [ ] **Webhook Support**: Event notifications for long-running operations
 
-### Phase 4 - Production Optimization 🔄 PLANNED
+### Phase 5 - Production Optimization 🔄 PLANNED
 - [ ] **Performance Optimization**: Caching and performance improvements
 - [ ] **Monitoring**: Comprehensive logging and monitoring
-- [ ] **Documentation**: Complete API documentation and examples
 - [ ] **Client Libraries**: Helper libraries for common use cases
+- [ ] **Advanced Analytics**: Usage analytics and optimization insights
 
 ---
 

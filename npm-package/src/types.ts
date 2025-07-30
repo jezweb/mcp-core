@@ -45,6 +45,10 @@ export interface MCPInitializeResponse extends JsonRpcResponse {
       tools: {
         listChanged?: boolean;
       };
+      resources?: {
+        subscribe?: boolean;
+        listChanged?: boolean;
+      };
     };
     serverInfo: {
       name: string;
@@ -62,6 +66,10 @@ export interface MCPToolsListRequest extends JsonRpcRequest {
 export interface MCPTool {
   name: string;
   description: string;
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
   inputSchema: {
     type: 'object';
     properties: Record<string, any>;
@@ -95,13 +103,45 @@ export interface MCPToolsCallResponse extends JsonRpcResponse {
   };
 }
 
-// MCP Resources types (legacy compatibility)
-export interface Resource {
+// MCP Resources types
+export interface MCPResource {
   uri: string;
   name: string;
   description?: string;
   mimeType?: string;
 }
+
+export interface MCPResourcesListRequest extends JsonRpcRequest {
+  method: 'resources/list';
+  params?: {};
+}
+
+export interface MCPResourcesListResponse extends JsonRpcResponse {
+  result: {
+    resources: MCPResource[];
+  };
+}
+
+export interface MCPResourcesReadRequest extends JsonRpcRequest {
+  method: 'resources/read';
+  params: {
+    uri: string;
+  };
+}
+
+export interface MCPResourcesReadResponse extends JsonRpcResponse {
+  result: {
+    contents: Array<{
+      uri: string;
+      mimeType?: string;
+      text?: string;
+      blob?: string;
+    }>;
+  };
+}
+
+// Legacy compatibility
+export interface Resource extends MCPResource {}
 
 // OpenAI Assistants API types
 export interface Assistant {
