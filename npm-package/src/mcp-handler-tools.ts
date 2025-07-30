@@ -1,5 +1,5 @@
 // Enhanced tool definitions following MCP best practices
-import { MCPTool } from './types.js';
+import { MCPTool } from '@shared/types';
 
 export const enhancedTools: MCPTool[] = [
   // Assistant Management Tools

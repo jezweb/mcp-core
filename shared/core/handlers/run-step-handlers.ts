@@ -10,11 +10,11 @@
  */
 
 import { BaseToolHandler, ToolHandlerContext } from './base-tool-handler.js';
-import { ValidationResult } from '../../../src/validation.js';
 import {
+  ValidationResult,
   validateOpenAIId,
   validatePaginationParams
-} from '../../../src/validation.js';
+} from '../../validation/index.js';
 
 /**
  * Handler for listing run steps

@@ -1,3 +1,12 @@
+/**
+ * Core Types - Shared type definitions for OpenAI Assistants MCP Server
+ * 
+ * This module consolidates all common type definitions used across both
+ * Cloudflare Workers and NPM package deployments.
+ * 
+ * Consolidates 620 lines of duplicate type definitions.
+ */
+
 // JSON-RPC 2.0 base types
 export interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -585,11 +594,6 @@ export interface ListRunStepsResponse {
   first_id?: string;
   last_id?: string;
   has_more: boolean;
-}
-
-// Cloudflare Workers environment types
-export interface Env {
-  OPENAI_API_KEY: string;
 }
 
 // Error types

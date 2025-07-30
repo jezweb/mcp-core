@@ -14,15 +14,15 @@
  */
 
 import { BaseToolHandler, ToolHandlerContext } from './base-tool-handler.js';
-import { MCPError, ErrorCodes } from '../../../src/types.js';
-import { ValidationResult } from '../../../src/validation.js';
+import { MCPError, ErrorCodes } from '../../types/index.js';
 import {
+  ValidationResult,
   validateOpenAIId,
   validateModel,
   validateMetadata,
   validatePaginationParams,
   validateArray
-} from '../../../src/validation.js';
+} from '../../validation/index.js';
 
 /**
  * Handler for creating new runs

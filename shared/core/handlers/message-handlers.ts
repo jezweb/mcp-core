@@ -13,14 +13,14 @@
  */
 
 import { BaseToolHandler, ToolHandlerContext } from './base-tool-handler.js';
-import { ValidationResult } from '../../../src/validation.js';
 import {
+  ValidationResult,
   validateOpenAIId,
   validateMessageRole,
   validateRequiredString,
   validateMetadata,
   validatePaginationParams
-} from '../../../src/validation.js';
+} from '../../validation/index.js';
 
 /**
  * Handler for creating new messages

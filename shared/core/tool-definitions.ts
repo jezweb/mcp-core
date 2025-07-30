@@ -6,7 +6,7 @@
  * and tool listing capabilities.
  */
 
-import { MCPTool } from '../../src/types.js';
+import { MCPTool } from '../types/index.js';
 import { BaseToolHandler } from './handlers/base-tool-handler.js';
 import { ToolRegistry } from './tool-registry.js';
 

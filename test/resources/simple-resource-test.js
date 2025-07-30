@@ -2,7 +2,7 @@
  * Simple test to verify MCP Resources functionality
  */
 
-import { mcpResources, getResourceContent } from '../../src/resources.js';
+import { mcpResources, getResourceContent } from '../../dist/shared/resources/index.js';
 
 console.log('🧪 Testing MCP Resources Module...\n');
 

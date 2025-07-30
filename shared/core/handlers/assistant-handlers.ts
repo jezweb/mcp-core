@@ -13,14 +13,14 @@
  */
 
 import { BaseToolHandler, ToolHandlerContext } from './base-tool-handler.js';
-import { ValidationResult } from '../../../src/validation.js';
 import {
+  ValidationResult,
   validateCreateAssistantParams,
   validatePaginationParams,
   validateOpenAIId,
   validateModel,
   validateMetadata
-} from '../../../src/validation.js';
+} from '../../validation/index.js';
 
 /**
  * Handler for creating new assistants

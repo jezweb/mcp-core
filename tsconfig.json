@@ -19,7 +19,12 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["./shared/*"],
+      "@shared/types": ["./shared/types"],
+      "@shared/validation": ["./shared/validation"],
+      "@shared/resources": ["./shared/resources"],
+      "@shared/services": ["./shared/services"]
     },
     "types": [
       "@cloudflare/workers-types",

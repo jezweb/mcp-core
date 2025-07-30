@@ -1,9 +1,14 @@
 /**
- * Comprehensive validation utilities for OpenAI Assistants MCP Server
- * Following MCP best practices for error messages and parameter validation
+ * Shared Validation Library - Comprehensive validation utilities for OpenAI Assistants MCP Server
+ * 
+ * This module consolidates all validation logic used across both Cloudflare Workers
+ * and NPM package deployments. Following MCP best practices for error messages
+ * and parameter validation.
+ * 
+ * Consolidates 562 lines of duplicate validation code.
  */
 
-import { MCPError, ErrorCodes } from './types.js';
+import { MCPError, ErrorCodes } from '../types/index.js';
 
 // Supported OpenAI models
 export const SUPPORTED_MODELS = [

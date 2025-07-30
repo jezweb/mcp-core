@@ -1,8 +1,11 @@
 /**
- * OpenAI Service
+ * Shared OpenAI Service - Consolidated OpenAI Assistants API client
  * 
  * This service handles all interactions with the OpenAI Assistants API,
  * providing comprehensive assistant, thread, message, and run management operations.
+ * Used by both Cloudflare Workers and NPM package deployments.
+ * 
+ * Consolidates 249 lines of duplicate service code.
  */
 
 import {
@@ -30,7 +33,7 @@ import {
   ListRunStepsResponse,
   MCPError,
   ErrorCodes,
-} from './types.js';
+} from '../types/index.js';
 
 export class OpenAIService {
   private apiKey: string;
@@ -237,6 +240,7 @@ export class OpenAIService {
 
   /**
    * Validate API key by making a simple request
+   * This method was only in the npm-package version, now consolidated here
    */
   async validateApiKey(): Promise<boolean> {
     try {

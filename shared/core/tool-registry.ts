@@ -13,7 +13,7 @@
  */
 
 import { BaseToolHandler, ToolHandlerContext } from './handlers/base-tool-handler.js';
-import { MCPError, ErrorCodes } from '../../src/types.js';
+import { MCPError, ErrorCodes } from '../types/index.js';
 
 /**
  * Interface for tool registry statistics

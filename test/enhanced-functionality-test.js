@@ -5,8 +5,8 @@
 
 import { MCPHandler } from '../src/mcp-handler.js';
 import { MCPHandler as NPMHandler } from '../npm-package/src/mcp-handler.js';
-import { mcpResources, getResourceContent } from '../src/resources.js';
-import { validateOpenAIId, validateModel, SUPPORTED_MODELS, ID_PATTERNS } from '../src/validation.js';
+import { mcpResources, getResourceContent } from '../shared/resources/index.js';
+import { validateOpenAIId, validateModel, SUPPORTED_MODELS, ID_PATTERNS } from '../shared/validation/index.js';
 import fs from 'fs';
 
 // Test configuration

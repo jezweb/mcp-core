@@ -14,9 +14,9 @@ import {
   MCPTool,
   MCPError,
   ErrorCodes,
-} from './types.js';
-import { OpenAIService } from './services/openai-service.js';
-import { mcpResources, getResourceContent } from './resources.js';
+} from '@shared/types';
+import { OpenAIService } from '@shared/services';
+import { mcpResources, getResourceContent } from '@shared/resources';
 import { setupHandlerSystem, ToolRegistry, generateToolDefinitions } from '../shared/core/index.js';
 
 export class MCPHandler {

@@ -1,11 +1,14 @@
 /**
- * MCP Resources for OpenAI Assistants MCP Server
+ * Shared Resources Library - MCP Resources for OpenAI Assistants MCP Server
  * 
- * This module provides comprehensive resources including templates, examples,
+ * This module consolidates all MCP resources including templates, examples,
  * documentation, and best practices for using the OpenAI Assistants API.
+ * Used by both Cloudflare Workers and NPM package deployments.
+ * 
+ * Consolidates 609 lines of duplicate resource definitions.
  */
 
-import { MCPResource } from './types.js';
+import { MCPResource } from '../types/index.js';
 
 // Assistant Templates
 const CODING_ASSISTANT_TEMPLATE = {

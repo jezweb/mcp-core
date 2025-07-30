@@ -2,7 +2,7 @@
  * MCP Protocol Handler for stdio transport
  *
  * This file implements the core Model Context Protocol (MCP) message handling
- * and routing logic adapted for stdio transport with vector store operations.
+ * and routing logic adapted for stdio transport with OpenAI Assistants operations.
  */
 
 import {
@@ -21,16 +21,16 @@ import {
   MCPTool,
   MCPError,
   ErrorCodes
-} from './types.js';
-import { OpenAIService } from './openai-service.js';
+} from '@shared/types';
+import { OpenAIService } from '@shared/services';
 import { enhancedTools } from './mcp-handler-tools.js';
-import { mcpResources, getResourceContent } from './resources.js';
+import { mcpResources, getResourceContent } from '@shared/resources';
 import { setupHandlerSystem, ToolRegistry } from '../../shared/core/index.js';
 
 export class MCPHandler {
   private openaiService: OpenAIService | null = null;
   private isProxyMode: boolean = false;
-  private cloudflareWorkerUrl: string = 'https://vectorstore.jezweb.com/mcp';
+  private cloudflareWorkerUrl: string = 'https://assistants.jezweb.com/mcp';
   private toolRegistry: ToolRegistry | null = null;
 
   constructor(apiKey: string) {
@@ -43,7 +43,7 @@ export class MCPHandler {
       if (apiKey.startsWith('sk-')) {
         // Use Cloudflare Worker with API key in URL
         this.isProxyMode = true;
-        this.cloudflareWorkerUrl = `https://vectorstore.jezweb.com/mcp/${apiKey}`;
+        this.cloudflareWorkerUrl = `https://assistants.jezweb.com/mcp/${apiKey}`;
       } else {
         // Direct OpenAI service (for local development)
         this.openaiService = new OpenAIService(apiKey);

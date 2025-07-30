@@ -1,5 +1,5 @@
 import { MCPHandler } from './mcp-handler.js';
-import { MCPRequest, MCPError, ErrorCodes, Env } from './types.js';
+import { MCPRequest, MCPError, ErrorCodes, Env } from '@shared/types';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {

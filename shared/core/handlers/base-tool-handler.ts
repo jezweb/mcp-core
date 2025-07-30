@@ -11,9 +11,9 @@
  * - execute(): Performs the actual tool operation
  */
 
-import { MCPError, ErrorCodes } from '../../../src/types.js';
-import { ValidationResult } from '../../../src/validation.js';
-import { OpenAIService } from '../../../src/services/openai-service.js';
+import { MCPError, ErrorCodes } from '../../types/index.js';
+import { ValidationResult } from '../../validation/index.js';
+import { OpenAIService } from '../../services/index.js';
 
 /**
  * Interface for tool handler execution context
