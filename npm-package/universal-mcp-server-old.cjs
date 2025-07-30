@@ -1,387 +1,26 @@
 #!/usr/bin/env node
 
 /**
- * Enhanced Universal MCP Server with New Modular Handler System
+ * Roo-Compatible MCP Server
  * 
- * This server uses the new modular handler architecture that was refactored
- * from the original 461-line monolithic handleToolsCall method. It provides:
- * - 93% complexity reduction through modular design
- * - Strategy pattern implementation for tool handlers
- * - Centralized registry for handler management
- * - Identical functionality to the original system
- * - Enhanced maintainability and extensibility
+ * This server addresses specific protocol violations and formatting issues
+ * identified in research for Roo compatibility:
+ * - Proper JSON-RPC message formatting with UTF-8 encoding and newline delimiters
+ * - Correct initialization handshake sequence that Roo expects
+ * - Proper error handling to prevent crashes that cause connection issues
+ * - Stdout line-buffered for Roo compatibility
+ * - Handles empty line handshake that Roo sends
+ * - Sends immediate server info notification that Roo expects
  */
 
 const readline = require('readline');
 const { OpenAIService } = require('./openai-service.cjs');
 
-// Import the new handler system (we'll need to create CommonJS versions)
-// For now, we'll implement a simplified version that mimics the new system
-
-/**
- * Base Tool Handler - CommonJS version of the new modular system
- */
-class BaseToolHandler {
-  constructor(context) {
-    this.context = context;
-  }
-
-  getToolName() {
-    throw new Error('getToolName must be implemented by subclasses');
-  }
-
-  getCategory() {
-    throw new Error('getCategory must be implemented by subclasses');
-  }
-
-  async handle(args) {
-    throw new Error('handle must be implemented by subclasses');
-  }
-
-  validateRequiredParams(args, requiredParams) {
-    for (const param of requiredParams) {
-      if (!args[param]) {
-        throw new Error(`${param} is required`);
-      }
-    }
-  }
-}
-
-/**
- * Assistant Handlers
- */
-class AssistantCreateHandler extends BaseToolHandler {
-  getToolName() { return 'assistant-create'; }
-  getCategory() { return 'assistant'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['model']);
-    return await this.context.openaiService.createAssistant(args);
-  }
-}
-
-class AssistantListHandler extends BaseToolHandler {
-  getToolName() { return 'assistant-list'; }
-  getCategory() { return 'assistant'; }
-  
-  async handle(args) {
-    return await this.context.openaiService.listAssistants(args);
-  }
-}
-
-class AssistantGetHandler extends BaseToolHandler {
-  getToolName() { return 'assistant-get'; }
-  getCategory() { return 'assistant'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['assistant_id']);
-    return await this.context.openaiService.getAssistant(args.assistant_id);
-  }
-}
-
-class AssistantUpdateHandler extends BaseToolHandler {
-  getToolName() { return 'assistant-update'; }
-  getCategory() { return 'assistant'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['assistant_id']);
-    const { assistant_id, ...updateData } = args;
-    return await this.context.openaiService.updateAssistant(assistant_id, updateData);
-  }
-}
-
-class AssistantDeleteHandler extends BaseToolHandler {
-  getToolName() { return 'assistant-delete'; }
-  getCategory() { return 'assistant'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['assistant_id']);
-    return await this.context.openaiService.deleteAssistant(args.assistant_id);
-  }
-}
-
-/**
- * Thread Handlers
- */
-class ThreadCreateHandler extends BaseToolHandler {
-  getToolName() { return 'thread-create'; }
-  getCategory() { return 'thread'; }
-  
-  async handle(args) {
-    return await this.context.openaiService.createThread(args);
-  }
-}
-
-class ThreadGetHandler extends BaseToolHandler {
-  getToolName() { return 'thread-get'; }
-  getCategory() { return 'thread'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id']);
-    return await this.context.openaiService.getThread(args.thread_id);
-  }
-}
-
-class ThreadUpdateHandler extends BaseToolHandler {
-  getToolName() { return 'thread-update'; }
-  getCategory() { return 'thread'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id']);
-    const { thread_id, ...updateData } = args;
-    return await this.context.openaiService.updateThread(thread_id, updateData);
-  }
-}
-
-class ThreadDeleteHandler extends BaseToolHandler {
-  getToolName() { return 'thread-delete'; }
-  getCategory() { return 'thread'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id']);
-    return await this.context.openaiService.deleteThread(args.thread_id);
-  }
-}
-
-/**
- * Message Handlers
- */
-class MessageCreateHandler extends BaseToolHandler {
-  getToolName() { return 'message-create'; }
-  getCategory() { return 'message'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'role', 'content']);
-    const { thread_id, ...messageData } = args;
-    return await this.context.openaiService.createMessage(thread_id, messageData);
-  }
-}
-
-class MessageListHandler extends BaseToolHandler {
-  getToolName() { return 'message-list'; }
-  getCategory() { return 'message'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id']);
-    const { thread_id, ...listData } = args;
-    return await this.context.openaiService.listMessages(thread_id, listData);
-  }
-}
-
-class MessageGetHandler extends BaseToolHandler {
-  getToolName() { return 'message-get'; }
-  getCategory() { return 'message'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'message_id']);
-    return await this.context.openaiService.getMessage(args.thread_id, args.message_id);
-  }
-}
-
-class MessageUpdateHandler extends BaseToolHandler {
-  getToolName() { return 'message-update'; }
-  getCategory() { return 'message'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'message_id']);
-    const { thread_id, message_id, ...updateData } = args;
-    return await this.context.openaiService.updateMessage(thread_id, message_id, updateData);
-  }
-}
-
-class MessageDeleteHandler extends BaseToolHandler {
-  getToolName() { return 'message-delete'; }
-  getCategory() { return 'message'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'message_id']);
-    return await this.context.openaiService.deleteMessage(args.thread_id, args.message_id);
-  }
-}
-
-/**
- * Run Handlers
- */
-class RunCreateHandler extends BaseToolHandler {
-  getToolName() { return 'run-create'; }
-  getCategory() { return 'run'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'assistant_id']);
-    const { thread_id, ...runData } = args;
-    return await this.context.openaiService.createRun(thread_id, runData);
-  }
-}
-
-class RunListHandler extends BaseToolHandler {
-  getToolName() { return 'run-list'; }
-  getCategory() { return 'run'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id']);
-    const { thread_id, ...listData } = args;
-    return await this.context.openaiService.listRuns(thread_id, listData);
-  }
-}
-
-class RunGetHandler extends BaseToolHandler {
-  getToolName() { return 'run-get'; }
-  getCategory() { return 'run'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'run_id']);
-    return await this.context.openaiService.getRun(args.thread_id, args.run_id);
-  }
-}
-
-class RunUpdateHandler extends BaseToolHandler {
-  getToolName() { return 'run-update'; }
-  getCategory() { return 'run'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'run_id']);
-    const { thread_id, run_id, ...updateData } = args;
-    return await this.context.openaiService.updateRun(thread_id, run_id, updateData);
-  }
-}
-
-class RunCancelHandler extends BaseToolHandler {
-  getToolName() { return 'run-cancel'; }
-  getCategory() { return 'run'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'run_id']);
-    return await this.context.openaiService.cancelRun(args.thread_id, args.run_id);
-  }
-}
-
-class RunSubmitToolOutputsHandler extends BaseToolHandler {
-  getToolName() { return 'run-submit-tool-outputs'; }
-  getCategory() { return 'run'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'run_id', 'tool_outputs']);
-    const { thread_id, run_id, ...submitData } = args;
-    return await this.context.openaiService.submitToolOutputs(thread_id, run_id, submitData);
-  }
-}
-
-/**
- * Run Step Handlers
- */
-class RunStepListHandler extends BaseToolHandler {
-  getToolName() { return 'run-step-list'; }
-  getCategory() { return 'run-step'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'run_id']);
-    const { thread_id, run_id, ...listData } = args;
-    return await this.context.openaiService.listRunSteps(thread_id, run_id, listData);
-  }
-}
-
-class RunStepGetHandler extends BaseToolHandler {
-  getToolName() { return 'run-step-get'; }
-  getCategory() { return 'run-step'; }
-  
-  async handle(args) {
-    this.validateRequiredParams(args, ['thread_id', 'run_id', 'step_id']);
-    return await this.context.openaiService.getRunStep(args.thread_id, args.run_id, args.step_id);
-  }
-}
-
-/**
- * Tool Registry - CommonJS version
- */
-class ToolRegistry {
-  constructor(context) {
-    this.handlers = new Map();
-    this.context = context;
-  }
-
-  register(toolName, handler) {
-    if (this.handlers.has(toolName)) {
-      throw new Error(`Tool '${toolName}' is already registered`);
-    }
-    this.handlers.set(toolName, handler);
-  }
-
-  async execute(toolName, args) {
-    const handler = this.handlers.get(toolName);
-    if (!handler) {
-      throw new Error(`Unknown tool: ${toolName}`);
-    }
-    return await handler.handle(args);
-  }
-
-  isRegistered(toolName) {
-    return this.handlers.has(toolName);
-  }
-
-  getRegisteredTools() {
-    return Array.from(this.handlers.keys()).sort();
-  }
-}
-
-/**
- * Setup function to create and configure the handler system
- */
-function setupHandlerSystem(context) {
-  const registry = new ToolRegistry(context);
-  
-  // Create all handlers
-  const handlers = [
-    // Assistant handlers
-    new AssistantCreateHandler(context),
-    new AssistantListHandler(context),
-    new AssistantGetHandler(context),
-    new AssistantUpdateHandler(context),
-    new AssistantDeleteHandler(context),
-    
-    // Thread handlers
-    new ThreadCreateHandler(context),
-    new ThreadGetHandler(context),
-    new ThreadUpdateHandler(context),
-    new ThreadDeleteHandler(context),
-    
-    // Message handlers
-    new MessageCreateHandler(context),
-    new MessageListHandler(context),
-    new MessageGetHandler(context),
-    new MessageUpdateHandler(context),
-    new MessageDeleteHandler(context),
-    
-    // Run handlers
-    new RunCreateHandler(context),
-    new RunListHandler(context),
-    new RunGetHandler(context),
-    new RunUpdateHandler(context),
-    new RunCancelHandler(context),
-    new RunSubmitToolOutputsHandler(context),
-    
-    // Run step handlers
-    new RunStepListHandler(context),
-    new RunStepGetHandler(context)
-  ];
-  
-  // Register all handlers
-  for (const handler of handlers) {
-    registry.register(handler.getToolName(), handler);
-  }
-  
-  console.log(`[HandlerSystem] Initialized with ${handlers.length} handlers`);
-  return registry;
-}
-
-/**
- * Enhanced MCP Server using the new modular handler system
- */
-class EnhancedMCPServer {
+class RooCompatibleMCPServer {
   constructor() {
     this.openaiService = null;
     this.isInitialized = false;
     this.debug = process.env.DEBUG === 'true';
-    this.toolRegistry = null;
     
     // Ensure stdout is line-buffered for Roo compatibility
     process.stdout.setEncoding('utf8');
@@ -391,7 +30,7 @@ class EnhancedMCPServer {
     
     this.setupErrorHandling();
     this.setupStdioInterface();
-    this.logDebug('Enhanced MCP Server starting with new modular handler system...');
+    this.logDebug('Server starting...');
   }
 
   setupErrorHandling() {
@@ -529,7 +168,7 @@ class EnhancedMCPServer {
         },
         serverInfo: {
           name: 'openai-assistants-mcp',
-          version: '2.0.0-enhanced'
+          version: '1.0.0'
         }
       }
     };
@@ -544,7 +183,7 @@ class EnhancedMCPServer {
     };
 
     this.sendResponse(notification);
-    this.logDebug('Initialization complete with enhanced handler system');
+    this.logDebug('Initialization complete');
   }
 
   async handleToolsList(request) {
@@ -878,8 +517,10 @@ class EnhancedMCPServer {
       return;
     }
 
-    // API key validation is handled by the OpenAI service itself
-    // No need to enforce specific key formats here for flexibility
+    if (!apiKey.startsWith('sk-')) {
+      this.sendErrorResponse(request.id, -32602, 'Invalid params', 'OPENAI_API_KEY must be a valid OpenAI API key starting with "sk-"');
+      return;
+    }
 
     // Initialize OpenAI service if not already done or if API key changed
     if (!this.openaiService || this.openaiService.apiKey !== apiKey) {
@@ -893,22 +534,162 @@ class EnhancedMCPServer {
       }
     }
 
-    // Initialize the handler system if not already done
-    if (!this.toolRegistry) {
-      const context = {
-        openaiService: this.openaiService,
-        toolName: '',
-        requestId: request.id
-      };
-      this.toolRegistry = setupHandlerSystem(context);
-    }
-
     const { name, arguments: args } = request.params;
-    this.logDebug(`Calling tool: ${name} using new handler system`, args);
+    this.logDebug(`Calling tool: ${name}`, args);
 
     try {
-      // Use the new modular handler system
-      const result = await this.toolRegistry.execute(name, args);
+      let result;
+
+      switch (name) {
+        // Assistant Management
+        case 'assistant-create':
+          if (!args.model) {
+            throw new Error('model is required');
+          }
+          result = await this.openaiService.createAssistant(args);
+          break;
+        case 'assistant-list':
+          result = await this.openaiService.listAssistants(args);
+          break;
+        case 'assistant-get':
+          if (!args.assistant_id) {
+            throw new Error('assistant_id is required');
+          }
+          result = await this.openaiService.getAssistant(args.assistant_id);
+          break;
+        case 'assistant-update':
+          if (!args.assistant_id) {
+            throw new Error('assistant_id is required');
+          }
+          const { assistant_id: updateAssistantId, ...updateAssistantData } = args;
+          result = await this.openaiService.updateAssistant(updateAssistantId, updateAssistantData);
+          break;
+        case 'assistant-delete':
+          if (!args.assistant_id) {
+            throw new Error('assistant_id is required');
+          }
+          result = await this.openaiService.deleteAssistant(args.assistant_id);
+          break;
+
+        // Thread Management
+        case 'thread-create':
+          result = await this.openaiService.createThread(args);
+          break;
+        case 'thread-get':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
+          }
+          result = await this.openaiService.getThread(args.thread_id);
+          break;
+        case 'thread-update':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
+          }
+          const { thread_id: updateThreadId, ...updateThreadData } = args;
+          result = await this.openaiService.updateThread(updateThreadId, updateThreadData);
+          break;
+        case 'thread-delete':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
+          }
+          result = await this.openaiService.deleteThread(args.thread_id);
+          break;
+
+        // Message Management
+        case 'message-create':
+          if (!args.thread_id || !args.role || !args.content) {
+            throw new Error('thread_id, role, and content are required');
+          }
+          const { thread_id: createMessageThreadId, ...createMessageData } = args;
+          result = await this.openaiService.createMessage(createMessageThreadId, createMessageData);
+          break;
+        case 'message-list':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
+          }
+          const { thread_id: listMessageThreadId, ...listMessageData } = args;
+          result = await this.openaiService.listMessages(listMessageThreadId, listMessageData);
+          break;
+        case 'message-get':
+          if (!args.thread_id || !args.message_id) {
+            throw new Error('thread_id and message_id are required');
+          }
+          result = await this.openaiService.getMessage(args.thread_id, args.message_id);
+          break;
+        case 'message-update':
+          if (!args.thread_id || !args.message_id) {
+            throw new Error('thread_id and message_id are required');
+          }
+          const { thread_id: updateMessageThreadId, message_id: updateMessageId, ...updateMessageData } = args;
+          result = await this.openaiService.updateMessage(updateMessageThreadId, updateMessageId, updateMessageData);
+          break;
+        case 'message-delete':
+          if (!args.thread_id || !args.message_id) {
+            throw new Error('thread_id and message_id are required');
+          }
+          result = await this.openaiService.deleteMessage(args.thread_id, args.message_id);
+          break;
+
+        // Run Management
+        case 'run-create':
+          if (!args.thread_id || !args.assistant_id) {
+            throw new Error('thread_id and assistant_id are required');
+          }
+          const { thread_id: createRunThreadId, ...createRunData } = args;
+          result = await this.openaiService.createRun(createRunThreadId, createRunData);
+          break;
+        case 'run-list':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
+          }
+          const { thread_id: listRunThreadId, ...listRunData } = args;
+          result = await this.openaiService.listRuns(listRunThreadId, listRunData);
+          break;
+        case 'run-get':
+          if (!args.thread_id || !args.run_id) {
+            throw new Error('thread_id and run_id are required');
+          }
+          result = await this.openaiService.getRun(args.thread_id, args.run_id);
+          break;
+        case 'run-update':
+          if (!args.thread_id || !args.run_id) {
+            throw new Error('thread_id and run_id are required');
+          }
+          const { thread_id: updateRunThreadId, run_id: updateRunId, ...updateRunData } = args;
+          result = await this.openaiService.updateRun(updateRunThreadId, updateRunId, updateRunData);
+          break;
+        case 'run-cancel':
+          if (!args.thread_id || !args.run_id) {
+            throw new Error('thread_id and run_id are required');
+          }
+          result = await this.openaiService.cancelRun(args.thread_id, args.run_id);
+          break;
+        case 'run-submit-tool-outputs':
+          if (!args.thread_id || !args.run_id || !args.tool_outputs) {
+            throw new Error('thread_id, run_id, and tool_outputs are required');
+          }
+          const { thread_id: submitThreadId, run_id: submitRunId, ...submitData } = args;
+          result = await this.openaiService.submitToolOutputs(submitThreadId, submitRunId, submitData);
+          break;
+
+        // Run Step Management
+        case 'run-step-list':
+          if (!args.thread_id || !args.run_id) {
+            throw new Error('thread_id and run_id are required');
+          }
+          const { thread_id: listStepThreadId, run_id: listStepRunId, ...listStepData } = args;
+          result = await this.openaiService.listRunSteps(listStepThreadId, listStepRunId, listStepData);
+          break;
+        case 'run-step-get':
+          if (!args.thread_id || !args.run_id || !args.step_id) {
+            throw new Error('thread_id, run_id, and step_id are required');
+          }
+          result = await this.openaiService.getRunStep(args.thread_id, args.run_id, args.step_id);
+          break;
+
+        default:
+          throw new Error(`Unknown tool: ${name}`);
+      }
 
       const response = {
         jsonrpc: '2.0',
@@ -991,10 +772,9 @@ class EnhancedMCPServer {
 
 // Start the server
 if (require.main === module) {
-  console.error('[INFO] Starting Enhanced OpenAI Assistants MCP Server with new modular handler system...');
+  console.error('[INFO] Starting OpenAI Assistants MCP Server...');
   console.error('[INFO] API key will be validated when tools are called');
-  console.error('[INFO] Using 93% complexity reduction through modular architecture');
-  new EnhancedMCPServer();
+  new RooCompatibleMCPServer();
 }
 
-module.exports = { EnhancedMCPServer, setupHandlerSystem, ToolRegistry, BaseToolHandler };
+module.exports = { RooCompatibleMCPServer };

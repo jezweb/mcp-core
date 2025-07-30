@@ -7,6 +7,7 @@
  */
 
 import { TestTracker, MockOpenAIResponses, TestDataGenerator, MCPValidator, PerformanceTracker } from '../utils/test-helpers.js';
+import { spawn } from 'child_process';
 
 class ComprehensiveIntegrationTester {
   constructor() {
@@ -278,7 +279,6 @@ class ComprehensiveIntegrationTester {
 
   async sendToNPMPackage(request) {
     return new Promise((resolve, reject) => {
-      const { spawn } = require('child_process');
       const env = { ...process.env, OPENAI_API_KEY: this.testApiKey };
       
       const child = spawn('node', [this.npmPackagePath], {
