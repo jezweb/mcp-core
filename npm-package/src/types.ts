@@ -103,144 +103,448 @@ export interface Resource {
   mimeType?: string;
 }
 
-// OpenAI Vector Store API types
-export interface VectorStore {
+// OpenAI Assistants API types
+export interface Assistant {
   id: string;
-  object: 'vector_store';
+  object: 'assistant';
   created_at: number;
-  name: string;
-  usage_bytes: number;
-  file_counts: {
-    in_progress: number;
-    completed: number;
-    failed: number;
-    cancelled: number;
-    total: number;
+  name: string | null;
+  description: string | null;
+  model: string;
+  instructions: string | null;
+  tools: Array<{
+    type: 'code_interpreter' | 'file_search' | 'function';
+    function?: {
+      name: string;
+      description?: string;
+      parameters?: Record<string, any>;
+    };
+  }>;
+  tool_resources?: {
+    code_interpreter?: {
+      file_ids: string[];
+    };
+    file_search?: {
+      vector_store_ids: string[];
+    };
   };
-  status: 'expired' | 'in_progress' | 'completed';
-  expires_after?: {
-    anchor: 'last_active_at';
-    days: number;
-  };
-  expires_at?: number;
-  last_active_at: number;
   metadata: Record<string, any>;
+  temperature?: number | null;
+  top_p?: number | null;
+  response_format?: 'auto' | { type: 'text' | 'json_object' };
 }
 
-export interface CreateVectorStoreRequest {
-  name: string;
-  expires_after_days?: number;
+export interface CreateAssistantRequest {
+  model: string;
+  name?: string;
+  description?: string;
+  instructions?: string;
+  tools?: Array<{
+    type: 'code_interpreter' | 'file_search' | 'function';
+    function?: {
+      name: string;
+      description?: string;
+      parameters?: Record<string, any>;
+    };
+  }>;
+  tool_resources?: {
+    code_interpreter?: {
+      file_ids: string[];
+    };
+    file_search?: {
+      vector_store_ids: string[];
+    };
+  };
   metadata?: Record<string, any>;
+  temperature?: number;
+  top_p?: number;
+  response_format?: 'auto' | { type: 'text' | 'json_object' };
 }
 
-export interface ListVectorStoresRequest {
+export interface UpdateAssistantRequest {
+  model?: string;
+  name?: string;
+  description?: string;
+  instructions?: string;
+  tools?: Array<{
+    type: 'code_interpreter' | 'file_search' | 'function';
+    function?: {
+      name: string;
+      description?: string;
+      parameters?: Record<string, any>;
+    };
+  }>;
+  tool_resources?: {
+    code_interpreter?: {
+      file_ids: string[];
+    };
+    file_search?: {
+      vector_store_ids: string[];
+    };
+  };
+  metadata?: Record<string, any>;
+  temperature?: number;
+  top_p?: number;
+  response_format?: 'auto' | { type: 'text' | 'json_object' };
+}
+
+export interface ListAssistantsRequest {
   limit?: number;
   order?: 'asc' | 'desc';
+  after?: string;
+  before?: string;
 }
 
-export interface ListVectorStoresResponse {
+export interface ListAssistantsResponse {
   object: 'list';
-  data: VectorStore[];
+  data: Assistant[];
   first_id?: string;
   last_id?: string;
   has_more: boolean;
 }
 
-export interface VectorStoreFile {
+// Thread types
+export interface Thread {
   id: string;
-  object: 'vector_store.file';
-  usage_bytes: number;
+  object: 'thread';
   created_at: number;
-  vector_store_id: string;
-  status: 'in_progress' | 'completed' | 'cancelled' | 'failed';
-  last_error?: {
-    code: string;
-    message: string;
+  tool_resources?: {
+    code_interpreter?: {
+      file_ids: string[];
+    };
+    file_search?: {
+      vector_store_ids: string[];
+    };
   };
-}
-
-export interface AddFileToVectorStoreRequest {
-  file_id: string;
-}
-
-export interface ListVectorStoreFilesRequest {
-  limit?: number;
-  filter?: 'in_progress' | 'completed' | 'failed' | 'cancelled';
-}
-
-export interface ListVectorStoreFilesResponse {
-  object: 'list';
-  data: VectorStoreFile[];
-  first_id?: string;
-  last_id?: string;
-  has_more: boolean;
-}
-
-// Vector Store File Batch types
-export interface VectorStoreFileBatch {
-  id: string;
-  object: 'vector_store.file_batch';
-  created_at: number;
-  vector_store_id: string;
-  status: 'in_progress' | 'completed' | 'cancelled' | 'failed';
-  file_counts: {
-    in_progress: number;
-    completed: number;
-    failed: number;
-    cancelled: number;
-    total: number;
-  };
-}
-
-// Vector Store modification types
-export interface ModifyVectorStoreRequest {
-  name?: string;
-  expires_after_days?: number;
-  metadata?: Record<string, any>;
-}
-
-// Vector Store File content types
-export interface VectorStoreFileContent {
-  content: string;
-  metadata?: Record<string, any>;
-}
-
-// Vector Store File update types
-export interface UpdateVectorStoreFileRequest {
   metadata: Record<string, any>;
 }
 
-// OpenAI Chat types (legacy compatibility)
-export interface OpenAIConfig {
-  apiKey: string;
-  model?: string;
-  maxTokens?: number;
-  temperature?: number;
-}
-
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-export interface ChatCompletion {
-  id: string;
-  object: 'chat.completion';
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    message: {
-      role: 'assistant';
-      content: string;
-    };
-    finish_reason: string;
+export interface CreateThreadRequest {
+  messages?: Array<{
+    role: 'user' | 'assistant';
+    content: string | Array<{
+      type: 'text' | 'image_url' | 'image_file';
+      text?: { value: string; annotations?: any[] };
+      image_url?: { url: string; detail?: 'auto' | 'low' | 'high' };
+      image_file?: { file_id: string; detail?: 'auto' | 'low' | 'high' };
+    }>;
+    attachments?: Array<{
+      file_id: string;
+      tools: Array<{ type: 'code_interpreter' | 'file_search' }>;
+    }>;
+    metadata?: Record<string, any>;
   }>;
-  usage: {
+  tool_resources?: {
+    code_interpreter?: {
+      file_ids: string[];
+    };
+    file_search?: {
+      vector_store_ids: string[];
+    };
+  };
+  metadata?: Record<string, any>;
+}
+
+export interface UpdateThreadRequest {
+  tool_resources?: {
+    code_interpreter?: {
+      file_ids: string[];
+    };
+    file_search?: {
+      vector_store_ids: string[];
+    };
+  };
+  metadata?: Record<string, any>;
+}
+
+// Message types
+export interface Message {
+  id: string;
+  object: 'thread.message';
+  created_at: number;
+  thread_id: string;
+  status: 'in_progress' | 'incomplete' | 'completed';
+  incomplete_details?: {
+    reason: 'content_filter' | 'max_tokens' | 'run_cancelled' | 'run_expired' | 'run_failed';
+  };
+  completed_at?: number;
+  incomplete_at?: number;
+  role: 'user' | 'assistant';
+  content: Array<{
+    type: 'text' | 'image_url' | 'image_file';
+    text?: {
+      value: string;
+      annotations: Array<{
+        type: 'file_citation' | 'file_path';
+        text: string;
+        start_index: number;
+        end_index: number;
+        file_citation?: {
+          file_id: string;
+          quote?: string;
+        };
+        file_path?: {
+          file_id: string;
+        };
+      }>;
+    };
+    image_url?: { url: string; detail?: 'auto' | 'low' | 'high' };
+    image_file?: { file_id: string; detail?: 'auto' | 'low' | 'high' };
+  }>;
+  assistant_id?: string;
+  run_id?: string;
+  attachments?: Array<{
+    file_id: string;
+    tools: Array<{ type: 'code_interpreter' | 'file_search' }>;
+  }>;
+  metadata: Record<string, any>;
+}
+
+export interface CreateMessageRequest {
+  role: 'user' | 'assistant';
+  content: string | Array<{
+    type: 'text' | 'image_url' | 'image_file';
+    text?: { value: string };
+    image_url?: { url: string; detail?: 'auto' | 'low' | 'high' };
+    image_file?: { file_id: string; detail?: 'auto' | 'low' | 'high' };
+  }>;
+  attachments?: Array<{
+    file_id: string;
+    tools: Array<{ type: 'code_interpreter' | 'file_search' }>;
+  }>;
+  metadata?: Record<string, any>;
+}
+
+export interface UpdateMessageRequest {
+  metadata?: Record<string, any>;
+}
+
+export interface ListMessagesRequest {
+  limit?: number;
+  order?: 'asc' | 'desc';
+  after?: string;
+  before?: string;
+  run_id?: string;
+}
+
+export interface ListMessagesResponse {
+  object: 'list';
+  data: Message[];
+  first_id?: string;
+  last_id?: string;
+  has_more: boolean;
+}
+
+// Run types
+export interface Run {
+  id: string;
+  object: 'thread.run';
+  created_at: number;
+  thread_id: string;
+  assistant_id: string;
+  status: 'queued' | 'in_progress' | 'requires_action' | 'cancelling' | 'cancelled' | 'failed' | 'completed' | 'incomplete' | 'expired';
+  required_action?: {
+    type: 'submit_tool_outputs';
+    submit_tool_outputs: {
+      tool_calls: Array<{
+        id: string;
+        type: 'function';
+        function: {
+          name: string;
+          arguments: string;
+        };
+      }>;
+    };
+  };
+  last_error?: {
+    code: 'server_error' | 'rate_limit_exceeded' | 'invalid_prompt';
+    message: string;
+  };
+  expires_at?: number;
+  started_at?: number;
+  cancelled_at?: number;
+  failed_at?: number;
+  completed_at?: number;
+  incomplete_details?: {
+    reason: 'max_completion_tokens' | 'max_prompt_tokens';
+  };
+  model: string;
+  instructions: string;
+  tools: Array<{
+    type: 'code_interpreter' | 'file_search' | 'function';
+    function?: {
+      name: string;
+      description?: string;
+      parameters?: Record<string, any>;
+    };
+  }>;
+  metadata: Record<string, any>;
+  usage?: {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
   };
+  temperature?: number;
+  top_p?: number;
+  max_prompt_tokens?: number;
+  max_completion_tokens?: number;
+  truncation_strategy?: {
+    type: 'auto' | 'last_messages';
+    last_messages?: number;
+  };
+  tool_choice?: 'none' | 'auto' | 'required' | { type: 'function'; function: { name: string } };
+  parallel_tool_calls?: boolean;
+  response_format?: 'auto' | { type: 'text' | 'json_object' };
+}
+
+export interface CreateRunRequest {
+  assistant_id: string;
+  model?: string;
+  instructions?: string;
+  additional_instructions?: string;
+  additional_messages?: Array<{
+    role: 'user' | 'assistant';
+    content: string | Array<{
+      type: 'text' | 'image_url' | 'image_file';
+      text?: { value: string };
+      image_url?: { url: string; detail?: 'auto' | 'low' | 'high' };
+      image_file?: { file_id: string; detail?: 'auto' | 'low' | 'high' };
+    }>;
+    attachments?: Array<{
+      file_id: string;
+      tools: Array<{ type: 'code_interpreter' | 'file_search' }>;
+    }>;
+    metadata?: Record<string, any>;
+  }>;
+  tools?: Array<{
+    type: 'code_interpreter' | 'file_search' | 'function';
+    function?: {
+      name: string;
+      description?: string;
+      parameters?: Record<string, any>;
+    };
+  }>;
+  metadata?: Record<string, any>;
+  temperature?: number;
+  top_p?: number;
+  max_prompt_tokens?: number;
+  max_completion_tokens?: number;
+  truncation_strategy?: {
+    type: 'auto' | 'last_messages';
+    last_messages?: number;
+  };
+  tool_choice?: 'none' | 'auto' | 'required' | { type: 'function'; function: { name: string } };
+  parallel_tool_calls?: boolean;
+  response_format?: 'auto' | { type: 'text' | 'json_object' };
+}
+
+export interface UpdateRunRequest {
+  metadata?: Record<string, any>;
+}
+
+export interface ListRunsRequest {
+  limit?: number;
+  order?: 'asc' | 'desc';
+  after?: string;
+  before?: string;
+}
+
+export interface ListRunsResponse {
+  object: 'list';
+  data: Run[];
+  first_id?: string;
+  last_id?: string;
+  has_more: boolean;
+}
+
+export interface SubmitToolOutputsRequest {
+  tool_outputs: Array<{
+    tool_call_id: string;
+    output: string;
+  }>;
+  stream?: boolean;
+}
+
+// Run Step types
+export interface RunStep {
+  id: string;
+  object: 'thread.run.step';
+  created_at: number;
+  assistant_id: string;
+  thread_id: string;
+  run_id: string;
+  type: 'message_creation' | 'tool_calls';
+  status: 'in_progress' | 'cancelled' | 'failed' | 'completed' | 'expired';
+  step_details: {
+    type: 'message_creation' | 'tool_calls';
+    message_creation?: {
+      message_id: string;
+    };
+    tool_calls?: Array<{
+      id: string;
+      type: 'code_interpreter' | 'file_search' | 'function';
+      code_interpreter?: {
+        input: string;
+        outputs: Array<{
+          type: 'logs' | 'image';
+          logs?: string;
+          image?: {
+            file_id: string;
+          };
+        }>;
+      };
+      file_search?: {
+        ranking_options?: {
+          ranker: 'auto' | 'default_2024_08_21';
+          score_threshold: number;
+        };
+        results?: Array<{
+          file_id: string;
+          file_name: string;
+          score: number;
+          content: Array<{
+            type: 'text';
+            text: string;
+          }>;
+        }>;
+      };
+      function?: {
+        name: string;
+        arguments: string;
+        output?: string;
+      };
+    }>;
+  };
+  last_error?: {
+    code: 'server_error' | 'rate_limit_exceeded';
+    message: string;
+  };
+  expired_at?: number;
+  cancelled_at?: number;
+  failed_at?: number;
+  completed_at?: number;
+  metadata: Record<string, any>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface ListRunStepsRequest {
+  limit?: number;
+  order?: 'asc' | 'desc';
+  after?: string;
+  before?: string;
+  include?: string[];
+}
+
+export interface ListRunStepsResponse {
+  object: 'list';
+  data: RunStep[];
+  first_id?: string;
+  last_id?: string;
+  has_more: boolean;
 }
 
 // Error types

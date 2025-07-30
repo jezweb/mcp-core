@@ -59,7 +59,7 @@ export class OpenAIService {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({})) as any;
         throw new MCPError(
           this.mapHttpStatusToErrorCode(response.status),
           errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`,

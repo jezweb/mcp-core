@@ -1,0 +1,348 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'wrangler.toml'
+      - 'package.json'
+      - 'tsconfig.json'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      force_deploy:
+        description: 'Force deployment even if tests fail'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Job 1: Pre-deployment validation
+  pre-deployment:
+    name: Pre-deployment Validation
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.check.outputs.should-deploy }}
+      environment: ${{ steps.check.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript compilation check
+        run: npm run type-check
+
+      - name: Run core tests
+        run: npm run test:core
+        env:
+          CI: true
+
+      - name: Validate Cloudflare Workers build
+        run: npm run build
+
+      - name: Determine deployment environment
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Job 2: Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: pre-deployment
+    if: needs.pre-deployment.outputs.should-deploy == 'true' && (needs.pre-deployment.outputs.environment == 'staging' || github.ref == 'refs/heads/main')
+    environment:
+      name: staging
+      url: https://openai-assistants-mcp-staging.your-subdomain.workers.dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare Workers (Staging)
+        run: npm run deploy:staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Wait for deployment to be ready
+        run: sleep 30
+
+      - name: Run post-deployment tests
+        run: npm run test:cloudflare
+        env:
+          CI: true
+          CLOUDFLARE_WORKER_URL: https://openai-assistants-mcp-staging.your-subdomain.workers.dev
+
+      - name: Create deployment artifact
+        run: |
+          mkdir -p deployment-artifacts
+          echo "Environment: staging" > deployment-artifacts/deployment-info.txt
+          echo "Deployed at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> deployment-artifacts/deployment-info.txt
+          echo "Commit: ${{ github.sha }}" >> deployment-artifacts/deployment-info.txt
+          echo "Branch: ${{ github.ref_name }}" >> deployment-artifacts/deployment-info.txt
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-deployment-${{ github.sha }}
+          path: deployment-artifacts/
+          retention-days: 30
+
+  # Job 3: Staging validation
+  validate-staging:
+    name: Validate Staging Deployment
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run comprehensive staging tests
+        run: |
+          npm run test:cloudflare
+          npm run test:integration
+        env:
+          CI: true
+          CLOUDFLARE_WORKER_URL: https://openai-assistants-mcp-staging.your-subdomain.workers.dev
+
+      - name: Performance validation
+        run: npm run test:performance
+        env:
+          CI: true
+          CLOUDFLARE_WORKER_URL: https://openai-assistants-mcp-staging.your-subdomain.workers.dev
+
+      - name: Health check
+        run: |
+          curl -f https://openai-assistants-mcp-staging.your-subdomain.workers.dev/health || exit 1
+
+  # Job 4: Deploy to Production (manual approval required)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [validate-staging, pre-deployment]
+    if: needs.pre-deployment.outputs.environment == 'production' && github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+      url: https://openai-assistants-mcp-prod.your-subdomain.workers.dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Final pre-production validation
+        run: |
+          npm run type-check
+          npm run test:core
+        env:
+          CI: true
+
+      - name: Deploy to Cloudflare Workers (Production)
+        run: npm run deploy:production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Wait for deployment to be ready
+        run: sleep 30
+
+      - name: Run post-deployment tests
+        run: npm run test:cloudflare
+        env:
+          CI: true
+          CLOUDFLARE_WORKER_URL: https://openai-assistants-mcp-prod.your-subdomain.workers.dev
+
+      - name: Create production deployment artifact
+        run: |
+          mkdir -p deployment-artifacts
+          echo "Environment: production" > deployment-artifacts/deployment-info.txt
+          echo "Deployed at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> deployment-artifacts/deployment-info.txt
+          echo "Commit: ${{ github.sha }}" >> deployment-artifacts/deployment-info.txt
+          echo "Branch: ${{ github.ref_name }}" >> deployment-artifacts/deployment-info.txt
+
+      - name: Upload production deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-deployment-${{ github.sha }}
+          path: deployment-artifacts/
+          retention-days: 90
+
+  # Job 5: Production validation
+  validate-production:
+    name: Validate Production Deployment
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run production validation tests
+        run: |
+          npm run test:cloudflare
+          npm run test:integration
+        env:
+          CI: true
+          CLOUDFLARE_WORKER_URL: https://openai-assistants-mcp-prod.your-subdomain.workers.dev
+
+      - name: Health check
+        run: |
+          curl -f https://openai-assistants-mcp-prod.your-subdomain.workers.dev/health || exit 1
+
+      - name: Performance baseline check
+        run: npm run test:performance
+        env:
+          CI: true
+          CLOUDFLARE_WORKER_URL: https://openai-assistants-mcp-prod.your-subdomain.workers.dev
+
+  # Job 6: Rollback capability
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && (needs.validate-staging.result == 'failure' || needs.validate-production.result == 'failure')
+    needs: [deploy-staging, validate-staging, deploy-production, validate-production]
+    environment:
+      name: rollback
+    steps:
+      - name: Checkout previous version
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.before }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rollback to previous version
+        run: |
+          if [[ "${{ needs.validate-production.result }}" == "failure" ]]; then
+            echo "Rolling back production deployment"
+            npm run deploy:production
+          elif [[ "${{ needs.validate-staging.result }}" == "failure" ]]; then
+            echo "Rolling back staging deployment"
+            npm run deploy:staging
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify rollback
+        run: |
+          sleep 30
+          npm run test:cloudflare
+        env:
+          CI: true
+
+  # Job 7: Deployment notification
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, validate-staging, deploy-production, validate-production]
+    if: always()
+    steps:
+      - name: Determine deployment status
+        id: status
+        run: |
+          if [[ "${{ needs.deploy-production.result }}" == "success" && "${{ needs.validate-production.result }}" == "success" ]]; then
+            echo "status=production-success" >> $GITHUB_OUTPUT
+            echo "message=✅ Production deployment successful" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.deploy-staging.result }}" == "success" && "${{ needs.validate-staging.result }}" == "success" ]]; then
+            echo "status=staging-success" >> $GITHUB_OUTPUT
+            echo "message=✅ Staging deployment successful" >> $GITHUB_OUTPUT
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "message=❌ Deployment failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create deployment summary
+        run: |
+          echo "## Cloudflare Workers Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.status.outputs.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | Status | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------------|--------|-----|" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.deploy-staging.result }}" == "success" ]]; then
+            echo "| Staging | ✅ Deployed | https://openai-assistants-mcp-staging.your-subdomain.workers.dev |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
+            echo "| Production | ✅ Deployed | https://openai-assistants-mcp-prod.your-subdomain.workers.dev |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+
+      - name: Post to Slack (if configured)
+        if: env.SLACK_WEBHOOK_URL != ''
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"${{ steps.status.outputs.message }}\nCommit: ${{ github.sha }}\nBranch: ${{ github.ref_name }}"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}

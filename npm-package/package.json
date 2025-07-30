@@ -1,7 +1,7 @@
 {
   "name": "openai-assistants-mcp",
   "version": "1.0.0",
-  "description": "OpenAI Assistants MCP Server with stdio transport - Complete assistant, thread, message, and run management with enhanced Roo compatibility and direct stdio performance",
+  "description": "Universal OpenAI Assistants MCP Server - Complete 22-tool implementation for assistant, thread, message, and run management with stdio transport, enhanced Roo compatibility, and direct stdio performance",
   "main": "universal-mcp-server.cjs",
   "type": "commonjs",
   "bin": {

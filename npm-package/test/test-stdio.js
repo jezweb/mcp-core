@@ -1,18 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Test script for OpenAI Vector Store MCP Server stdio transport
- * 
+ * Test script for OpenAI Assistants MCP Server stdio transport
+ *
  * This script tests the MCP server by sending JSON-RPC messages via stdio
  * and verifying the responses.
  */
 
-import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const { spawn } = require('child_process');
+const { join } = require('path');
 
 class MCPStdioTester {
   constructor() {
@@ -21,12 +17,12 @@ class MCPStdioTester {
   }
 
   async runTests() {
-    console.log('🧪 Starting OpenAI Vector Store MCP Server stdio tests...\n');
+    console.log('🧪 Starting OpenAI Assistants MCP Server stdio tests...\n');
 
     // Test 1: Initialize connection
     await this.testInitialize();
 
-    // Test 2: List tools
+    // Test 2: List tools (with initialization)
     await this.testListTools();
 
     // Test 3: Test invalid tool call (should handle gracefully)
@@ -52,7 +48,7 @@ class MCPStdioTester {
         }
       });
 
-      if (response.result && response.result.serverInfo && response.result.serverInfo.name === 'openai-vector-store-mcp') {
+      if (response.result && response.result.serverInfo && response.result.serverInfo.name === 'openai-assistants-mcp') {
         this.addResult(true, 'Server initialized successfully');
       } else {
         this.addResult(false, 'Invalid initialization response');
@@ -67,36 +63,69 @@ class MCPStdioTester {
     console.log(`📋 Testing: ${this.currentTest}`);
 
     try {
-      const response = await this.sendMCPRequest({
-        jsonrpc: '2.0',
-        id: 2,
-        method: 'tools/list',
-        params: {}
-      });
+      // Send both initialize and tools/list requests to the same server instance
+      const response = await this.sendMCPRequestSequence([
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2024-11-05',
+            capabilities: { tools: {} },
+            clientInfo: { name: 'test-client', version: '1.0.0' }
+          }
+        },
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/list',
+          params: {}
+        }
+      ]);
 
-      if (response.result && response.result.tools && Array.isArray(response.result.tools)) {
-        const toolCount = response.result.tools.length;
-        if (toolCount === 15) {
-          this.addResult(true, `Found all 15 vector store tools`);
+      // Get the tools/list response (should be the last response with id: 2)
+      const toolsResponse = response.find(r => r.id === 2);
+      
+      if (toolsResponse && toolsResponse.result && toolsResponse.result.tools && Array.isArray(toolsResponse.result.tools)) {
+        const toolCount = toolsResponse.result.tools.length;
+        if (toolCount === 22) {
+          this.addResult(true, `Found all 22 assistants tools`);
           
           // Check for specific tools
-          const toolNames = response.result.tools.map(t => t.name);
+          const toolNames = toolsResponse.result.tools.map(t => t.name);
           const expectedTools = [
-            'vector-store-create',
-            'vector-store-list',
-            'vector-store-get',
-            'vector-store-delete',
-            'vector-store-modify'
+            'assistant-create',
+            'assistant-list',
+            'assistant-get',
+            'assistant-update',
+            'assistant-delete',
+            'thread-create',
+            'thread-get',
+            'thread-update',
+            'thread-delete',
+            'message-create',
+            'message-list',
+            'message-get',
+            'message-update',
+            'message-delete',
+            'run-create',
+            'run-list',
+            'run-get',
+            'run-update',
+            'run-cancel',
+            'run-submit-tool-outputs',
+            'run-step-list',
+            'run-step-get'
           ];
           
           const missingTools = expectedTools.filter(tool => !toolNames.includes(tool));
           if (missingTools.length === 0) {
-            this.addResult(true, 'All core vector store tools present');
+            this.addResult(true, 'All core assistants tools present');
           } else {
             this.addResult(false, `Missing tools: ${missingTools.join(', ')}`);
           }
         } else {
-          this.addResult(false, `Expected 15 tools, found ${toolCount}`);
+          this.addResult(false, `Expected 22 tools, found ${toolCount}`);
         }
       } else {
         this.addResult(false, 'Invalid tools list response');
@@ -134,11 +163,16 @@ class MCPStdioTester {
   }
 
   async sendMCPRequest(request) {
+    const responses = await this.sendMCPRequestSequence([request]);
+    return responses[0];
+  }
+
+  async sendMCPRequestSequence(requests) {
     return new Promise((resolve, reject) => {
       // Set a dummy API key for testing (won't be used for these tests)
       const env = { ...process.env, OPENAI_API_KEY: 'test-key' };
       
-      const serverPath = join(__dirname, '../dist/index.js');
+      const serverPath = join(__dirname, '../universal-mcp-server.cjs');
       const child = spawn('node', [serverPath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         env
@@ -146,6 +180,7 @@ class MCPStdioTester {
 
       let responseData = '';
       let errorData = '';
+      const responses = [];
 
       child.stdout.on('data', (data) => {
         responseData += data.toString();
@@ -162,17 +197,30 @@ class MCPStdioTester {
         }
 
         try {
-          // Parse the JSON-RPC response
+          // Parse all JSON-RPC responses
           const lines = responseData.trim().split('\n');
-          const lastLine = lines[lines.length - 1];
-          if (lastLine) {
-            const response = JSON.parse(lastLine);
-            resolve(response);
+          for (const line of lines) {
+            if (line.trim() && line.startsWith('{')) {
+              try {
+                const response = JSON.parse(line);
+                // Only collect responses with IDs (not notifications)
+                if (response.id !== undefined) {
+                  responses.push(response);
+                }
+              } catch (parseError) {
+                // Skip lines that aren't valid JSON (like log messages)
+                continue;
+              }
+            }
+          }
+          
+          if (responses.length === 0) {
+            reject(new Error('No valid responses received'));
           } else {
-            reject(new Error('No response received'));
+            resolve(responses);
           }
         } catch (error) {
-          reject(new Error(`Failed to parse response: ${error.message}`));
+          reject(new Error(`Failed to parse responses: ${error.message}`));
         }
       });
 
@@ -180,8 +228,10 @@ class MCPStdioTester {
         reject(new Error(`Failed to start server: ${error.message}`));
       });
 
-      // Send the request
-      child.stdin.write(JSON.stringify(request) + '\n');
+      // Send all requests
+      for (const request of requests) {
+        child.stdin.write(JSON.stringify(request) + '\n');
+      }
       child.stdin.end();
 
       // Set timeout

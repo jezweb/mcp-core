@@ -1,0 +1,102 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Check if we're in the right directory
+if [ ! -f "package.json" ]; then
+    echo "❌ Not in project root directory"
+    exit 1
+fi
+
+# Function to run command and check result
+run_check() {
+    local name="$1"
+    local command="$2"
+    echo "  → $name"
+    
+    if eval "$command"; then
+        echo "    ✅ $name passed"
+    else
+        echo "    ❌ $name failed"
+        return 1
+    fi
+}
+
+# Initialize error flag
+ERRORS=0
+
+# 1. TypeScript compilation check
+if ! run_check "TypeScript compilation" "npm run type-check"; then
+    ERRORS=$((ERRORS + 1))
+fi
+
+# 2. Code formatting check
+if command -v prettier >/dev/null 2>&1; then
+    if ! run_check "Code formatting" "npx prettier --check 'src/**/*.{ts,js,json}' 'npm-package/src/**/*.{ts,js,json}'"; then
+        echo "    💡 Run 'npm run format' to fix formatting issues"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo "  ⚠️  Prettier not installed, skipping formatting check"
+fi
+
+# 3. Linting check
+if command -v eslint >/dev/null 2>&1; then
+    if ! run_check "ESLint" "npx eslint 'src/**/*.ts' 'npm-package/src/**/*.ts'"; then
+        echo "    💡 Run 'npm run lint:fix' to fix linting issues"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo "  ⚠️  ESLint not installed, skipping linting check"
+fi
+
+# 4. Core tests
+if ! run_check "Core tests" "npm run test:core"; then
+    ERRORS=$((ERRORS + 1))
+fi
+
+# 5. Package validation
+if ! run_check "Package validation" "npm pkg fix && cd npm-package && npm pkg fix"; then
+    ERRORS=$((ERRORS + 1))
+fi
+
+# 6. Security checks
+echo "  → Security checks"
+if grep -r -E "(api[_-]?key|secret|password|token)" --include="*.ts" --include="*.js" --exclude-dir=node_modules --exclude-dir=.git . | grep -v "test" | grep -v "example" | grep -v "placeholder"; then
+    echo "    ❌ Potential secrets detected in code"
+    echo "    💡 Remove hardcoded secrets before committing"
+    ERRORS=$((ERRORS + 1))
+else
+    echo "    ✅ No hardcoded secrets detected"
+fi
+
+# 7. File size check
+echo "  → File size check"
+LARGE_FILES=$(find . -name "*.ts" -o -name "*.js" -o -name "*.json" | xargs ls -la | awk '$5 > 1048576 {print $9, $5}')
+if [ -n "$LARGE_FILES" ]; then
+    echo "    ⚠️  Large files detected (>1MB):"
+    echo "$LARGE_FILES"
+    echo "    💡 Consider splitting large files or adding to .gitignore"
+fi
+
+# 8. Dependency audit (quick check)
+if ! run_check "Dependency audit" "npm audit --audit-level=high"; then
+    echo "    ⚠️  High-severity vulnerabilities detected"
+    echo "    💡 Run 'npm audit fix' to resolve issues"
+    # Don't fail commit for audit issues, just warn
+fi
+
+# Summary
+echo ""
+if [ $ERRORS -eq 0 ]; then
+    echo "✅ All pre-commit checks passed! Ready to commit."
+    exit 0
+else
+    echo "❌ $ERRORS pre-commit check(s) failed!"
+    echo ""
+    echo "💡 Fix the issues above before committing, or use:"
+    echo "   git commit --no-verify  (to skip pre-commit hooks)"
+    echo ""
+    exit 1
+fi

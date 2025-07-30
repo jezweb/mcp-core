@@ -122,8 +122,8 @@ export class MCPHandler {
           }
         },
         serverInfo: {
-          name: 'openai-vector-store-mcp',
-          version: '1.0.1'
+          name: 'openai-assistants-mcp',
+          version: '1.0.0'
         }
       }
     };
@@ -134,301 +134,553 @@ export class MCPHandler {
    */
   private async handleToolsList(request: MCPToolsListRequest): Promise<MCPToolsListResponse> {
     const tools: MCPTool[] = [
+      // Assistant Management Tools
       {
-        name: 'vector-store-create',
-        description: 'Create a new vector store',
+        name: 'assistant-create',
+        description: 'Create a new OpenAI assistant with specified instructions and tools',
         inputSchema: {
           type: 'object',
           properties: {
+            model: {
+              type: 'string',
+              description: 'The model to use for the assistant (e.g., gpt-4, gpt-3.5-turbo)',
+            },
             name: {
               type: 'string',
-              description: 'Name of the vector store'
+              description: 'The name of the assistant',
             },
-            expires_after_days: {
-              type: 'number',
-              description: 'Number of days after which the vector store expires (optional)'
+            description: {
+              type: 'string',
+              description: 'The description of the assistant',
+            },
+            instructions: {
+              type: 'string',
+              description: 'The system instructions for the assistant',
+            },
+            tools: {
+              type: 'array',
+              description: 'List of tools enabled for the assistant',
+              items: {
+                type: 'object',
+                properties: {
+                  type: {
+                    type: 'string',
+                    enum: ['code_interpreter', 'file_search', 'function'],
+                  },
+                },
+              },
             },
             metadata: {
               type: 'object',
-              description: 'Additional metadata for the vector store (optional)'
-            }
+              description: 'Set of key-value pairs for storing additional information',
+            },
           },
-          required: ['name']
-        }
+          required: ['model'],
+        },
       },
       {
-        name: 'vector-store-list',
-        description: 'List all vector stores',
+        name: 'assistant-list',
+        description: 'List all assistants with optional pagination and filtering',
         inputSchema: {
           type: 'object',
           properties: {
             limit: {
               type: 'number',
-              description: 'Maximum number of vector stores to return (default: 20)'
+              description: 'Number of assistants to return (1-100, default: 20)',
             },
             order: {
               type: 'string',
               enum: ['asc', 'desc'],
-              description: 'Sort order by created_at timestamp'
-            }
-          }
-        }
-      },
-      {
-        name: 'vector-store-get',
-        description: 'Get details of a specific vector store',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: {
+              description: 'Sort order by created_at timestamp',
+            },
+            after: {
               type: 'string',
-              description: 'ID of the vector store to retrieve'
-            }
+              description: 'Cursor for pagination (assistant ID)',
+            },
+            before: {
+              type: 'string',
+              description: 'Cursor for pagination (assistant ID)',
+            },
           },
-          required: ['vector_store_id']
-        }
+        },
       },
       {
-        name: 'vector-store-delete',
-        description: 'Delete a vector store',
+        name: 'assistant-get',
+        description: 'Retrieve details of a specific assistant',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: {
+            assistant_id: {
               type: 'string',
-              description: 'ID of the vector store to delete'
-            }
+              description: 'The ID of the assistant to retrieve',
+            },
           },
-          required: ['vector_store_id']
-        }
+          required: ['assistant_id'],
+        },
       },
       {
-        name: 'vector-store-modify',
-        description: 'Modify a vector store',
+        name: 'assistant-update',
+        description: 'Update an existing assistant',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: {
+            assistant_id: {
               type: 'string',
-              description: 'ID of the vector store to modify'
+              description: 'The ID of the assistant to update',
+            },
+            model: {
+              type: 'string',
+              description: 'The model to use for the assistant',
             },
             name: {
               type: 'string',
-              description: 'New name for the vector store (optional)'
+              description: 'The name of the assistant',
             },
-            expires_after_days: {
-              type: 'number',
-              description: 'Number of days after which the vector store expires (optional)'
+            description: {
+              type: 'string',
+              description: 'The description of the assistant',
             },
-            metadata: {
-              type: 'object',
-              description: 'Additional metadata for the vector store (optional)'
-            }
-          },
-          required: ['vector_store_id']
-        }
-      },
-      {
-        name: 'vector-store-file-add',
-        description: 'Add an existing file to a vector store',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: {
+            instructions: {
               type: 'string',
-              description: 'ID of the vector store'
+              description: 'The system instructions for the assistant',
             },
-            file_id: {
-              type: 'string',
-              description: 'ID of the file to add'
-            }
-          },
-          required: ['vector_store_id', 'file_id']
-        }
-      },
-      {
-        name: 'vector-store-file-list',
-        description: 'List files in a vector store',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: {
-              type: 'string',
-              description: 'ID of the vector store'
-            },
-            limit: {
-              type: 'number',
-              description: 'Maximum number of files to return (default: 20)'
-            },
-            filter: {
-              type: 'string',
-              enum: ['in_progress', 'completed', 'failed', 'cancelled'],
-              description: 'Filter files by status'
-            }
-          },
-          required: ['vector_store_id']
-        }
-      },
-      {
-        name: 'vector-store-file-get',
-        description: 'Get details of a specific file in a vector store',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: {
-              type: 'string',
-              description: 'ID of the vector store'
-            },
-            file_id: {
-              type: 'string',
-              description: 'ID of the file to retrieve'
-            }
-          },
-          required: ['vector_store_id', 'file_id']
-        }
-      },
-      {
-        name: 'vector-store-file-content',
-        description: 'Get content of a specific file in a vector store',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: {
-              type: 'string',
-              description: 'ID of the vector store'
-            },
-            file_id: {
-              type: 'string',
-              description: 'ID of the file to get content from'
-            }
-          },
-          required: ['vector_store_id', 'file_id']
-        }
-      },
-      {
-        name: 'vector-store-file-update',
-        description: 'Update metadata of a file in a vector store',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: {
-              type: 'string',
-              description: 'ID of the vector store'
-            },
-            file_id: {
-              type: 'string',
-              description: 'ID of the file to update'
-            },
-            metadata: {
-              type: 'object',
-              description: 'New metadata for the file'
-            }
-          },
-          required: ['vector_store_id', 'file_id', 'metadata']
-        }
-      },
-      {
-        name: 'vector-store-file-delete',
-        description: 'Delete a file from a vector store',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: {
-              type: 'string',
-              description: 'ID of the vector store'
-            },
-            file_id: {
-              type: 'string',
-              description: 'ID of the file to delete'
-            }
-          },
-          required: ['vector_store_id', 'file_id']
-        }
-      },
-      {
-        name: 'vector-store-file-batch-create',
-        description: 'Create a file batch for a vector store',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: {
-              type: 'string',
-              description: 'ID of the vector store'
-            },
-            file_ids: {
+            tools: {
               type: 'array',
-              items: {
-                type: 'string'
-              },
-              description: 'Array of file IDs to add to the batch'
-            }
+              description: 'List of tools enabled for the assistant',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Set of key-value pairs for storing additional information',
+            },
           },
-          required: ['vector_store_id', 'file_ids']
-        }
+          required: ['assistant_id'],
+        },
       },
       {
-        name: 'vector-store-file-batch-get',
-        description: 'Get status of a file batch',
+        name: 'assistant-delete',
+        description: 'Delete an assistant permanently',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: {
+            assistant_id: {
               type: 'string',
-              description: 'ID of the vector store'
+              description: 'The ID of the assistant to delete',
             },
-            batch_id: {
-              type: 'string',
-              description: 'ID of the batch to retrieve'
-            }
           },
-          required: ['vector_store_id', 'batch_id']
-        }
+          required: ['assistant_id'],
+        },
       },
+
+      // Thread Management Tools
       {
-        name: 'vector-store-file-batch-cancel',
-        description: 'Cancel a file batch',
+        name: 'thread-create',
+        description: 'Create a new conversation thread',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: {
-              type: 'string',
-              description: 'ID of the vector store'
+            messages: {
+              type: 'array',
+              description: 'Initial messages for the thread',
             },
-            batch_id: {
-              type: 'string',
-              description: 'ID of the batch to cancel'
-            }
+            metadata: {
+              type: 'object',
+              description: 'Set of key-value pairs for storing additional information',
+            },
           },
-          required: ['vector_store_id', 'batch_id']
-        }
+        },
       },
       {
-        name: 'vector-store-file-batch-files',
-        description: 'List files in a file batch',
+        name: 'thread-get',
+        description: 'Retrieve details of a specific thread',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: {
+            thread_id: {
               type: 'string',
-              description: 'ID of the vector store'
+              description: 'The ID of the thread to retrieve',
             },
-            batch_id: {
+          },
+          required: ['thread_id'],
+        },
+      },
+      {
+        name: 'thread-update',
+        description: 'Update an existing thread',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
               type: 'string',
-              description: 'ID of the batch'
+              description: 'The ID of the thread to update',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Set of key-value pairs for storing additional information',
+            },
+          },
+          required: ['thread_id'],
+        },
+      },
+      {
+        name: 'thread-delete',
+        description: 'Delete a thread permanently',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread to delete',
+            },
+          },
+          required: ['thread_id'],
+        },
+      },
+
+      // Message Management Tools
+      {
+        name: 'message-create',
+        description: 'Add a message to a thread',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread to add the message to',
+            },
+            role: {
+              type: 'string',
+              enum: ['user', 'assistant'],
+              description: 'The role of the message sender',
+            },
+            content: {
+              type: 'string',
+              description: 'The content of the message',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Set of key-value pairs for storing additional information',
+            },
+          },
+          required: ['thread_id', 'role', 'content'],
+        },
+      },
+      {
+        name: 'message-list',
+        description: 'List messages in a thread with optional pagination',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread to list messages from',
             },
             limit: {
               type: 'number',
-              description: 'Maximum number of files to return (default: 20)'
+              description: 'Number of messages to return (1-100, default: 20)',
             },
-            filter: {
+            order: {
               type: 'string',
-              enum: ['in_progress', 'completed', 'failed', 'cancelled'],
-              description: 'Filter files by status'
-            }
+              enum: ['asc', 'desc'],
+              description: 'Sort order by created_at timestamp',
+            },
+            after: {
+              type: 'string',
+              description: 'Cursor for pagination (message ID)',
+            },
+            before: {
+              type: 'string',
+              description: 'Cursor for pagination (message ID)',
+            },
+            run_id: {
+              type: 'string',
+              description: 'Filter messages by run ID',
+            },
           },
-          required: ['vector_store_id', 'batch_id']
-        }
-      }
+          required: ['thread_id'],
+        },
+      },
+      {
+        name: 'message-get',
+        description: 'Retrieve details of a specific message',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the message',
+            },
+            message_id: {
+              type: 'string',
+              description: 'The ID of the message to retrieve',
+            },
+          },
+          required: ['thread_id', 'message_id'],
+        },
+      },
+      {
+        name: 'message-update',
+        description: 'Update an existing message',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the message',
+            },
+            message_id: {
+              type: 'string',
+              description: 'The ID of the message to update',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Set of key-value pairs for storing additional information',
+            },
+          },
+          required: ['thread_id', 'message_id'],
+        },
+      },
+      {
+        name: 'message-delete',
+        description: 'Delete a message from a thread',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the message',
+            },
+            message_id: {
+              type: 'string',
+              description: 'The ID of the message to delete',
+            },
+          },
+          required: ['thread_id', 'message_id'],
+        },
+      },
+
+      // Run Management Tools
+      {
+        name: 'run-create',
+        description: 'Start a new assistant run on a thread',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread to run the assistant on',
+            },
+            assistant_id: {
+              type: 'string',
+              description: 'The ID of the assistant to use for the run',
+            },
+            model: {
+              type: 'string',
+              description: 'Override the model used by the assistant',
+            },
+            instructions: {
+              type: 'string',
+              description: 'Override the instructions of the assistant',
+            },
+            additional_instructions: {
+              type: 'string',
+              description: 'Additional instructions to append to the assistant instructions',
+            },
+            tools: {
+              type: 'array',
+              description: 'Override the tools used by the assistant',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Set of key-value pairs for storing additional information',
+            },
+          },
+          required: ['thread_id', 'assistant_id'],
+        },
+      },
+      {
+        name: 'run-list',
+        description: 'List runs for a thread with optional pagination',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread to list runs from',
+            },
+            limit: {
+              type: 'number',
+              description: 'Number of runs to return (1-100, default: 20)',
+            },
+            order: {
+              type: 'string',
+              enum: ['asc', 'desc'],
+              description: 'Sort order by created_at timestamp',
+            },
+            after: {
+              type: 'string',
+              description: 'Cursor for pagination (run ID)',
+            },
+            before: {
+              type: 'string',
+              description: 'Cursor for pagination (run ID)',
+            },
+          },
+          required: ['thread_id'],
+        },
+      },
+      {
+        name: 'run-get',
+        description: 'Retrieve details of a specific run',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the run',
+            },
+            run_id: {
+              type: 'string',
+              description: 'The ID of the run to retrieve',
+            },
+          },
+          required: ['thread_id', 'run_id'],
+        },
+      },
+      {
+        name: 'run-update',
+        description: 'Update an existing run',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the run',
+            },
+            run_id: {
+              type: 'string',
+              description: 'The ID of the run to update',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Set of key-value pairs for storing additional information',
+            },
+          },
+          required: ['thread_id', 'run_id'],
+        },
+      },
+      {
+        name: 'run-cancel',
+        description: 'Cancel a running assistant execution',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the run',
+            },
+            run_id: {
+              type: 'string',
+              description: 'The ID of the run to cancel',
+            },
+          },
+          required: ['thread_id', 'run_id'],
+        },
+      },
+      {
+        name: 'run-submit-tool-outputs',
+        description: 'Submit tool call results to continue a run',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the run',
+            },
+            run_id: {
+              type: 'string',
+              description: 'The ID of the run to submit tool outputs for',
+            },
+            tool_outputs: {
+              type: 'array',
+              description: 'List of tool outputs to submit',
+              items: {
+                type: 'object',
+                properties: {
+                  tool_call_id: {
+                    type: 'string',
+                    description: 'The ID of the tool call',
+                  },
+                  output: {
+                    type: 'string',
+                    description: 'The output of the tool call',
+                  },
+                },
+                required: ['tool_call_id', 'output'],
+              },
+            },
+          },
+          required: ['thread_id', 'run_id', 'tool_outputs'],
+        },
+      },
+
+      // Run Step Management Tools
+      {
+        name: 'run-step-list',
+        description: 'List steps in a run execution',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the run',
+            },
+            run_id: {
+              type: 'string',
+              description: 'The ID of the run to list steps from',
+            },
+            limit: {
+              type: 'number',
+              description: 'Number of steps to return (1-100, default: 20)',
+            },
+            order: {
+              type: 'string',
+              enum: ['asc', 'desc'],
+              description: 'Sort order by created_at timestamp',
+            },
+            after: {
+              type: 'string',
+              description: 'Cursor for pagination (step ID)',
+            },
+            before: {
+              type: 'string',
+              description: 'Cursor for pagination (step ID)',
+            },
+          },
+          required: ['thread_id', 'run_id'],
+        },
+      },
+      {
+        name: 'run-step-get',
+        description: 'Get details of a specific run step',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: {
+              type: 'string',
+              description: 'The ID of the thread containing the run',
+            },
+            run_id: {
+              type: 'string',
+              description: 'The ID of the run containing the step',
+            },
+            step_id: {
+              type: 'string',
+              description: 'The ID of the step to retrieve',
+            },
+          },
+          required: ['thread_id', 'run_id', 'step_id'],
+        },
+      },
     ];
     
     return {
@@ -451,122 +703,118 @@ export class MCPHandler {
       let result: any;
 
       switch (name) {
-        case 'vector-store-create':
-          result = await this.openaiService.createVectorStore({
-            name: args.name,
-            expires_after_days: args.expires_after_days,
-            metadata: args.metadata
-          });
-          break;
-
-        case 'vector-store-list':
-          result = await this.openaiService.listVectorStores({
-            limit: args.limit,
-            order: args.order
-          });
-          break;
-
-        case 'vector-store-get':
-          if (!args.vector_store_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id is required');
+        // Assistant Management
+        case 'assistant-create':
+          // Validate required fields
+          if (!args.model) {
+            throw new MCPError(
+              ErrorCodes.INVALID_PARAMS,
+              'Missing required parameter: model'
+            );
           }
-          result = await this.openaiService.getVectorStore(args.vector_store_id);
+          result = await this.openaiService.createAssistant(args as any);
+          break;
+        case 'assistant-list':
+          result = await this.openaiService.listAssistants(args);
+          break;
+        case 'assistant-get':
+          result = await this.openaiService.getAssistant(args.assistant_id);
+          break;
+        case 'assistant-update':
+          const { assistant_id: updateAssistantId, ...updateAssistantData } = args;
+          result = await this.openaiService.updateAssistant(updateAssistantId, updateAssistantData);
+          break;
+        case 'assistant-delete':
+          result = await this.openaiService.deleteAssistant(args.assistant_id);
           break;
 
-        case 'vector-store-delete':
-          if (!args.vector_store_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id is required');
-          }
-          result = await this.openaiService.deleteVectorStore(args.vector_store_id);
+        // Thread Management
+        case 'thread-create':
+          result = await this.openaiService.createThread(args);
+          break;
+        case 'thread-get':
+          result = await this.openaiService.getThread(args.thread_id);
+          break;
+        case 'thread-update':
+          const { thread_id: updateThreadId, ...updateThreadData } = args;
+          result = await this.openaiService.updateThread(updateThreadId, updateThreadData);
+          break;
+        case 'thread-delete':
+          result = await this.openaiService.deleteThread(args.thread_id);
           break;
 
-        case 'vector-store-modify':
-          if (!args.vector_store_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id is required');
+        // Message Management
+        case 'message-create':
+          // Validate required fields
+          if (!args.thread_id || !args.role || !args.content) {
+            throw new MCPError(
+              ErrorCodes.INVALID_PARAMS,
+              'Missing required parameters: thread_id, role, content'
+            );
           }
-          result = await this.openaiService.modifyVectorStore(args.vector_store_id, {
-            name: args.name,
-            expires_after_days: args.expires_after_days,
-            metadata: args.metadata
-          });
+          const { thread_id: createMessageThreadId, ...createMessageData } = args;
+          result = await this.openaiService.createMessage(createMessageThreadId, createMessageData as any);
+          break;
+        case 'message-list':
+          const { thread_id: listMessageThreadId, ...listMessageData } = args;
+          result = await this.openaiService.listMessages(listMessageThreadId, listMessageData);
+          break;
+        case 'message-get':
+          result = await this.openaiService.getMessage(args.thread_id, args.message_id);
+          break;
+        case 'message-update':
+          const { thread_id: updateMessageThreadId, message_id: updateMessageId, ...updateMessageData } = args;
+          result = await this.openaiService.updateMessage(updateMessageThreadId, updateMessageId, updateMessageData);
+          break;
+        case 'message-delete':
+          result = await this.openaiService.deleteMessage(args.thread_id, args.message_id);
           break;
 
-        case 'vector-store-file-add':
-          if (!args.vector_store_id || !args.file_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id and file_id are required');
+        // Run Management
+        case 'run-create':
+          // Validate required fields
+          if (!args.thread_id || !args.assistant_id) {
+            throw new MCPError(
+              ErrorCodes.INVALID_PARAMS,
+              'Missing required parameters: thread_id, assistant_id'
+            );
           }
-          result = await this.openaiService.addFileToVectorStore(args.vector_store_id, {
-            file_id: args.file_id
-          });
+          const { thread_id: createRunThreadId, ...createRunData } = args;
+          result = await this.openaiService.createRun(createRunThreadId, createRunData as any);
+          break;
+        case 'run-list':
+          const { thread_id: listRunThreadId, ...listRunData } = args;
+          result = await this.openaiService.listRuns(listRunThreadId, listRunData);
+          break;
+        case 'run-get':
+          result = await this.openaiService.getRun(args.thread_id, args.run_id);
+          break;
+        case 'run-update':
+          const { thread_id: updateRunThreadId, run_id: updateRunId, ...updateRunData } = args;
+          result = await this.openaiService.updateRun(updateRunThreadId, updateRunId, updateRunData);
+          break;
+        case 'run-cancel':
+          result = await this.openaiService.cancelRun(args.thread_id, args.run_id);
+          break;
+        case 'run-submit-tool-outputs':
+          // Validate required fields
+          if (!args.thread_id || !args.run_id || !args.tool_outputs) {
+            throw new MCPError(
+              ErrorCodes.INVALID_PARAMS,
+              'Missing required parameters: thread_id, run_id, tool_outputs'
+            );
+          }
+          const { thread_id: submitThreadId, run_id: submitRunId, ...submitData } = args;
+          result = await this.openaiService.submitToolOutputs(submitThreadId, submitRunId, submitData as any);
           break;
 
-        case 'vector-store-file-list':
-          if (!args.vector_store_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id is required');
-          }
-          result = await this.openaiService.listVectorStoreFiles(args.vector_store_id, {
-            limit: args.limit,
-            filter: args.filter
-          });
+        // Run Step Management
+        case 'run-step-list':
+          const { thread_id: listStepThreadId, run_id: listStepRunId, ...listStepData } = args;
+          result = await this.openaiService.listRunSteps(listStepThreadId, listStepRunId, listStepData);
           break;
-
-        case 'vector-store-file-get':
-          if (!args.vector_store_id || !args.file_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id and file_id are required');
-          }
-          result = await this.openaiService.getVectorStoreFile(args.vector_store_id, args.file_id);
-          break;
-
-        case 'vector-store-file-content':
-          if (!args.vector_store_id || !args.file_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id and file_id are required');
-          }
-          result = await this.openaiService.getVectorStoreFileContent(args.vector_store_id, args.file_id);
-          break;
-
-        case 'vector-store-file-update':
-          if (!args.vector_store_id || !args.file_id || !args.metadata) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id, file_id, and metadata are required');
-          }
-          result = await this.openaiService.updateVectorStoreFile(args.vector_store_id, args.file_id, args.metadata);
-          break;
-
-        case 'vector-store-file-delete':
-          if (!args.vector_store_id || !args.file_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id and file_id are required');
-          }
-          result = await this.openaiService.deleteVectorStoreFile(args.vector_store_id, args.file_id);
-          break;
-
-        case 'vector-store-file-batch-create':
-          if (!args.vector_store_id || !args.file_ids || !Array.isArray(args.file_ids)) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id and file_ids array are required');
-          }
-          result = await this.openaiService.createVectorStoreFileBatch(args.vector_store_id, args.file_ids);
-          break;
-
-        case 'vector-store-file-batch-get':
-          if (!args.vector_store_id || !args.batch_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id and batch_id are required');
-          }
-          result = await this.openaiService.getVectorStoreFileBatch(args.vector_store_id, args.batch_id);
-          break;
-
-        case 'vector-store-file-batch-cancel':
-          if (!args.vector_store_id || !args.batch_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id and batch_id are required');
-          }
-          result = await this.openaiService.cancelVectorStoreFileBatch(args.vector_store_id, args.batch_id);
-          break;
-
-        case 'vector-store-file-batch-files':
-          if (!args.vector_store_id || !args.batch_id) {
-            throw new MCPError(ErrorCodes.INVALID_PARAMS, 'vector_store_id and batch_id are required');
-          }
-          result = await this.openaiService.listVectorStoreFileBatchFiles(args.vector_store_id, args.batch_id, {
-            limit: args.limit,
-            filter: args.filter
-          });
+        case 'run-step-get':
+          result = await this.openaiService.getRunStep(args.thread_id, args.run_id, args.step_id);
           break;
 
         default:

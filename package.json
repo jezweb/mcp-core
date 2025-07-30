@@ -1,7 +1,7 @@
 {
   "name": "openai-assistants-mcp",
   "version": "1.0.0",
-  "description": "OpenAI Assistants MCP Server - Complete assistant, thread, message, and run management. Deploy via Cloudflare Workers, NPM package, or local development.",
+  "description": "Universal OpenAI Assistants MCP Server - Complete 22-tool implementation for assistant, thread, message, and run management. Deploy via Cloudflare Workers, NPM package, or local development with identical functionality.",
   "main": "dist/worker.js",
   "type": "module",
   "scripts": {
@@ -10,7 +10,23 @@
     "deploy": "wrangler deploy",
     "deploy:staging": "wrangler deploy --env staging",
     "deploy:production": "wrangler deploy --env production",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "node test/run-all-tests.js",
+    "test:all": "node test/run-all-tests.js",
+    "test:integration": "node test/integration/comprehensive-integration-test.js",
+    "test:error-handling": "node test/error-handling/error-handling-tests.js",
+    "test:performance": "node test/performance/performance-tests.js",
+    "test:edge-cases": "node test/edge-cases/edge-case-tests.js",
+    "test:cloudflare": "node test/deployment/cloudflare-workers-tests.js",
+    "test:npm": "node test/deployment/npm-package-tests.js",
+    "test:assistant-management": "node test-assistant-management.js",
+    "test:validation": "node test-validation-only.js",
+    "test:core": "node test/run-all-tests.js --core-only",
+    "test:quick": "node test/run-all-tests.js --integration-only",
+    "test:ci": "node test/run-all-tests.js --skip-performance",
+    "test:watch": "nodemon --exec 'npm test' --watch test/ --watch src/",
+    "test:coverage": "c8 npm test",
+    "test:debug": "node --inspect-brk test/run-all-tests.js"
   },
   "keywords": [
     "mcp",

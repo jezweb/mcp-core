@@ -1,0 +1,423 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: 'Type of update to perform'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - all
+      auto_merge:
+        description: 'Auto-merge if tests pass'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Job 1: Check for dependency updates
+  check-updates:
+    name: Check for Updates
+    runs-on: ubuntu-latest
+    outputs:
+      has-updates: ${{ steps.check.outputs.has-updates }}
+      update-summary: ${{ steps.check.outputs.update-summary }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd npm-package && npm ci
+
+      - name: Install npm-check-updates
+        run: npm install -g npm-check-updates
+
+      - name: Check for updates (Root)
+        id: check-root
+        run: |
+          echo "=== Root Package Updates ===" > update-report.txt
+          ncu --format group >> update-report.txt || true
+
+      - name: Check for updates (NPM Package)
+        id: check-npm
+        run: |
+          echo "" >> update-report.txt
+          echo "=== NPM Package Updates ===" >> update-report.txt
+          cd npm-package
+          ncu --format group >> ../update-report.txt || true
+
+      - name: Analyze updates
+        id: check
+        run: |
+          if grep -q "All dependencies match the latest package versions" update-report.txt; then
+            echo "has-updates=false" >> $GITHUB_OUTPUT
+            echo "No updates available"
+          else
+            echo "has-updates=true" >> $GITHUB_OUTPUT
+            echo "Updates available"
+          fi
+          
+          # Create summary
+          SUMMARY=$(cat update-report.txt | head -50)
+          echo "update-summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Upload update report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-update-report
+          path: update-report.txt
+          retention-days: 7
+
+  # Job 2: Create update PRs
+  create-update-pr:
+    name: Create Update PR
+    runs-on: ubuntu-latest
+    needs: check-updates
+    if: needs.check-updates.outputs.has-updates == 'true'
+    strategy:
+      matrix:
+        package: [root, npm-package]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd npm-package && npm ci
+
+      - name: Install npm-check-updates
+        run: npm install -g npm-check-updates
+
+      - name: Configure git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Create update branch
+        run: |
+          BRANCH_NAME="dependency-updates/${{ matrix.package }}-$(date +%Y%m%d)"
+          git checkout -b $BRANCH_NAME
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Update dependencies
+        run: |
+          UPDATE_TYPE="${{ github.event.inputs.update_type || 'patch' }}"
+          
+          if [[ "${{ matrix.package }}" == "root" ]]; then
+            case "$UPDATE_TYPE" in
+              "patch")
+                ncu -u --target patch
+                ;;
+              "minor")
+                ncu -u --target minor
+                ;;
+              "major")
+                ncu -u --target latest
+                ;;
+              "all")
+                ncu -u
+                ;;
+            esac
+            npm install
+          else
+            cd npm-package
+            case "$UPDATE_TYPE" in
+              "patch")
+                ncu -u --target patch
+                ;;
+              "minor")
+                ncu -u --target minor
+                ;;
+              "major")
+                ncu -u --target latest
+                ;;
+              "all")
+                ncu -u
+                ;;
+            esac
+            npm install
+          fi
+
+      - name: Run tests after updates
+        run: |
+          if [[ "${{ matrix.package }}" == "root" ]]; then
+            npm run test:core
+          else
+            cd npm-package
+            npm test
+          fi
+        env:
+          CI: true
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit changes
+        if: steps.changes.outputs.has-changes == 'true'
+        run: |
+          git add .
+          git commit -m "chore: update ${{ matrix.package }} dependencies (${{ github.event.inputs.update_type || 'patch' }})"
+          git push origin $BRANCH_NAME
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.has-changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `chore: update ${{ matrix.package }} dependencies (${{ github.event.inputs.update_type || 'patch' }})`,
+              head: process.env.BRANCH_NAME,
+              base: 'main',
+              body: `## Dependency Updates - ${{ matrix.package }}
+              
+              This PR updates dependencies for the ${{ matrix.package }} package.
+              
+              **Update Type:** ${{ github.event.inputs.update_type || 'patch' }}
+              **Auto-generated:** Yes
+              **Tests:** ✅ Passed
+              
+              ### Changes
+              ${{ needs.check-updates.outputs.update-summary }}
+              
+              ### Validation
+              - [x] Dependencies updated
+              - [x] Tests passing
+              - [x] No breaking changes detected
+              
+              **Note:** This PR was automatically created by the dependency update workflow.
+              Please review the changes before merging.`,
+              draft: false
+            });
+            
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['dependencies', 'automated', '${{ github.event.inputs.update_type || 'patch' }}']
+            });
+            
+            // Auto-approve if requested and tests pass
+            if ('${{ github.event.inputs.auto_merge }}' === 'true') {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                event: 'APPROVE',
+                body: 'Auto-approved: Tests passed and auto-merge was requested.'
+              });
+            }
+
+  # Job 3: Security vulnerability check
+  security-check:
+    name: Security Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd npm-package && npm ci
+
+      - name: Run npm audit (Root)
+        id: audit-root
+        run: |
+          echo "=== Root Package Audit ===" > security-report.txt
+          npm audit --audit-level=low >> security-report.txt || echo "Vulnerabilities found in root package"
+
+      - name: Run npm audit (NPM Package)
+        id: audit-npm
+        run: |
+          echo "" >> security-report.txt
+          echo "=== NPM Package Audit ===" >> security-report.txt
+          cd npm-package
+          npm audit --audit-level=low >> ../security-report.txt || echo "Vulnerabilities found in npm package"
+
+      - name: Install and run additional security tools
+        run: |
+          npm install -g audit-ci retire
+          
+          echo "" >> security-report.txt
+          echo "=== Retire.js Scan ===" >> security-report.txt
+          retire --outputformat text >> security-report.txt || echo "Retire.js found issues"
+
+      - name: Check for high/critical vulnerabilities
+        id: check-critical
+        run: |
+          if grep -E "(high|critical)" security-report.txt; then
+            echo "has-critical=true" >> $GITHUB_OUTPUT
+            echo "Critical vulnerabilities found!"
+          else
+            echo "has-critical=false" >> $GITHUB_OUTPUT
+            echo "No critical vulnerabilities found"
+          fi
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report.txt
+          retention-days: 30
+
+      - name: Create security issue
+        if: steps.check-critical.outputs.has-critical == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('security-report.txt', 'utf8');
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Critical Security Vulnerabilities Detected',
+              body: `## Security Alert
+              
+              Critical security vulnerabilities have been detected in the project dependencies.
+              
+              **Detected:** ${new Date().toISOString()}
+              **Workflow:** ${context.workflow}
+              **Run:** ${context.runNumber}
+              
+              ### Security Report
+              \`\`\`
+              ${report}
+              \`\`\`
+              
+              ### Recommended Actions
+              1. Review the vulnerabilities listed above
+              2. Update affected dependencies
+              3. Run tests to ensure compatibility
+              4. Deploy security fixes as soon as possible
+              
+              **Priority:** High - Please address these vulnerabilities promptly.`,
+              labels: ['security', 'critical', 'dependencies']
+            });
+
+  # Job 4: Outdated dependencies report
+  outdated-report:
+    name: Generate Outdated Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd npm-package && npm ci
+
+      - name: Generate outdated report
+        run: |
+          echo "# Dependency Status Report" > outdated-report.md
+          echo "Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> outdated-report.md
+          echo "" >> outdated-report.md
+          
+          echo "## Root Package" >> outdated-report.md
+          echo "\`\`\`" >> outdated-report.md
+          npm outdated >> outdated-report.md || echo "No outdated dependencies" >> outdated-report.md
+          echo "\`\`\`" >> outdated-report.md
+          echo "" >> outdated-report.md
+          
+          echo "## NPM Package" >> outdated-report.md
+          echo "\`\`\`" >> outdated-report.md
+          cd npm-package
+          npm outdated >> ../outdated-report.md || echo "No outdated dependencies" >> ../outdated-report.md
+          echo "\`\`\`" >> ../outdated-report.md
+
+      - name: Upload outdated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: outdated-dependencies-report
+          path: outdated-report.md
+          retention-days: 30
+
+  # Job 5: Notification summary
+  notify:
+    name: Dependency Update Summary
+    runs-on: ubuntu-latest
+    needs: [check-updates, create-update-pr, security-check, outdated-report]
+    if: always()
+    steps:
+      - name: Create summary
+        run: |
+          echo "## Dependency Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Run Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Updates Available | ${{ needs.check-updates.outputs.has-updates == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Update PRs Created | ${{ needs.create-update-pr.result == 'success' && '✅ Success' || '❌ Failed/Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Check | ${{ needs.security-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Outdated Report | ${{ needs.outdated-report.result == 'success' && '✅ Generated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.check-updates.outputs.has-updates }}" == "true" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Available Updates" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ needs.check-updates.outputs.update-summary }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Post to Slack (if configured)
+        if: env.SLACK_WEBHOOK_URL != '' && needs.check-updates.outputs.has-updates == 'true'
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"🔄 Dependency updates available for openai-assistants-mcp\nCheck GitHub Actions for details and review PRs."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}

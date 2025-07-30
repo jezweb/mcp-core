@@ -167,8 +167,8 @@ class RooCompatibleMCPServer {
           }
         },
         serverInfo: {
-          name: 'roo-compatible-openai-vector-store-mcp',
-          version: '1.2.0'
+          name: 'openai-assistants-mcp',
+          version: '1.0.0'
         }
       }
     };
@@ -193,261 +193,304 @@ class RooCompatibleMCPServer {
     }
 
     const tools = [
+      // Assistant Management Tools
       {
-        name: 'vector-store-create',
-        description: 'Create a new vector store for organizing and searching through files. Perfect for setting up document collections, knowledge bases, or project-specific file repositories. Use this when starting a new project that needs file search capabilities.',
+        name: 'assistant-create',
+        description: 'Create a new OpenAI assistant with specified instructions and tools',
         inputSchema: {
           type: 'object',
           properties: {
-            name: { type: 'string', description: 'Descriptive name for the vector store (e.g., "Project Documentation", "Research Papers", "Customer Support KB")' },
-            expires_after_days: { type: 'number', description: 'Auto-deletion after specified days (1-365). Useful for temporary projects or testing. Leave empty for permanent storage.' },
-            metadata: { type: 'object', description: 'Custom metadata for organization (e.g., {"project": "alpha", "department": "engineering", "version": "1.0"})' }
+            model: { type: 'string', description: 'The model to use for the assistant (e.g., gpt-4, gpt-3.5-turbo)' },
+            name: { type: 'string', description: 'The name of the assistant' },
+            description: { type: 'string', description: 'The description of the assistant' },
+            instructions: { type: 'string', description: 'The system instructions for the assistant' },
+            tools: { type: 'array', description: 'List of tools enabled for the assistant' },
+            metadata: { type: 'object', description: 'Set of key-value pairs for storing additional information' }
           },
-          required: ['name']
+          required: ['model']
         }
       },
       {
-        name: 'vector-store-list',
-        description: 'Retrieve all your vector stores with their details, file counts, and status. Essential for managing multiple projects and understanding your storage usage. Shows creation dates, expiration times, and file statistics.',
+        name: 'assistant-list',
+        description: 'List all assistants with optional pagination and filtering',
         inputSchema: {
           type: 'object',
           properties: {
-            limit: { type: 'number', description: 'Maximum results to return (1-100, default: 20). Use smaller limits for quick overviews, larger for comprehensive audits.' },
-            order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort by creation date: "desc" for newest first (default), "asc" for oldest first' }
+            limit: { type: 'number', description: 'Number of assistants to return (1-100, default: 20)' },
+            order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order by created_at timestamp' },
+            after: { type: 'string', description: 'Cursor for pagination (assistant ID)' },
+            before: { type: 'string', description: 'Cursor for pagination (assistant ID)' }
           }
         }
       },
       {
-        name: 'vector-store-get',
-        description: 'Get comprehensive details about a specific vector store including file count, processing status, expiration date, metadata, and usage statistics. Use this to monitor store health and understand its current state.',
+        name: 'assistant-get',
+        description: 'Retrieve details of a specific assistant',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: { type: 'string', description: 'Unique identifier of the vector store (starts with "vs_"). Find this ID using vector-store-list.' }
+            assistant_id: { type: 'string', description: 'The ID of the assistant to retrieve' }
           },
-          required: ['vector_store_id']
+          required: ['assistant_id']
         }
       },
       {
-        name: 'vector-store-delete',
-        description: 'Permanently delete a vector store and all its associated files. This action cannot be undone. Use for cleanup, project completion, or when storage limits are reached. All files in the store will be removed.',
+        name: 'assistant-update',
+        description: 'Update an existing assistant',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: { type: 'string', description: 'ID of the vector store to permanently delete. Double-check this ID as deletion is irreversible.' }
+            assistant_id: { type: 'string', description: 'The ID of the assistant to update' },
+            model: { type: 'string', description: 'The model to use for the assistant' },
+            name: { type: 'string', description: 'The name of the assistant' },
+            description: { type: 'string', description: 'The description of the assistant' },
+            instructions: { type: 'string', description: 'The system instructions for the assistant' },
+            tools: { type: 'array', description: 'List of tools enabled for the assistant' },
+            metadata: { type: 'object', description: 'Set of key-value pairs for storing additional information' }
           },
-          required: ['vector_store_id']
+          required: ['assistant_id']
         }
       },
       {
-        name: 'vector-store-modify',
-        description: 'Update vector store properties like name, expiration date, or metadata. Perfect for renaming projects, extending deadlines, or updating organizational tags. Only specified fields will be changed.',
+        name: 'assistant-delete',
+        description: 'Delete an assistant permanently',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: { type: 'string', description: 'ID of the vector store to modify' },
-            name: { type: 'string', description: 'New descriptive name (e.g., rename "Test Store" to "Production Knowledge Base")' },
-            expires_after_days: { type: 'number', description: 'New expiration period in days from now (1-365), or null to remove expiration' },
-            metadata: { type: 'object', description: 'Updated metadata object. This replaces existing metadata entirely.' }
+            assistant_id: { type: 'string', description: 'The ID of the assistant to delete' }
           },
-          required: ['vector_store_id']
+          required: ['assistant_id']
         }
       },
+
+      // Thread Management Tools
       {
-        name: 'vector-store-file-add',
-        description: 'Add a previously uploaded file to a vector store for search and retrieval. The file must already exist in your OpenAI account (uploaded via Files API). This enables the file to be searched and referenced in conversations.',
+        name: 'thread-create',
+        description: 'Create a new conversation thread',
         inputSchema: {
           type: 'object',
           properties: {
-            vector_store_id: { type: 'string', description: 'Target vector store ID where the file will be added' },
-            file_id: { type: 'string', description: 'OpenAI file ID (starts with "file-") of an already uploaded file. Get this from the Files API or OpenAI dashboard.' }
-          },
-          required: ['vector_store_id', 'file_id']
-        }
-      },
-      {
-        name: 'vector-store-file-list',
-        description: 'List all files in a vector store with their processing status, metadata, and usage statistics. Essential for monitoring file processing progress and managing store contents. Shows which files are ready for search.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Vector store ID to list files from' },
-            limit: { type: 'number', description: 'Maximum files to return (1-100, default: 20). Use pagination for large stores.' },
-            filter: { type: 'string', enum: ['in_progress', 'completed', 'failed', 'cancelled'], description: 'Filter by processing status: "completed" for ready files, "in_progress" for processing, "failed" for errors' }
-          },
-          required: ['vector_store_id']
-        }
-      },
-      {
-        name: 'vector-store-file-get',
-        description: 'Get detailed information about a specific file in a vector store including processing status, chunk count, error details, and metadata. Use this to troubleshoot file processing issues or verify file readiness.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Vector store containing the file' },
-            file_id: { type: 'string', description: 'File ID to get details for (starts with "file-")' }
-          },
-          required: ['vector_store_id', 'file_id']
-        }
-      },
-      {
-        name: 'vector-store-file-content',
-        description: 'Retrieve the actual content/text of a file stored in a vector store. Perfect for reviewing file contents, debugging search issues, or extracting specific information. Returns the processed text that is used for search.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Vector store containing the file' },
-            file_id: { type: 'string', description: 'File ID to retrieve content from (starts with "file-")' }
-          },
-          required: ['vector_store_id', 'file_id']
-        }
-      },
-      {
-        name: 'vector-store-file-update',
-        description: 'Update the metadata associated with a file in a vector store. Useful for adding tags, categories, version numbers, or other organizational information. Does not change the file content, only its metadata.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Vector store containing the file' },
-            file_id: { type: 'string', description: 'File ID to update metadata for' },
-            metadata: { type: 'object', description: 'New metadata object (e.g., {"category": "manual", "version": "2.1", "author": "team-alpha"})' }
-          },
-          required: ['vector_store_id', 'file_id', 'metadata']
-        }
-      },
-      {
-        name: 'vector-store-file-delete',
-        description: 'Remove a file from a vector store permanently. The file will no longer be searchable or accessible through this store. The original file in your OpenAI account remains unchanged - only the vector store association is removed.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Vector store to remove the file from' },
-            file_id: { type: 'string', description: 'File ID to remove from the store (starts with "file-")' }
-          },
-          required: ['vector_store_id', 'file_id']
-        }
-      },
-      {
-        name: 'vector-store-file-batch-create',
-        description: 'Create a batch operation to add multiple files to a vector store simultaneously. Much more efficient than adding files one by one. Perfect for bulk uploads, project migrations, or when adding large document collections. Provides a single operation to track.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Target vector store for the batch operation' },
-            file_ids: { type: 'array', items: { type: 'string' }, description: 'Array of file IDs to add (e.g., ["file-abc123", "file-def456"]). All files must already exist in your OpenAI account.' }
-          },
-          required: ['vector_store_id', 'file_ids']
-        }
-      },
-      {
-        name: 'vector-store-file-batch-get',
-        description: 'Check the status and progress of a batch file operation. Shows how many files have been processed, completed, or failed. Essential for monitoring long-running batch operations and identifying any processing issues.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Vector store containing the batch' },
-            batch_id: { type: 'string', description: 'Batch operation ID to check (starts with "vsfb-"). Get this from vector-store-file-batch-create.' }
-          },
-          required: ['vector_store_id', 'batch_id']
-        }
-      },
-      {
-        name: 'vector-store-file-batch-cancel',
-        description: 'Cancel a running batch operation before it completes. Useful when you need to stop a large batch due to errors, changed requirements, or resource constraints. Files already processed will remain in the vector store.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Vector store containing the batch to cancel' },
-            batch_id: { type: 'string', description: 'Batch operation ID to cancel (starts with "vsfb-")' }
-          },
-          required: ['vector_store_id', 'batch_id']
-        }
-      },
-      {
-        name: 'vector-store-file-batch-files',
-        description: 'List all files in a specific batch operation with their individual processing status. Perfect for detailed monitoring, troubleshooting failed files, or getting a complete audit of batch results. Shows which files succeeded or failed.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            vector_store_id: { type: 'string', description: 'Vector store containing the batch' },
-            batch_id: { type: 'string', description: 'Batch operation ID to list files from' },
-            limit: { type: 'number', description: 'Maximum files to return (1-100, default: 20). Use pagination for large batches.' },
-            filter: { type: 'string', enum: ['in_progress', 'completed', 'failed', 'cancelled'], description: 'Filter by file status: "failed" to see errors, "completed" for successful files' }
-          },
-          required: ['vector_store_id', 'batch_id']
-        }
-      },
-      {
-        name: 'file-upload',
-        description: 'Upload a local file to OpenAI for use with vector stores and assistants. This enables the complete workflow: upload file → add to vector store.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            file_path: { type: 'string', description: 'Path to the local file to upload (e.g., "./documents/manual.pdf", "/home/user/data.txt")' },
-            purpose: { type: 'string', enum: ['assistants', 'vision', 'batch'], description: 'Purpose of the file upload. Use "assistants" for vector stores and chat.' },
-            filename: { type: 'string', description: 'Optional custom filename for the uploaded file. If not provided, uses the original filename.' }
-          },
-          required: ['file_path']
-        }
-      },
-      {
-        name: 'file-list',
-        description: 'List all uploaded files in your OpenAI account with filtering options. Essential for managing your file storage and finding file IDs for vector store operations.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            purpose: { type: 'string', enum: ['assistants', 'vision', 'batch'], description: 'Filter files by purpose. Use "assistants" to see files available for vector stores.' },
-            limit: { type: 'number', description: 'Maximum number of files to return (1-10000, default: 20)' },
-            order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order by created_at: "desc" for newest first, "asc" for oldest first' },
-            after: { type: 'string', description: 'File ID to start listing after (for pagination)' }
+            messages: { type: 'array', description: 'Initial messages for the thread' },
+            metadata: { type: 'object', description: 'Set of key-value pairs for storing additional information' }
           }
         }
       },
       {
-        name: 'file-get',
-        description: 'Get detailed information about a specific uploaded file including size, purpose, creation date, and processing status. Use this to verify file details before adding to vector stores.',
+        name: 'thread-get',
+        description: 'Retrieve details of a specific thread',
         inputSchema: {
           type: 'object',
           properties: {
-            file_id: { type: 'string', description: 'OpenAI file ID to retrieve details for (starts with "file-")' }
+            thread_id: { type: 'string', description: 'The ID of the thread to retrieve' }
           },
-          required: ['file_id']
+          required: ['thread_id']
         }
       },
       {
-        name: 'file-delete',
-        description: 'Permanently delete a file from your OpenAI account. This will remove the file from all vector stores and make it unavailable for future use. Use with caution as this action cannot be undone.',
+        name: 'thread-update',
+        description: 'Update an existing thread',
         inputSchema: {
           type: 'object',
           properties: {
-            file_id: { type: 'string', description: 'OpenAI file ID to delete (starts with "file-"). Double-check this ID as deletion is irreversible.' }
+            thread_id: { type: 'string', description: 'The ID of the thread to update' },
+            metadata: { type: 'object', description: 'Set of key-value pairs for storing additional information' }
           },
-          required: ['file_id']
+          required: ['thread_id']
         }
       },
       {
-        name: 'file-content',
-        description: 'Download and retrieve the actual content of an uploaded file. Perfect for reviewing file contents, verifying uploads, or extracting text for analysis.',
+        name: 'thread-delete',
+        description: 'Delete a thread permanently',
         inputSchema: {
           type: 'object',
           properties: {
-            file_id: { type: 'string', description: 'OpenAI file ID to download content from (starts with "file-")' }
+            thread_id: { type: 'string', description: 'The ID of the thread to delete' }
           },
-          required: ['file_id']
+          required: ['thread_id']
+        }
+      },
+
+      // Message Management Tools
+      {
+        name: 'message-create',
+        description: 'Add a message to a thread',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread to add the message to' },
+            role: { type: 'string', enum: ['user', 'assistant'], description: 'The role of the message sender' },
+            content: { type: 'string', description: 'The content of the message' },
+            metadata: { type: 'object', description: 'Set of key-value pairs for storing additional information' }
+          },
+          required: ['thread_id', 'role', 'content']
         }
       },
       {
-        name: 'upload-create',
-        description: 'Create a multipart upload session for large files (>25MB). This enables efficient upload of large documents by splitting them into chunks. Use this for files that exceed the standard upload limit.',
+        name: 'message-list',
+        description: 'List messages in a thread with optional pagination',
         inputSchema: {
           type: 'object',
           properties: {
-            filename: { type: 'string', description: 'Name of the file to upload (e.g., "large-dataset.pdf")' },
-            purpose: { type: 'string', enum: ['assistants', 'vision', 'batch'], description: 'Purpose of the file upload. Use "assistants" for vector stores.' },
-            bytes: { type: 'number', description: 'Total size of the file in bytes' },
-            mime_type: { type: 'string', description: 'MIME type of the file (e.g., "application/pdf", "text/plain")' }
+            thread_id: { type: 'string', description: 'The ID of the thread to list messages from' },
+            limit: { type: 'number', description: 'Number of messages to return (1-100, default: 20)' },
+            order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order by created_at timestamp' },
+            after: { type: 'string', description: 'Cursor for pagination (message ID)' },
+            before: { type: 'string', description: 'Cursor for pagination (message ID)' },
+            run_id: { type: 'string', description: 'Filter messages by run ID' }
           },
-          required: ['filename', 'bytes', 'mime_type']
+          required: ['thread_id']
+        }
+      },
+      {
+        name: 'message-get',
+        description: 'Retrieve details of a specific message',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the message' },
+            message_id: { type: 'string', description: 'The ID of the message to retrieve' }
+          },
+          required: ['thread_id', 'message_id']
+        }
+      },
+      {
+        name: 'message-update',
+        description: 'Update an existing message',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the message' },
+            message_id: { type: 'string', description: 'The ID of the message to update' },
+            metadata: { type: 'object', description: 'Set of key-value pairs for storing additional information' }
+          },
+          required: ['thread_id', 'message_id']
+        }
+      },
+      {
+        name: 'message-delete',
+        description: 'Delete a message from a thread',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the message' },
+            message_id: { type: 'string', description: 'The ID of the message to delete' }
+          },
+          required: ['thread_id', 'message_id']
+        }
+      },
+
+      // Run Management Tools
+      {
+        name: 'run-create',
+        description: 'Start a new assistant run on a thread',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread to run the assistant on' },
+            assistant_id: { type: 'string', description: 'The ID of the assistant to use for the run' },
+            model: { type: 'string', description: 'Override the model used by the assistant' },
+            instructions: { type: 'string', description: 'Override the instructions of the assistant' },
+            additional_instructions: { type: 'string', description: 'Additional instructions to append to the assistant instructions' },
+            tools: { type: 'array', description: 'Override the tools used by the assistant' },
+            metadata: { type: 'object', description: 'Set of key-value pairs for storing additional information' }
+          },
+          required: ['thread_id', 'assistant_id']
+        }
+      },
+      {
+        name: 'run-list',
+        description: 'List runs for a thread with optional pagination',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread to list runs from' },
+            limit: { type: 'number', description: 'Number of runs to return (1-100, default: 20)' },
+            order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order by created_at timestamp' },
+            after: { type: 'string', description: 'Cursor for pagination (run ID)' },
+            before: { type: 'string', description: 'Cursor for pagination (run ID)' }
+          },
+          required: ['thread_id']
+        }
+      },
+      {
+        name: 'run-get',
+        description: 'Retrieve details of a specific run',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the run' },
+            run_id: { type: 'string', description: 'The ID of the run to retrieve' }
+          },
+          required: ['thread_id', 'run_id']
+        }
+      },
+      {
+        name: 'run-update',
+        description: 'Update an existing run',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the run' },
+            run_id: { type: 'string', description: 'The ID of the run to update' },
+            metadata: { type: 'object', description: 'Set of key-value pairs for storing additional information' }
+          },
+          required: ['thread_id', 'run_id']
+        }
+      },
+      {
+        name: 'run-cancel',
+        description: 'Cancel a running assistant execution',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the run' },
+            run_id: { type: 'string', description: 'The ID of the run to cancel' }
+          },
+          required: ['thread_id', 'run_id']
+        }
+      },
+      {
+        name: 'run-submit-tool-outputs',
+        description: 'Submit tool call results to continue a run',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the run' },
+            run_id: { type: 'string', description: 'The ID of the run to submit tool outputs for' },
+            tool_outputs: { type: 'array', description: 'List of tool outputs to submit' }
+          },
+          required: ['thread_id', 'run_id', 'tool_outputs']
+        }
+      },
+
+      // Run Step Management Tools
+      {
+        name: 'run-step-list',
+        description: 'List steps in a run execution',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the run' },
+            run_id: { type: 'string', description: 'The ID of the run to list steps from' },
+            limit: { type: 'number', description: 'Number of steps to return (1-100, default: 20)' },
+            order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order by created_at timestamp' },
+            after: { type: 'string', description: 'Cursor for pagination (step ID)' },
+            before: { type: 'string', description: 'Cursor for pagination (step ID)' }
+          },
+          required: ['thread_id', 'run_id']
+        }
+      },
+      {
+        name: 'run-step-get',
+        description: 'Get details of a specific run step',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thread_id: { type: 'string', description: 'The ID of the thread containing the run' },
+            run_id: { type: 'string', description: 'The ID of the run containing the step' },
+            step_id: { type: 'string', description: 'The ID of the step to retrieve' }
+          },
+          required: ['thread_id', 'run_id', 'step_id']
         }
       }
     ];
@@ -498,175 +541,150 @@ class RooCompatibleMCPServer {
       let result;
 
       switch (name) {
-        case 'vector-store-create':
-          result = await this.openaiService.createVectorStore({
-            name: args.name,
-            expires_after_days: args.expires_after_days,
-            metadata: args.metadata
-          });
-          break;
-
-        case 'vector-store-list':
-          result = await this.openaiService.listVectorStores({
-            limit: args.limit,
-            order: args.order
-          });
-          break;
-
-        case 'vector-store-get':
-          if (!args.vector_store_id) {
-            throw new Error('vector_store_id is required');
+        // Assistant Management
+        case 'assistant-create':
+          if (!args.model) {
+            throw new Error('model is required');
           }
-          result = await this.openaiService.getVectorStore(args.vector_store_id);
+          result = await this.openaiService.createAssistant(args);
           break;
-
-        case 'vector-store-delete':
-          if (!args.vector_store_id) {
-            throw new Error('vector_store_id is required');
+        case 'assistant-list':
+          result = await this.openaiService.listAssistants(args);
+          break;
+        case 'assistant-get':
+          if (!args.assistant_id) {
+            throw new Error('assistant_id is required');
           }
-          result = await this.openaiService.deleteVectorStore(args.vector_store_id);
+          result = await this.openaiService.getAssistant(args.assistant_id);
           break;
-
-        case 'vector-store-modify':
-          if (!args.vector_store_id) {
-            throw new Error('vector_store_id is required');
+        case 'assistant-update':
+          if (!args.assistant_id) {
+            throw new Error('assistant_id is required');
           }
-          result = await this.openaiService.modifyVectorStore(args.vector_store_id, {
-            name: args.name,
-            expires_after_days: args.expires_after_days,
-            metadata: args.metadata
-          });
+          const { assistant_id: updateAssistantId, ...updateAssistantData } = args;
+          result = await this.openaiService.updateAssistant(updateAssistantId, updateAssistantData);
           break;
-
-        case 'vector-store-file-add':
-          if (!args.vector_store_id || !args.file_id) {
-            throw new Error('vector_store_id and file_id are required');
+        case 'assistant-delete':
+          if (!args.assistant_id) {
+            throw new Error('assistant_id is required');
           }
-          result = await this.openaiService.addFileToVectorStore(args.vector_store_id, {
-            file_id: args.file_id
-          });
+          result = await this.openaiService.deleteAssistant(args.assistant_id);
           break;
 
-        case 'vector-store-file-list':
-          if (!args.vector_store_id) {
-            throw new Error('vector_store_id is required');
+        // Thread Management
+        case 'thread-create':
+          result = await this.openaiService.createThread(args);
+          break;
+        case 'thread-get':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
           }
-          result = await this.openaiService.listVectorStoreFiles(args.vector_store_id, {
-            limit: args.limit,
-            filter: args.filter
-          });
+          result = await this.openaiService.getThread(args.thread_id);
           break;
-
-        case 'vector-store-file-get':
-          if (!args.vector_store_id || !args.file_id) {
-            throw new Error('vector_store_id and file_id are required');
+        case 'thread-update':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
           }
-          result = await this.openaiService.getVectorStoreFile(args.vector_store_id, args.file_id);
+          const { thread_id: updateThreadId, ...updateThreadData } = args;
+          result = await this.openaiService.updateThread(updateThreadId, updateThreadData);
           break;
-
-        case 'vector-store-file-content':
-          if (!args.vector_store_id || !args.file_id) {
-            throw new Error('vector_store_id and file_id are required');
+        case 'thread-delete':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
           }
-          result = await this.openaiService.getVectorStoreFileContent(args.vector_store_id, args.file_id);
+          result = await this.openaiService.deleteThread(args.thread_id);
           break;
 
-        case 'vector-store-file-update':
-          if (!args.vector_store_id || !args.file_id || !args.metadata) {
-            throw new Error('vector_store_id, file_id, and metadata are required');
+        // Message Management
+        case 'message-create':
+          if (!args.thread_id || !args.role || !args.content) {
+            throw new Error('thread_id, role, and content are required');
           }
-          result = await this.openaiService.updateVectorStoreFile(args.vector_store_id, args.file_id, args.metadata);
+          const { thread_id: createMessageThreadId, ...createMessageData } = args;
+          result = await this.openaiService.createMessage(createMessageThreadId, createMessageData);
           break;
-
-        case 'vector-store-file-delete':
-          if (!args.vector_store_id || !args.file_id) {
-            throw new Error('vector_store_id and file_id are required');
+        case 'message-list':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
           }
-          result = await this.openaiService.deleteVectorStoreFile(args.vector_store_id, args.file_id);
+          const { thread_id: listMessageThreadId, ...listMessageData } = args;
+          result = await this.openaiService.listMessages(listMessageThreadId, listMessageData);
           break;
-
-        case 'vector-store-file-batch-create':
-          if (!args.vector_store_id || !args.file_ids || !Array.isArray(args.file_ids)) {
-            throw new Error('vector_store_id and file_ids array are required');
+        case 'message-get':
+          if (!args.thread_id || !args.message_id) {
+            throw new Error('thread_id and message_id are required');
           }
-          result = await this.openaiService.createVectorStoreFileBatch(args.vector_store_id, args.file_ids);
+          result = await this.openaiService.getMessage(args.thread_id, args.message_id);
           break;
-
-        case 'vector-store-file-batch-get':
-          if (!args.vector_store_id || !args.batch_id) {
-            throw new Error('vector_store_id and batch_id are required');
+        case 'message-update':
+          if (!args.thread_id || !args.message_id) {
+            throw new Error('thread_id and message_id are required');
           }
-          result = await this.openaiService.getVectorStoreFileBatch(args.vector_store_id, args.batch_id);
+          const { thread_id: updateMessageThreadId, message_id: updateMessageId, ...updateMessageData } = args;
+          result = await this.openaiService.updateMessage(updateMessageThreadId, updateMessageId, updateMessageData);
           break;
-
-        case 'vector-store-file-batch-cancel':
-          if (!args.vector_store_id || !args.batch_id) {
-            throw new Error('vector_store_id and batch_id are required');
+        case 'message-delete':
+          if (!args.thread_id || !args.message_id) {
+            throw new Error('thread_id and message_id are required');
           }
-          result = await this.openaiService.cancelVectorStoreFileBatch(args.vector_store_id, args.batch_id);
+          result = await this.openaiService.deleteMessage(args.thread_id, args.message_id);
           break;
 
-        case 'vector-store-file-batch-files':
-          if (!args.vector_store_id || !args.batch_id) {
-            throw new Error('vector_store_id and batch_id are required');
+        // Run Management
+        case 'run-create':
+          if (!args.thread_id || !args.assistant_id) {
+            throw new Error('thread_id and assistant_id are required');
           }
-          result = await this.openaiService.listVectorStoreFileBatchFiles(args.vector_store_id, args.batch_id, {
-            limit: args.limit,
-            filter: args.filter
-          });
+          const { thread_id: createRunThreadId, ...createRunData } = args;
+          result = await this.openaiService.createRun(createRunThreadId, createRunData);
           break;
-
-        case 'file-upload':
-          if (!args.file_path) {
-            throw new Error('file_path is required');
+        case 'run-list':
+          if (!args.thread_id) {
+            throw new Error('thread_id is required');
           }
-          result = await this.openaiService.uploadFile({
-            file_path: args.file_path,
-            purpose: args.purpose,
-            filename: args.filename
-          });
+          const { thread_id: listRunThreadId, ...listRunData } = args;
+          result = await this.openaiService.listRuns(listRunThreadId, listRunData);
           break;
-
-        case 'file-list':
-          result = await this.openaiService.listFiles({
-            purpose: args.purpose,
-            limit: args.limit,
-            order: args.order,
-            after: args.after
-          });
-          break;
-
-        case 'file-get':
-          if (!args.file_id) {
-            throw new Error('file_id is required');
+        case 'run-get':
+          if (!args.thread_id || !args.run_id) {
+            throw new Error('thread_id and run_id are required');
           }
-          result = await this.openaiService.getFile(args.file_id);
+          result = await this.openaiService.getRun(args.thread_id, args.run_id);
+          break;
+        case 'run-update':
+          if (!args.thread_id || !args.run_id) {
+            throw new Error('thread_id and run_id are required');
+          }
+          const { thread_id: updateRunThreadId, run_id: updateRunId, ...updateRunData } = args;
+          result = await this.openaiService.updateRun(updateRunThreadId, updateRunId, updateRunData);
+          break;
+        case 'run-cancel':
+          if (!args.thread_id || !args.run_id) {
+            throw new Error('thread_id and run_id are required');
+          }
+          result = await this.openaiService.cancelRun(args.thread_id, args.run_id);
+          break;
+        case 'run-submit-tool-outputs':
+          if (!args.thread_id || !args.run_id || !args.tool_outputs) {
+            throw new Error('thread_id, run_id, and tool_outputs are required');
+          }
+          const { thread_id: submitThreadId, run_id: submitRunId, ...submitData } = args;
+          result = await this.openaiService.submitToolOutputs(submitThreadId, submitRunId, submitData);
           break;
 
-        case 'file-delete':
-          if (!args.file_id) {
-            throw new Error('file_id is required');
+        // Run Step Management
+        case 'run-step-list':
+          if (!args.thread_id || !args.run_id) {
+            throw new Error('thread_id and run_id are required');
           }
-          result = await this.openaiService.deleteFile(args.file_id);
+          const { thread_id: listStepThreadId, run_id: listStepRunId, ...listStepData } = args;
+          result = await this.openaiService.listRunSteps(listStepThreadId, listStepRunId, listStepData);
           break;
-
-        case 'file-content':
-          if (!args.file_id) {
-            throw new Error('file_id is required');
+        case 'run-step-get':
+          if (!args.thread_id || !args.run_id || !args.step_id) {
+            throw new Error('thread_id, run_id, and step_id are required');
           }
-          result = await this.openaiService.getFileContent(args.file_id);
-          break;
-
-        case 'upload-create':
-          if (!args.filename || !args.bytes || !args.mime_type) {
-            throw new Error('filename, bytes, and mime_type are required');
-          }
-          result = await this.openaiService.createUpload({
-            filename: args.filename,
-            purpose: args.purpose,
-            bytes: args.bytes,
-            mime_type: args.mime_type
-          });
+          result = await this.openaiService.getRunStep(args.thread_id, args.run_id, args.step_id);
           break;
 
         default:
@@ -754,7 +772,7 @@ class RooCompatibleMCPServer {
 
 // Start the server
 if (require.main === module) {
-  console.error('[INFO] Starting OpenAI Vector Store MCP Server...');
+  console.error('[INFO] Starting OpenAI Assistants MCP Server...');
   console.error('[INFO] API key will be validated when tools are called');
   new RooCompatibleMCPServer();
 }

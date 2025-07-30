@@ -636,7 +636,14 @@ export class MCPHandler {
       switch (name) {
         // Assistant Management
         case 'assistant-create':
-          result = await this.openaiService.createAssistant(args);
+          // Validate required fields
+          if (!args.model) {
+            throw new MCPError(
+              ErrorCodes.INVALID_PARAMS,
+              'Missing required parameter: model'
+            );
+          }
+          result = await this.openaiService.createAssistant(args as any);
           break;
         case 'assistant-list':
           result = await this.openaiService.listAssistants(args);
@@ -669,8 +676,15 @@ export class MCPHandler {
 
         // Message Management
         case 'message-create':
+          // Validate required fields
+          if (!args.thread_id || !args.role || !args.content) {
+            throw new MCPError(
+              ErrorCodes.INVALID_PARAMS,
+              'Missing required parameters: thread_id, role, content'
+            );
+          }
           const { thread_id: createMessageThreadId, ...createMessageData } = args;
-          result = await this.openaiService.createMessage(createMessageThreadId, createMessageData);
+          result = await this.openaiService.createMessage(createMessageThreadId, createMessageData as any);
           break;
         case 'message-list':
           const { thread_id: listMessageThreadId, ...listMessageData } = args;
@@ -689,8 +703,15 @@ export class MCPHandler {
 
         // Run Management
         case 'run-create':
+          // Validate required fields
+          if (!args.thread_id || !args.assistant_id) {
+            throw new MCPError(
+              ErrorCodes.INVALID_PARAMS,
+              'Missing required parameters: thread_id, assistant_id'
+            );
+          }
           const { thread_id: createRunThreadId, ...createRunData } = args;
-          result = await this.openaiService.createRun(createRunThreadId, createRunData);
+          result = await this.openaiService.createRun(createRunThreadId, createRunData as any);
           break;
         case 'run-list':
           const { thread_id: listRunThreadId, ...listRunData } = args;
@@ -707,8 +728,15 @@ export class MCPHandler {
           result = await this.openaiService.cancelRun(args.thread_id, args.run_id);
           break;
         case 'run-submit-tool-outputs':
+          // Validate required fields
+          if (!args.thread_id || !args.run_id || !args.tool_outputs) {
+            throw new MCPError(
+              ErrorCodes.INVALID_PARAMS,
+              'Missing required parameters: thread_id, run_id, tool_outputs'
+            );
+          }
           const { thread_id: submitThreadId, run_id: submitRunId, ...submitData } = args;
-          result = await this.openaiService.submitToolOutputs(submitThreadId, submitRunId, submitData);
+          result = await this.openaiService.submitToolOutputs(submitThreadId, submitRunId, submitData as any);
           break;
 
         // Run Step Management

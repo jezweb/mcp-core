@@ -7,11 +7,12 @@ A production-ready Model Context Protocol (MCP) server that provides comprehensi
 Choose the deployment option that best fits your needs:
 
 ### 🚀 Option 1: Cloudflare Workers (Production Ready)
-**Production URL**: `https://assistants.jezweb.com`
+**Production URL**: `https://openai-assistants-mcp.webfonts.workers.dev`
 - ✅ Zero setup required
 - ✅ Global edge distribution
 - ✅ Sub-100ms response times
 - ✅ No local dependencies
+- ✅ **LIVE & OPERATIONAL** - Deployed and tested
 
 ### 📦 Option 2: NPM Package (Local Stdio)
 **Package**: `openai-assistants-mcp`
@@ -29,20 +30,24 @@ Choose the deployment option that best fits your needs:
 
 ## ✨ Features
 
-- **Complete Assistants API Coverage** - Full assistant, thread, message, and run management
+- **Complete Assistants API Coverage** - All 22 tools for full assistant, thread, message, and run management
+- **Universal Deployment** - Three deployment options with identical functionality
 - **Production Ready** - Deployed on Cloudflare Workers with global edge distribution
 - **Zero Dependencies** - Lightweight implementation with no runtime dependencies
 - **Type Safe** - Full TypeScript implementation with comprehensive type definitions
-- **Secure Authentication** - URL-based API key authentication
+- **Secure Authentication** - URL-based API key authentication (Workers) or environment variables (NPM)
 - **Error Handling** - Robust error handling with detailed error messages
 - **CORS Support** - Ready for web-based MCP clients
 - **Real-time Operations** - Support for streaming and real-time assistant interactions
+- **Comprehensive Testing** - Built-in test suites for both deployment options
 
 ## 📊 Current Status
 
-🚧 **Phase 1 Development** - Project structure setup and core architecture
-🎯 **Next Phase** - Implement core Assistants API tools
-🔄 **Future Phases** - Advanced features and optimizations
+✅ **Phase 1 - COMPLETED** - Project structure setup and core architecture
+✅ **Phase 2 - COMPLETED** - All 22 Assistants API tools implemented and tested
+🎯 **Next Phase** - Advanced features and optimizations
+
+**🎉 Deployment Parity Achieved**: Both Cloudflare Workers and NPM package now provide identical functionality with all 22 tools working seamlessly across both deployment options.
 
 ## 🛠️ Planned Tools
 
@@ -213,7 +218,7 @@ npm install -g mcp-proxy
       "command": "npx",
       "args": [
         "mcp-proxy",
-        "https://assistants.jezweb.com/mcp/YOUR_OPENAI_API_KEY_HERE"
+        "https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_OPENAI_API_KEY_HERE"
       ]
     }
   }
@@ -321,6 +326,53 @@ npm run dev
 
 ---
 
+## 🔄 Deployment Option Parity
+
+Both deployment options provide **identical functionality** with all 22 Assistants API tools working seamlessly across different transport mechanisms:
+
+### ✅ Functional Parity
+- **Identical Tools**: All 22 tools work exactly the same way in both deployments
+- **Same API Surface**: Identical tool names, parameters, and responses
+- **Consistent Behavior**: Error handling, validation, and responses are uniform
+- **Feature Complete**: No functionality differences between deployment options
+
+### 🚀 Transport Differences
+
+| Feature | Cloudflare Workers | NPM Package |
+|---------|-------------------|-------------|
+| **Transport** | HTTP/SSE via mcp-proxy | Direct stdio |
+| **Setup** | Zero setup required | Node.js 18+ required |
+| **Performance** | Sub-100ms global edge | Direct process communication |
+| **Dependencies** | No local dependencies | Local Node.js execution |
+| **API Key** | URL-based authentication | Environment variable |
+| **Scaling** | Automatic global scaling | Single process |
+| **Offline** | Requires internet | Works offline (after setup) |
+
+### 🎯 When to Use Each Option
+
+#### Choose **Cloudflare Workers** when:
+- You want zero setup and immediate usage
+- You need global edge distribution and scaling
+- You prefer cloud-based deployment
+- You want to avoid local Node.js dependencies
+- You're using web-based MCP clients
+
+#### Choose **NPM Package** when:
+- You want the fastest possible performance (direct stdio)
+- You prefer local execution and control
+- You're using Roo or other stdio-optimized clients
+- You want to work offline after initial setup
+- You need to customize the server implementation
+
+### 🧪 Testing Parity
+Both deployment options include comprehensive test suites that validate:
+- All 22 tools function correctly
+- MCP protocol compliance
+- Error handling consistency
+- API response formatting
+
+---
+
 ## 🏗️ Architecture
 
 ### Clean Design Principles
@@ -351,20 +403,60 @@ src/
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing Infrastructure
+
+### Comprehensive Test Suites
+
+Both deployment options include robust testing infrastructure to ensure reliability and consistency:
+
+#### NPM Package Testing
+```bash
+# Run the complete test suite
+cd npm-package
+npm test
+
+# Test with debug output
+DEBUG=* npm test
+```
+
+**Test Coverage:**
+- ✅ Server initialization and startup
+- ✅ MCP protocol compliance (initialize, tools/list, tools/call)
+- ✅ All 22 tools validation
+- ✅ Error handling and edge cases
+- ✅ API key validation
+- ✅ Input parameter validation
+- ✅ Response format verification
+
+#### Cloudflare Workers Testing
+```bash
+# Test the deployed worker
+node test-validation-only.js
+
+# Test assistant management specifically
+node test-assistant-management.js
+```
+
+**Test Coverage:**
+- ✅ HTTP endpoint functionality
+- ✅ CORS handling
+- ✅ URL-based API key authentication
+- ✅ All 22 tools via HTTP transport
+- ✅ Error response formatting
+- ✅ Production deployment validation
 
 ### Manual Testing
 
-Test the server directly with curl:
+Test the Cloudflare Workers deployment directly with curl:
 
 ```bash
 # List available tools
-curl -X POST "https://assistants.jezweb.com/mcp/YOUR_API_KEY" \
+curl -X POST "https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 
 # Create an assistant
-curl -X POST "https://assistants.jezweb.com/mcp/YOUR_API_KEY" \
+curl -X POST "https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -379,6 +471,23 @@ curl -X POST "https://assistants.jezweb.com/mcp/YOUR_API_KEY" \
     }
   }'
 ```
+
+### Test the NPM Package directly:
+
+```bash
+# Test stdio transport
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | npx openai-assistants-mcp@latest
+```
+
+### Validation Process
+
+Our testing process ensures deployment parity:
+
+1. **Tool Enumeration**: Verify all 22 tools are available in both deployments
+2. **Parameter Validation**: Test identical parameter handling across deployments
+3. **Response Consistency**: Ensure identical response formats and error handling
+4. **Protocol Compliance**: Validate MCP specification adherence
+5. **Integration Testing**: Test with actual MCP clients (Claude Desktop, Roo)
 
 ---
 
@@ -455,13 +564,15 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [x] **Documentation**: Create comprehensive README and setup guides
 - [x] **Type Definitions**: Prepare TypeScript types for Assistants API
 
-### Phase 2 - Core Implementation 🚧 IN PROGRESS
-- [ ] **Assistant Tools**: Implement assistant CRUD operations
-- [ ] **Thread Tools**: Implement thread management
-- [ ] **Message Tools**: Implement message operations
-- [ ] **Run Tools**: Implement run execution and management
-- [ ] **Error Handling**: Comprehensive error handling and validation
-- [ ] **Testing**: Unit tests and integration tests
+### Phase 2 - Core Implementation ✅ COMPLETED
+- [x] **Assistant Tools**: All 5 assistant CRUD operations implemented
+- [x] **Thread Tools**: All 4 thread management tools implemented
+- [x] **Message Tools**: All 5 message operations implemented
+- [x] **Run Tools**: All 6 run execution and management tools implemented
+- [x] **Run Step Tools**: All 2 run step inspection tools implemented
+- [x] **Error Handling**: Comprehensive error handling and validation
+- [x] **Testing**: Complete test suites for both deployment options
+- [x] **Deployment Parity**: Both Cloudflare Workers and NPM package provide identical functionality
 
 ### Phase 3 - Advanced Features 🔄 PLANNED
 - [ ] **Streaming Support**: Real-time streaming for run executions

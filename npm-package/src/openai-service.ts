@@ -1,25 +1,35 @@
 /**
  * OpenAI Service
  * 
- * This service handles all interactions with the OpenAI Vector Store API,
- * providing the 4 core vector store operations: create, list, get, delete.
+ * This service handles all interactions with the OpenAI Assistants API,
+ * providing comprehensive assistant, thread, message, and run management operations.
  */
 
 import {
-  VectorStore,
-  CreateVectorStoreRequest,
-  ListVectorStoresRequest,
-  ListVectorStoresResponse,
-  VectorStoreFile,
-  VectorStoreFileBatch,
-  AddFileToVectorStoreRequest,
-  ListVectorStoreFilesRequest,
-  ListVectorStoreFilesResponse,
-  ModifyVectorStoreRequest,
-  VectorStoreFileContent,
-  UpdateVectorStoreFileRequest,
+  Assistant,
+  CreateAssistantRequest,
+  UpdateAssistantRequest,
+  ListAssistantsRequest,
+  ListAssistantsResponse,
+  Thread,
+  CreateThreadRequest,
+  UpdateThreadRequest,
+  Message,
+  CreateMessageRequest,
+  UpdateMessageRequest,
+  ListMessagesRequest,
+  ListMessagesResponse,
+  Run,
+  CreateRunRequest,
+  UpdateRunRequest,
+  ListRunsRequest,
+  ListRunsResponse,
+  SubmitToolOutputsRequest,
+  RunStep,
+  ListRunStepsRequest,
+  ListRunStepsResponse,
   MCPError,
-  ErrorCodes
+  ErrorCodes,
 } from './types.js';
 
 export class OpenAIService {
@@ -30,247 +40,36 @@ export class OpenAIService {
     this.apiKey = apiKey;
   }
 
-  /**
-   * Create a new vector store
-   */
-  async createVectorStore(request: CreateVectorStoreRequest): Promise<VectorStore> {
-    const requestBody: any = {
-      name: request.name,
-      metadata: request.metadata || {}
-    };
-
-    if (request.expires_after_days) {
-      requestBody.expires_after = {
-        anchor: 'last_active_at',
-        days: request.expires_after_days
-      };
-    }
-
-    const response = await this.makeRequest('POST', '/vector_stores', requestBody);
-    return response as VectorStore;
-  }
-
-  /**
-   * List all vector stores
-   */
-  async listVectorStores(request: ListVectorStoresRequest = {}): Promise<ListVectorStoresResponse> {
-    const params = new URLSearchParams();
-    
-    if (request.limit) {
-      params.append('limit', request.limit.toString());
-    }
-    if (request.order) {
-      params.append('order', request.order);
-    }
-
-    const url = `/vector_stores${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await this.makeRequest('GET', url);
-    return response as ListVectorStoresResponse;
-  }
-
-  /**
-   * Get a specific vector store by ID
-   */
-  async getVectorStore(vectorStoreId: string): Promise<VectorStore> {
-    const response = await this.makeRequest('GET', `/vector_stores/${vectorStoreId}`);
-    return response as VectorStore;
-  }
-
-  /**
-   * Delete a vector store
-   */
-  async deleteVectorStore(vectorStoreId: string): Promise<{ id: string; object: string; deleted: boolean }> {
-    const response = await this.makeRequest('DELETE', `/vector_stores/${vectorStoreId}`);
-    return response as { id: string; object: string; deleted: boolean };
-  }
-
-  /**
-   * Add a file to a vector store
-   */
-  async addFileToVectorStore(vectorStoreId: string, request: AddFileToVectorStoreRequest): Promise<VectorStoreFile> {
-    const requestBody = {
-      file_id: request.file_id
-    };
-
-    const response = await this.makeRequest('POST', `/vector_stores/${vectorStoreId}/files`, requestBody);
-    return response as VectorStoreFile;
-  }
-
-  /**
-   * List files in a vector store
-   */
-  async listVectorStoreFiles(vectorStoreId: string, request: ListVectorStoreFilesRequest = {}): Promise<ListVectorStoreFilesResponse> {
-    const params = new URLSearchParams();
-    
-    if (request.limit) {
-      params.append('limit', request.limit.toString());
-    }
-    if (request.filter) {
-      params.append('filter', request.filter);
-    }
-
-    const url = `/vector_stores/${vectorStoreId}/files${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await this.makeRequest('GET', url);
-    return response as ListVectorStoreFilesResponse;
-  }
-
-  /**
-   * Delete a file from a vector store
-   */
-  async deleteVectorStoreFile(vectorStoreId: string, fileId: string): Promise<{ id: string; object: string; deleted: boolean }> {
-    const response = await this.makeRequest('DELETE', `/vector_stores/${vectorStoreId}/files/${fileId}`);
-    return response as { id: string; object: string; deleted: boolean };
-  }
-
-  /**
-   * Get a specific file from a vector store
-   */
-  async getVectorStoreFile(vectorStoreId: string, fileId: string): Promise<VectorStoreFile> {
-    const response = await this.makeRequest('GET', `/vector_stores/${vectorStoreId}/files/${fileId}`);
-    return response as VectorStoreFile;
-  }
-
-  /**
-   * Get file content from a vector store
-   */
-  async getVectorStoreFileContent(vectorStoreId: string, fileId: string): Promise<VectorStoreFileContent> {
-    const response = await this.makeRequest('GET', `/vector_stores/${vectorStoreId}/files/${fileId}/content`);
-    return response as VectorStoreFileContent;
-  }
-
-  /**
-   * Update a file in a vector store
-   */
-  async updateVectorStoreFile(vectorStoreId: string, fileId: string, metadata: Record<string, any>): Promise<VectorStoreFile> {
-    const requestBody = { metadata };
-    const response = await this.makeRequest('PATCH', `/vector_stores/${vectorStoreId}/files/${fileId}`, requestBody);
-    return response as VectorStoreFile;
-  }
-
-  /**
-   * Modify a vector store
-   */
-  async modifyVectorStore(vectorStoreId: string, updates: ModifyVectorStoreRequest): Promise<VectorStore> {
-    const requestBody: any = {};
-    
-    if (updates.name) {
-      requestBody.name = updates.name;
-    }
-    if (updates.metadata) {
-      requestBody.metadata = updates.metadata;
-    }
-    if (updates.expires_after_days) {
-      requestBody.expires_after = {
-        anchor: 'last_active_at',
-        days: updates.expires_after_days
-      };
-    }
-
-    const response = await this.makeRequest('POST', `/vector_stores/${vectorStoreId}`, requestBody);
-    return response as VectorStore;
-  }
-
-  /**
-   * Create a vector store file batch
-   */
-  async createVectorStoreFileBatch(vectorStoreId: string, fileIds: string[]): Promise<VectorStoreFileBatch> {
-    const requestBody = { file_ids: fileIds };
-    const response = await this.makeRequest('POST', `/vector_stores/${vectorStoreId}/file_batches`, requestBody);
-    return response as VectorStoreFileBatch;
-  }
-
-  /**
-   * Get a vector store file batch
-   */
-  async getVectorStoreFileBatch(vectorStoreId: string, batchId: string): Promise<VectorStoreFileBatch> {
-    const response = await this.makeRequest('GET', `/vector_stores/${vectorStoreId}/file_batches/${batchId}`);
-    return response as VectorStoreFileBatch;
-  }
-
-  /**
-   * Cancel a vector store file batch
-   */
-  async cancelVectorStoreFileBatch(vectorStoreId: string, batchId: string): Promise<VectorStoreFileBatch> {
-    const response = await this.makeRequest('POST', `/vector_stores/${vectorStoreId}/file_batches/${batchId}/cancel`);
-    return response as VectorStoreFileBatch;
-  }
-
-  /**
-   * List files in a vector store file batch
-   */
-  async listVectorStoreFileBatchFiles(vectorStoreId: string, batchId: string, request: ListVectorStoreFilesRequest = {}): Promise<ListVectorStoreFilesResponse> {
-    const params = new URLSearchParams();
-    
-    if (request.limit) {
-      params.append('limit', request.limit.toString());
-    }
-    if (request.filter) {
-      params.append('filter', request.filter);
-    }
-
-    const url = `/vector_stores/${vectorStoreId}/file_batches/${batchId}/files${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await this.makeRequest('GET', url);
-    return response as ListVectorStoreFilesResponse;
-  }
-
-  /**
-   * Validate API key by making a simple request
-   */
-  async validateApiKey(): Promise<boolean> {
-    try {
-      await this.makeRequest('GET', '/models', undefined, false);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  /**
-   * Make HTTP request to OpenAI API
-   */
-  private async makeRequest(method: string, endpoint: string, body?: any, throwOnError: boolean = true): Promise<any> {
+  private async makeRequest(
+    endpoint: string,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+    body?: any
+  ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     
-    const options: RequestInit = {
-      method,
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      }
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+      'OpenAI-Beta': 'assistants=v2',
     };
 
-    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-      options.body = JSON.stringify(body);
+    const config: RequestInit = {
+      method,
+      headers,
+    };
+
+    if (body && (method === 'POST' || method === 'PUT')) {
+      config.body = JSON.stringify(body);
     }
 
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, config);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        
-        if (!throwOnError) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        // Map OpenAI error codes to MCP error codes
-        let mcpErrorCode: number = ErrorCodes.INTERNAL_ERROR;
-        if (response.status === 401) {
-          mcpErrorCode = ErrorCodes.UNAUTHORIZED;
-        } else if (response.status === 403) {
-          mcpErrorCode = ErrorCodes.FORBIDDEN;
-        } else if (response.status === 404) {
-          mcpErrorCode = ErrorCodes.NOT_FOUND;
-        } else if (response.status === 429) {
-          mcpErrorCode = ErrorCodes.RATE_LIMITED;
-        }
-
-        const errorMessage = (errorData as any)?.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`;
-        
+        const errorData = await response.json().catch(() => ({})) as any;
         throw new MCPError(
-          mcpErrorCode,
-          errorMessage,
+          this.mapHttpStatusToErrorCode(response.status),
+          errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`,
           errorData
         );
       }
@@ -280,12 +79,171 @@ export class OpenAIService {
       if (error instanceof MCPError) {
         throw error;
       }
-      
       throw new MCPError(
         ErrorCodes.INTERNAL_ERROR,
-        `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { originalError: error }
       );
+    }
+  }
+
+  private mapHttpStatusToErrorCode(status: number): number {
+    switch (status) {
+      case 401:
+        return ErrorCodes.UNAUTHORIZED;
+      case 403:
+        return ErrorCodes.FORBIDDEN;
+      case 404:
+        return ErrorCodes.NOT_FOUND;
+      case 429:
+        return ErrorCodes.RATE_LIMITED;
+      default:
+        return ErrorCodes.INTERNAL_ERROR;
+    }
+  }
+
+  // Assistant Management
+  async createAssistant(request: CreateAssistantRequest): Promise<Assistant> {
+    return this.makeRequest('/assistants', 'POST', request);
+  }
+
+  async listAssistants(request: ListAssistantsRequest = {}): Promise<ListAssistantsResponse> {
+    const params = new URLSearchParams();
+    if (request.limit) params.append('limit', request.limit.toString());
+    if (request.order) params.append('order', request.order);
+    if (request.after) params.append('after', request.after);
+    if (request.before) params.append('before', request.before);
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/assistants?${queryString}` : '/assistants';
+    
+    return this.makeRequest(endpoint);
+  }
+
+  async getAssistant(assistantId: string): Promise<Assistant> {
+    return this.makeRequest(`/assistants/${assistantId}`);
+  }
+
+  async updateAssistant(assistantId: string, request: UpdateAssistantRequest): Promise<Assistant> {
+    return this.makeRequest(`/assistants/${assistantId}`, 'POST', request);
+  }
+
+  async deleteAssistant(assistantId: string): Promise<{ id: string; object: string; deleted: boolean }> {
+    return this.makeRequest(`/assistants/${assistantId}`, 'DELETE');
+  }
+
+  // Thread Management
+  async createThread(request: CreateThreadRequest = {}): Promise<Thread> {
+    return this.makeRequest('/threads', 'POST', request);
+  }
+
+  async getThread(threadId: string): Promise<Thread> {
+    return this.makeRequest(`/threads/${threadId}`);
+  }
+
+  async updateThread(threadId: string, request: UpdateThreadRequest): Promise<Thread> {
+    return this.makeRequest(`/threads/${threadId}`, 'POST', request);
+  }
+
+  async deleteThread(threadId: string): Promise<{ id: string; object: string; deleted: boolean }> {
+    return this.makeRequest(`/threads/${threadId}`, 'DELETE');
+  }
+
+  // Message Management
+  async createMessage(threadId: string, request: CreateMessageRequest): Promise<Message> {
+    return this.makeRequest(`/threads/${threadId}/messages`, 'POST', request);
+  }
+
+  async listMessages(threadId: string, request: ListMessagesRequest = {}): Promise<ListMessagesResponse> {
+    const params = new URLSearchParams();
+    if (request.limit) params.append('limit', request.limit.toString());
+    if (request.order) params.append('order', request.order);
+    if (request.after) params.append('after', request.after);
+    if (request.before) params.append('before', request.before);
+    if (request.run_id) params.append('run_id', request.run_id);
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/threads/${threadId}/messages?${queryString}` : `/threads/${threadId}/messages`;
+    
+    return this.makeRequest(endpoint);
+  }
+
+  async getMessage(threadId: string, messageId: string): Promise<Message> {
+    return this.makeRequest(`/threads/${threadId}/messages/${messageId}`);
+  }
+
+  async updateMessage(threadId: string, messageId: string, request: UpdateMessageRequest): Promise<Message> {
+    return this.makeRequest(`/threads/${threadId}/messages/${messageId}`, 'POST', request);
+  }
+
+  async deleteMessage(threadId: string, messageId: string): Promise<{ id: string; object: string; deleted: boolean }> {
+    return this.makeRequest(`/threads/${threadId}/messages/${messageId}`, 'DELETE');
+  }
+
+  // Run Management
+  async createRun(threadId: string, request: CreateRunRequest): Promise<Run> {
+    return this.makeRequest(`/threads/${threadId}/runs`, 'POST', request);
+  }
+
+  async listRuns(threadId: string, request: ListRunsRequest = {}): Promise<ListRunsResponse> {
+    const params = new URLSearchParams();
+    if (request.limit) params.append('limit', request.limit.toString());
+    if (request.order) params.append('order', request.order);
+    if (request.after) params.append('after', request.after);
+    if (request.before) params.append('before', request.before);
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/threads/${threadId}/runs?${queryString}` : `/threads/${threadId}/runs`;
+    
+    return this.makeRequest(endpoint);
+  }
+
+  async getRun(threadId: string, runId: string): Promise<Run> {
+    return this.makeRequest(`/threads/${threadId}/runs/${runId}`);
+  }
+
+  async updateRun(threadId: string, runId: string, request: UpdateRunRequest): Promise<Run> {
+    return this.makeRequest(`/threads/${threadId}/runs/${runId}`, 'POST', request);
+  }
+
+  async cancelRun(threadId: string, runId: string): Promise<Run> {
+    return this.makeRequest(`/threads/${threadId}/runs/${runId}/cancel`, 'POST');
+  }
+
+  async submitToolOutputs(threadId: string, runId: string, request: SubmitToolOutputsRequest): Promise<Run> {
+    return this.makeRequest(`/threads/${threadId}/runs/${runId}/submit_tool_outputs`, 'POST', request);
+  }
+
+  // Run Step Management
+  async listRunSteps(threadId: string, runId: string, request: ListRunStepsRequest = {}): Promise<ListRunStepsResponse> {
+    const params = new URLSearchParams();
+    if (request.limit) params.append('limit', request.limit.toString());
+    if (request.order) params.append('order', request.order);
+    if (request.after) params.append('after', request.after);
+    if (request.before) params.append('before', request.before);
+    if (request.include) {
+      request.include.forEach(include => params.append('include[]', include));
+    }
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/threads/${threadId}/runs/${runId}/steps?${queryString}` : `/threads/${threadId}/runs/${runId}/steps`;
+    
+    return this.makeRequest(endpoint);
+  }
+
+  async getRunStep(threadId: string, runId: string, stepId: string): Promise<RunStep> {
+    return this.makeRequest(`/threads/${threadId}/runs/${runId}/steps/${stepId}`);
+  }
+
+  /**
+   * Validate API key by making a simple request
+   */
+  async validateApiKey(): Promise<boolean> {
+    try {
+      await this.makeRequest('/models', 'GET', undefined);
+      return true;
+    } catch (error) {
+      return false;
     }
   }
 }
