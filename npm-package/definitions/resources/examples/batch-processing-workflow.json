@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/resource-schema.json",
+  "uri": "examples://workflows/batch-processing",
+  "name": "Batch Processing Workflow",
+  "description": "Example of processing multiple tasks efficiently with concurrent operations",
+  "mimeType": "text/markdown",
+  "category": "examples",
+  "tags": ["workflow", "batch", "concurrent", "example"],
+  "contentType": "markdown",
+  "content": "# Batch Processing Workflow\n\nThis example shows how to process multiple requests efficiently.\n\n## Step 1: Create Multiple Assistants\n```json\n// Create specialized assistants for different tasks\n{\n  \"tool\": \"assistant-create\",\n  \"arguments\": {\n    \"model\": \"gpt-4\",\n    \"name\": \"Content Writer\",\n    \"instructions\": \"You are a professional content writer specializing in blog posts and articles.\"\n  }\n}\n\n{\n  \"tool\": \"assistant-create\", \n  \"arguments\": {\n    \"model\": \"gpt-4\",\n    \"name\": \"Code Reviewer\",\n    \"instructions\": \"You are an expert code reviewer focusing on best practices and security.\"\n  }\n}\n```\n\n## Step 2: Create Threads for Each Task\n```json\n{\n  \"tool\": \"thread-create\",\n  \"arguments\": {\n    \"metadata\": {\"task_type\": \"content_writing\", \"priority\": \"high\"}\n  }\n}\n\n{\n  \"tool\": \"thread-create\",\n  \"arguments\": {\n    \"metadata\": {\"task_type\": \"code_review\", \"priority\": \"medium\"}\n  }\n}\n```\n\n## Step 3: Process Tasks Concurrently\n```json\n// Add messages and run assistants in parallel\n{\n  \"tool\": \"message-create\",\n  \"arguments\": {\n    \"thread_id\": \"thread_content_123\",\n    \"role\": \"user\",\n    \"content\": \"Write a blog post about AI in healthcare\"\n  }\n}\n\n{\n  \"tool\": \"run-create\",\n  \"arguments\": {\n    \"thread_id\": \"thread_content_123\",\n    \"assistant_id\": \"asst_writer_123\"\n  }\n}\n```",
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:47:00.000Z",
+    "usage": "workflow-example",
+    "size": 1280
+  }
+}

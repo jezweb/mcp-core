@@ -1,0 +1,35 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "thread-delete",
+  "title": "Delete Thread",
+  "description": "Permanently delete a conversation thread and all its associated messages and runs. Use this for cleanup, removing completed conversations, or when a thread is no longer needed. This action cannot be undone and will remove all conversation history, so use with caution.",
+  "category": "thread",
+  "hints": {
+    "destructive": true
+  },
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string",
+        "description": "The unique identifier of the thread to delete (format: \"thread_abc123...\"). Double-check this ID as deletion is irreversible and will remove all messages and runs."
+      }
+    },
+    "required": ["thread_id"]
+  },
+  "examples": [
+    {
+      "title": "Delete completed conversation",
+      "description": "Permanently remove a thread that is no longer needed",
+      "input": {
+        "thread_id": "thread_abc123def456ghi789jkl012"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:37:00.000Z",
+    "tags": ["thread", "delete", "cleanup", "conversation"]
+  }
+}

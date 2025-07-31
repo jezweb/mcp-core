@@ -1,5 +1,43 @@
 # 📋 Changelog - OpenAI Assistants MCP Server
 
+## 🚀 Version 2.2.3 - NPM Package Structure Fix (2025-07-31)
+
+### 🔧 Critical Bug Fix
+
+#### 📁 NPM Package Directory Structure Fix
+- **Issue**: Required `shared/` and `definitions/` directories were not being included in published NPM package
+- **Root Cause**: Directories were in project root but NPM package was in subdirectory, causing relative path issues
+- **Fix**: Copied required directories into npm-package directory structure for proper inclusion
+- **Impact**: NPM package now contains all necessary files and directories for full functionality
+
+#### 🔍 Package Contents Verification
+- **Complete File Structure**: NPM package now includes all required shared modules and tool definitions
+- **Module Resolution**: Fixed all import paths to work correctly in published package
+- **Production Ready**: Package now works correctly when installed globally via npx
+- **File Count Verification**: Confirmed all 22 tools and 13 resources are accessible
+
+#### 🧪 Validation & Testing
+- **Package Structure**: Verified shared/ and definitions/ directories are included in tarball
+- **Module Loading**: Confirmed all imports resolve correctly in production environment
+- **Tool/Resource Counts**: Validated full 22 tools and 13 resources are accessible
+- **Global Installation**: Ensured NPM package works correctly when installed via npx
+
+### 🔄 Migration Guide
+
+#### From v2.2.2 to v2.2.3
+1. **Update Package**: `npm update openai-assistants-mcp@latest` or use `npx openai-assistants-mcp@latest`
+2. **No Configuration Changes**: Existing configurations work unchanged
+3. **Immediate Fix**: Package should now load without any module resolution errors
+4. **Full Functionality**: All 22 tools and 13 resources should now be available
+
+#### Expected Results After Update
+- **Tools**: 22 tools available (up from broken state in v2.2.2)
+- **Resources**: 13 resources available (up from broken state in v2.2.2)
+- **Module Loading**: All imports resolve correctly without errors
+- **Complete Package**: Full feature set now available via NPM package
+
+---
+
 ## 🚀 Version 2.2.2 - NPM Package Files Fix (2025-07-31)
 
 ### 🔧 Critical Bug Fix

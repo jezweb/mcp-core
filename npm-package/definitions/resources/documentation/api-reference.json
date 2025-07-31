@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/resource-schema.json",
+  "uri": "docs://openai-assistants-api",
+  "name": "OpenAI Assistants API Reference",
+  "description": "Comprehensive API reference with ID formats, parameters, and examples",
+  "mimeType": "text/markdown",
+  "category": "documentation",
+  "tags": ["api", "reference", "documentation", "openai"],
+  "contentType": "markdown",
+  "content": "# OpenAI Assistants API Reference\n\n## Assistant IDs\nAssistant IDs follow the format: `asst_[a-zA-Z0-9]{24}`\n\nExamples:\n- `asst_abc123def456ghi789jkl012`\n- `asst_1234567890abcdef12345678`\n\n## Thread IDs  \nThread IDs follow the format: `thread_[a-zA-Z0-9]{24}`\n\nExamples:\n- `thread_abc123def456ghi789jkl012`\n- `thread_1234567890abcdef12345678`\n\n## Message IDs\nMessage IDs follow the format: `msg_[a-zA-Z0-9]{24}`\n\nExamples:\n- `msg_abc123def456ghi789jkl012`\n- `msg_1234567890abcdef12345678`\n\n## Run IDs\nRun IDs follow the format: `run_[a-zA-Z0-9]{24}`\n\nExamples:\n- `run_abc123def456ghi789jkl012`\n- `run_1234567890abcdef12345678`\n\n## Parameter Formats\n\n### Model Names\nSupported models:\n- `gpt-4` - Most capable model for complex tasks\n- `gpt-4-turbo` - Faster version of GPT-4\n- `gpt-3.5-turbo` - Fast and efficient for simpler tasks\n\n### Tool Types\nAvailable tool types:\n- `code_interpreter` - For running Python code\n- `file_search` - For searching uploaded files\n- `function` - For custom function calls\n\n### Metadata Format\nMetadata should be a JSON object with string keys and values:\n```json\n{\n  \"user_id\": \"12345\",\n  \"session_type\": \"support\",\n  \"priority\": \"high\",\n  \"department\": \"engineering\"\n}\n```\n\n### Pagination Parameters\n- `limit`: Number of items to return (1-100, default: 20)\n- `order`: Sort order (\"asc\" or \"desc\", default: \"desc\")\n- `after`: Cursor for pagination (ID of last item from previous page)\n- `before`: Cursor for pagination (ID of first item from next page)",
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:45:00.000Z",
+    "usage": "api-reference",
+    "size": 2048
+  }
+}

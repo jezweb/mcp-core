@@ -55,7 +55,7 @@ export class MCPHandler {
     // Use proxy mode for any valid API key (removes sk- prefix requirement)
     // Use Cloudflare Worker with API key in URL
     this.isProxyMode = true;
-    const cloudflareWorkerUrl = `https://assistants.jezweb.com/mcp/${apiKey}`;
+    const cloudflareWorkerUrl = `https://openai-assistants-mcp.jezweb.ai/mcp/${apiKey}`;
     this.proxyAdapter = new ProxyTransportAdapter(cloudflareWorkerUrl);
     
     // Create a dummy handler for proxy mode (won't be used for tool execution)

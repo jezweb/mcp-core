@@ -1,0 +1,40 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "message-delete",
+  "title": "Delete Message",
+  "description": "Permanently delete a message from a conversation thread. Use this to remove unwanted messages, clean up conversations, or correct mistakes. This action cannot be undone and will remove the message from the conversation history.",
+  "category": "message",
+  "hints": {
+    "destructive": true
+  },
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string",
+        "description": "The unique identifier of the thread containing the message (format: \"thread_abc123...\")."
+      },
+      "message_id": {
+        "type": "string",
+        "description": "The unique identifier of the message to delete (format: \"msg_abc123...\"). Double-check this ID as deletion is irreversible."
+      }
+    },
+    "required": ["thread_id", "message_id"]
+  },
+  "examples": [
+    {
+      "title": "Remove unwanted message",
+      "description": "Delete a message that was sent in error or is no longer needed",
+      "input": {
+        "thread_id": "thread_abc123def456ghi789jkl012",
+        "message_id": "msg_abc123def456ghi789jkl012"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:38:00.000Z",
+    "tags": ["message", "delete", "cleanup", "conversation"]
+  }
+}

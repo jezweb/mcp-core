@@ -1,0 +1,43 @@
+{
+  "$schema": "../../schemas/prompt-schema.json",
+  "name": "create-writing-assistant",
+  "title": "Create Writing Assistant",
+  "description": "Generate a professional writing assistant for content creation and editing",
+  "category": "assistant",
+  "tags": ["writing", "content", "editing", "assistant"],
+  "arguments": [
+    {
+      "name": "writing_type",
+      "description": "Type of writing (e.g., \"technical documentation\", \"marketing copy\", \"academic papers\")",
+      "required": true
+    },
+    {
+      "name": "tone",
+      "description": "Preferred writing tone (professional, casual, academic, creative)",
+      "required": false
+    },
+    {
+      "name": "audience",
+      "description": "Target audience (general public, technical experts, students, customers)",
+      "required": false
+    }
+  ],
+  "template": "Create a writing assistant specialized in {{writing_type}} with a {{tone || 'professional'}} tone for {{audience || 'general public'}}. The assistant should help with content creation, editing, proofreading, and style optimization. Include file_search tools for research capabilities.",
+  "examples": [
+    {
+      "title": "Technical documentation writer",
+      "description": "Create an assistant for technical writing",
+      "arguments": {
+        "writing_type": "technical documentation",
+        "tone": "professional",
+        "audience": "technical experts"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:42:00.000Z",
+    "usage": "assistant-creation"
+  }
+}

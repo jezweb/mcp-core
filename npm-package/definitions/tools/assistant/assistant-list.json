@@ -1,0 +1,48 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "assistant-list",
+  "title": "List All Assistants",
+  "description": "Retrieve a list of all your AI assistants with pagination support. Use this to browse existing assistants, find specific ones by name, or get an overview of your assistant collection. Essential for assistant management workflows and discovering assistants created by your team. Returns assistant metadata including names, descriptions, models, and creation dates.",
+  "category": "assistant",
+  "hints": {
+    "readOnly": true
+  },
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "limit": {
+        "type": "number",
+        "description": "Maximum number of assistants to return in one request (1-100, default: 20). Use smaller values for quick previews, larger for comprehensive listings."
+      },
+      "order": {
+        "type": "string",
+        "enum": ["asc", "desc"],
+        "description": "Sort order by creation date: \"desc\" for newest first (default), \"asc\" for oldest first."
+      },
+      "after": {
+        "type": "string",
+        "description": "Pagination cursor - assistant ID to start listing after (format: \"asst_abc123...\"). Use for getting the next page of results."
+      },
+      "before": {
+        "type": "string",
+        "description": "Pagination cursor - assistant ID to end listing before (format: \"asst_abc123...\"). Use for getting the previous page of results."
+      }
+    }
+  },
+  "examples": [
+    {
+      "title": "List recent assistants",
+      "description": "Get the 10 most recently created assistants",
+      "input": {
+        "limit": 10,
+        "order": "desc"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:21:00.000Z",
+    "tags": ["assistant", "list", "read-only"]
+  }
+}

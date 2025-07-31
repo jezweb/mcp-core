@@ -1,0 +1,43 @@
+{
+  "$schema": "../../schemas/prompt-schema.json",
+  "name": "configure-assistant-run",
+  "title": "Configure Assistant Run",
+  "description": "Set up optimal run configuration for an assistant based on the task",
+  "category": "run",
+  "tags": ["run", "configuration", "optimization"],
+  "arguments": [
+    {
+      "name": "task_type",
+      "description": "Type of task (code_review, data_analysis, writing, general_qa)",
+      "required": true
+    },
+    {
+      "name": "complexity",
+      "description": "Task complexity (simple, moderate, complex)",
+      "required": false
+    },
+    {
+      "name": "time_sensitivity",
+      "description": "Time sensitivity (low, medium, high)",
+      "required": false
+    }
+  ],
+  "template": "Configure an optimal assistant run for a {{task_type}} task with {{complexity || 'moderate'}} complexity and {{time_sensitivity || 'medium'}} time sensitivity. Recommend appropriate model, temperature, max_tokens, and tool_choice settings.",
+  "examples": [
+    {
+      "title": "Code review configuration",
+      "description": "Optimize settings for code review tasks",
+      "arguments": {
+        "task_type": "code_review",
+        "complexity": "complex",
+        "time_sensitivity": "medium"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:43:00.000Z",
+    "usage": "run-configuration"
+  }
+}

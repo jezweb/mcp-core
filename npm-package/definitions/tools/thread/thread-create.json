@@ -1,0 +1,39 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "thread-create",
+  "title": "Create Conversation Thread",
+  "description": "Create a new conversation thread to organize a series of messages and assistant interactions. Threads maintain conversation context and history, making them perfect for ongoing conversations, customer support sessions, or multi-turn interactions. You can optionally include initial messages to start the conversation. Returns a thread ID for adding messages and running assistants.",
+  "category": "thread",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "messages": {
+        "type": "array",
+        "description": "Optional array of initial messages to start the conversation. Each message should have role (\"user\" or \"assistant\") and content."
+      },
+      "metadata": {
+        "type": "object",
+        "description": "Custom key-value pairs for organizing threads (e.g., {\"customer_id\": \"12345\", \"session_type\": \"support\", \"priority\": \"high\"})."
+      }
+    }
+  },
+  "examples": [
+    {
+      "title": "Create a customer support thread",
+      "description": "Creates a thread for customer support with initial context",
+      "input": {
+        "metadata": {
+          "customer_id": "12345",
+          "session_type": "support",
+          "priority": "high"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:23:00.000Z",
+    "tags": ["thread", "create", "conversation"]
+  }
+}

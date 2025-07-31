@@ -1,0 +1,52 @@
+{
+  "$schema": "../../schemas/prompt-schema.json",
+  "name": "create-coding-assistant",
+  "title": "Create Coding Assistant",
+  "description": "Generate a specialized coding assistant with custom instructions and tools",
+  "category": "assistant",
+  "tags": ["coding", "development", "assistant"],
+  "arguments": [
+    {
+      "name": "specialization",
+      "description": "Programming specialization (e.g., \"Python web development\", \"React frontend\", \"DevOps\")",
+      "required": true
+    },
+    {
+      "name": "experience_level",
+      "description": "Target experience level (beginner, intermediate, expert)",
+      "required": false
+    },
+    {
+      "name": "additional_tools",
+      "description": "Additional tools to enable (code_interpreter, file_search)",
+      "required": false
+    }
+  ],
+  "template": "Create a specialized coding assistant for {{specialization}}. The assistant should be designed for {{experience_level || 'intermediate'}} developers and include {{additional_tools || 'code_interpreter'}} tools. Please provide the complete assistant configuration including name, description, instructions, and tools array.",
+  "examples": [
+    {
+      "title": "Python web development assistant",
+      "description": "Create an assistant specialized in Python web frameworks",
+      "arguments": {
+        "specialization": "Python web development with Django and Flask",
+        "experience_level": "intermediate",
+        "additional_tools": "code_interpreter"
+      }
+    },
+    {
+      "title": "React frontend assistant",
+      "description": "Create an assistant for React development",
+      "arguments": {
+        "specialization": "React frontend development",
+        "experience_level": "beginner",
+        "additional_tools": "code_interpreter, file_search"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:41:00.000Z",
+    "usage": "assistant-creation"
+  }
+}

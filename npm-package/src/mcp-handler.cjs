@@ -1,18 +1,23 @@
 /**
- * NPM Package MCP Handler - CommonJS Version
+ * NPM Package MCP Handler - Direct Implementation
  * 
- * This is a simplified CommonJS version that uses the shared handler system
- * while maintaining compatibility with the existing npm-package infrastructure.
- * It eliminates the previous duplication while preserving all functionality.
+ * This version uses the shared handler system directly instead of proxying
+ * to the Cloudflare Worker, eliminating network dependencies and ensuring
+ * consistent behavior between deployments.
  */
 
 const { OpenAIService } = require('../openai-service.cjs');
 
-// Import the shared handler system (we'll need to create CommonJS versions)
-// For now, we'll use a simplified approach that mimics the shared system
+/**
+ * Import shared handler system components
+ * We'll create CommonJS-compatible versions that use the same logic
+ */
+
+// Import the shared resources system
+const { getAllResources } = require('../../shared/resources/resources.cjs');
 
 /**
- * Base Tool Handler - CommonJS version of the shared system
+ * Base Tool Handler - CommonJS version matching shared system
  */
 class BaseToolHandler {
   constructor(context) {
@@ -41,7 +46,7 @@ class BaseToolHandler {
 }
 
 /**
- * Tool Registry - CommonJS version
+ * Tool Registry - CommonJS version matching shared system
  */
 class ToolRegistry {
   constructor(context) {
@@ -331,6 +336,38 @@ class RunStepGetHandler extends BaseToolHandler {
 }
 
 /**
+ * Load tool definitions from the shared definitions directory
+ */
+function loadToolDefinitions() {
+  const fs = require('fs');
+  const path = require('path');
+  
+  const tools = [];
+  const toolsDir = path.join(__dirname, '../../definitions/tools');
+  
+  function loadToolsFromDir(dir) {
+    const items = fs.readdirSync(dir);
+    for (const item of items) {
+      const fullPath = path.join(dir, item);
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        loadToolsFromDir(fullPath);
+      } else if (item.endsWith('.json')) {
+        try {
+          const toolDef = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+          tools.push(toolDef);
+        } catch (error) {
+          console.warn(`Failed to load tool definition from ${fullPath}:`, error.message);
+        }
+      }
+    }
+  }
+  
+  loadToolsFromDir(toolsDir);
+  return tools;
+}
+
+/**
  * Setup function to create and configure the handler system
  */
 function setupHandlerSystem(context) {
@@ -338,27 +375,27 @@ function setupHandlerSystem(context) {
   
   // Create all handlers
   const handlers = [
-    // Assistant handlers
+    // Assistant handlers (5)
     new AssistantCreateHandler(context),
     new AssistantListHandler(context),
     new AssistantGetHandler(context),
     new AssistantUpdateHandler(context),
     new AssistantDeleteHandler(context),
     
-    // Thread handlers
+    // Thread handlers (4)
     new ThreadCreateHandler(context),
     new ThreadGetHandler(context),
     new ThreadUpdateHandler(context),
     new ThreadDeleteHandler(context),
     
-    // Message handlers
+    // Message handlers (5)
     new MessageCreateHandler(context),
     new MessageListHandler(context),
     new MessageGetHandler(context),
     new MessageUpdateHandler(context),
     new MessageDeleteHandler(context),
     
-    // Run handlers
+    // Run handlers (6)
     new RunCreateHandler(context),
     new RunListHandler(context),
     new RunGetHandler(context),
@@ -366,7 +403,7 @@ function setupHandlerSystem(context) {
     new RunCancelHandler(context),
     new RunSubmitToolOutputsHandler(context),
     
-    // Run step handlers
+    // Run step handlers (2)
     new RunStepListHandler(context),
     new RunStepGetHandler(context)
   ];
@@ -376,37 +413,41 @@ function setupHandlerSystem(context) {
     registry.register(handler.getToolName(), handler);
   }
   
-  console.log(`[HandlerSystem] Initialized with ${handlers.length} handlers`);
+  console.log(`[NPM-HandlerSystem] Initialized with ${handlers.length} handlers`);
+  console.log(`[NPM-HandlerSystem] Expected: 22 tools (assistant:5, thread:4, message:5, run:6, run-step:2)`);
+  
+  const stats = registry.getStats();
+  console.log(`[NPM-HandlerSystem] Actual: ${stats.totalHandlers} tools`, stats.handlersByCategory);
+  
   return registry;
 }
 
 /**
- * Enhanced MCP Handler for NPM Package with Proxy Mode Support
+ * Direct Implementation MCP Handler (No Proxy)
  */
 class MCPHandler {
   constructor(apiKey) {
-    this.isProxyMode = false;
-    this.cloudflareWorkerUrl = null;
-    this.toolRegistry = null;
-    this.openaiService = null;
-
-    if (apiKey === 'CLOUDFLARE_PROXY_MODE') {
-      throw new Error('API key is required for Cloudflare Worker proxy mode');
-    }
-
-    // Check if API key is provided and non-empty
+    // Validate API key
     if (!apiKey || apiKey.trim().length === 0) {
       throw new Error('API key is required and cannot be empty');
     }
 
-    // Use proxy mode for any valid API key (removes sk- prefix requirement)
-    // Use Cloudflare Worker with API key in URL
-    this.isProxyMode = true;
-    this.cloudflareWorkerUrl = `https://assistants.jezweb.com/mcp/${apiKey}`;
+    // Initialize OpenAI service
+    this.openaiService = new OpenAIService(apiKey);
+    
+    // Create context for handlers
+    const context = {
+      openaiService: this.openaiService
+    };
+    
+    // Initialize the handler system
+    this.toolRegistry = setupHandlerSystem(context);
+    
+    console.log(`[NPM-MCPHandler] Initialized in direct mode with ${this.toolRegistry.handlers.size} tools`);
   }
 
   /**
-   * Handle incoming MCP requests with proxy mode support
+   * Handle incoming MCP requests
    */
   async handleRequest(request) {
     try {
@@ -415,12 +456,7 @@ class MCPHandler {
         return this.createErrorResponse(request.id, -32600, 'Invalid JSON-RPC version');
       }
 
-      // If in proxy mode, forward the request to Cloudflare Worker
-      if (this.isProxyMode) {
-        return await this.forwardToCloudflareWorker(request);
-      }
-
-      // Use the consolidated handler for direct mode
+      // Handle different MCP methods
       switch (request.method) {
         case 'initialize':
           return this.handleInitialize(request);
@@ -440,35 +476,6 @@ class MCPHandler {
         request.id,
         -32603,
         'Internal error',
-        error instanceof Error ? error.message : 'Unknown error'
-      );
-    }
-  }
-
-  /**
-   * Forward request to Cloudflare Worker
-   */
-  async forwardToCloudflareWorker(request) {
-    try {
-      const response = await fetch(this.cloudflareWorkerUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request)
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      return this.createErrorResponse(
-        request.id,
-        -32603,
-        'Proxy request failed',
         error instanceof Error ? error.message : 'Unknown error'
       );
     }
@@ -499,12 +506,15 @@ class MCPHandler {
    * Handle tools list request
    */
   handleToolsList(request) {
-    // Use the enhanced tools from the existing system
-    const { enhancedTools } = require('./mcp-handler-tools.js');
+    // Load tool definitions from shared definitions directory
+    const tools = loadToolDefinitions();
+    
+    console.log(`[NPM-MCPHandler] Returning ${tools.length} tool definitions`);
+    
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: { tools: enhancedTools }
+      result: { tools }
     };
   }
 
@@ -512,26 +522,10 @@ class MCPHandler {
    * Handle tools call request
    */
   async handleToolsCall(request) {
-    if (this.isProxyMode) {
-      return this.forwardToCloudflareWorker(request);
-    }
-
-    if (!this.openaiService || !this.toolRegistry) {
-      return this.createErrorResponse(request.id, -32603, 'Handler not initialized');
-    }
-
     try {
       const { name, arguments: args } = request.params;
       
-      // Update the context with current request information
-      const updatedContext = {
-        openaiService: this.openaiService,
-        toolName: name,
-        requestId: request.id
-      };
-      
-      // Update the registry context for this request (performance optimization)
-      this.updateRegistryContext(updatedContext);
+      console.log(`[NPM-MCPHandler] Executing tool: ${name}`);
       
       // Execute the tool using the registry
       const result = await this.toolRegistry.execute(name, args);
@@ -550,6 +544,8 @@ class MCPHandler {
       };
 
     } catch (error) {
+      console.error(`[NPM-MCPHandler] Tool execution error:`, error);
+      
       return {
         jsonrpc: '2.0',
         id: request.id,
@@ -570,12 +566,15 @@ class MCPHandler {
    * Handle resources list request
    */
   handleResourcesList(request) {
+    // Use the shared resources system
+    const resources = getAllResources();
+    
+    console.log(`[NPM-MCPHandler] Returning ${resources.length} resources`);
+    
     return {
       jsonrpc: '2.0',
       id: request.id,
-      result: {
-        resources: [], // Simplified for now
-      },
+      result: { resources }
     };
   }
 
@@ -583,21 +582,39 @@ class MCPHandler {
    * Handle resources read request
    */
   handleResourcesRead(request) {
-    return this.createErrorResponse(request.id, -32601, 'Resource not found');
-  }
-
-  /**
-   * Update registry context without recreating the entire registry
-   */
-  updateRegistryContext(newContext) {
-    if (!this.toolRegistry) return;
+    const { uri } = request.params;
     
-    // Update the context for all registered handlers
-    for (const toolName of this.toolRegistry.getRegisteredTools()) {
-      const handler = this.toolRegistry.handlers.get(toolName);
-      if (handler) {
-        handler.context = newContext;
+    try {
+      // Use the shared resources system
+      const { getResource, getResourceContent } = require('../../shared/resources/resources.cjs');
+      
+      const resource = getResource(uri);
+      if (!resource) {
+        return this.createErrorResponse(request.id, -32602, 'Resource not found');
       }
+      
+      const content = getResourceContent(uri);
+      
+      return {
+        jsonrpc: '2.0',
+        id: request.id,
+        result: {
+          contents: [
+            {
+              uri: resource.uri,
+              mimeType: resource.mimeType || 'text/plain',
+              text: content
+            }
+          ]
+        }
+      };
+    } catch (error) {
+      return this.createErrorResponse(
+        request.id,
+        -32603,
+        'Failed to read resource',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
     }
   }
 
@@ -627,7 +644,7 @@ class MCPHandler {
    * Check if handler is initialized
    */
   isInitialized() {
-    return this.toolRegistry !== null || this.isProxyMode;
+    return this.toolRegistry !== null;
   }
 }
 

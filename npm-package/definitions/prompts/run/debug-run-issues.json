@@ -1,0 +1,43 @@
+{
+  "$schema": "../../schemas/prompt-schema.json",
+  "name": "debug-run-issues",
+  "title": "Debug Run Issues",
+  "description": "Analyze and troubleshoot assistant run problems",
+  "category": "run",
+  "tags": ["debug", "troubleshooting", "run"],
+  "arguments": [
+    {
+      "name": "run_id",
+      "description": "Run ID that has issues",
+      "required": true
+    },
+    {
+      "name": "issue_description",
+      "description": "Description of the observed issue",
+      "required": true
+    },
+    {
+      "name": "run_status",
+      "description": "Current run status (failed, cancelled, requires_action, etc.)",
+      "required": false
+    }
+  ],
+  "template": "Debug issues with run {{run_id}}. Current status: {{run_status || 'unknown'}}. Issue description: {{issue_description}}. Analyze the run steps, check for errors, and provide troubleshooting recommendations.",
+  "examples": [
+    {
+      "title": "Debug stuck run",
+      "description": "Troubleshoot a run that appears to be stuck",
+      "arguments": {
+        "run_id": "run_abc123",
+        "issue_description": "Run has been in progress for over 10 minutes without completing",
+        "run_status": "in_progress"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:44:00.000Z",
+    "usage": "run-configuration"
+  }
+}

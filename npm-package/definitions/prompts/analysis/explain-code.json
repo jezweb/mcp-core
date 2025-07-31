@@ -1,0 +1,43 @@
+{
+  "$schema": "../../schemas/prompt-schema.json",
+  "name": "explain-code",
+  "title": "Explain Code",
+  "description": "Provide detailed explanation of how code works",
+  "category": "analysis",
+  "tags": ["code", "explanation", "education"],
+  "arguments": [
+    {
+      "name": "code",
+      "description": "Code to explain",
+      "required": true
+    },
+    {
+      "name": "language",
+      "description": "Programming language",
+      "required": false
+    },
+    {
+      "name": "detail_level",
+      "description": "Level of detail (basic, intermediate, advanced)",
+      "required": false
+    }
+  ],
+  "template": "Explain how this {{language || 'auto-detect'}} code works at a {{detail_level || 'intermediate'}} level:\n\n```\n{{code}}\n```\n\nBreak down the logic, explain key concepts, and describe what each part does.",
+  "examples": [
+    {
+      "title": "Explain algorithm",
+      "description": "Provide detailed explanation of a sorting algorithm",
+      "arguments": {
+        "code": "def bubble_sort(arr):\n    n = len(arr)\n    for i in range(n):\n        for j in range(0, n-i-1):\n            if arr[j] > arr[j+1]:\n                arr[j], arr[j+1] = arr[j+1], arr[j]\n    return arr",
+        "language": "python",
+        "detail_level": "intermediate"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:44:00.000Z",
+    "usage": "code-analysis"
+  }
+}

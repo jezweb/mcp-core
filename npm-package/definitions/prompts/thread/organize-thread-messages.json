@@ -1,0 +1,37 @@
+{
+  "$schema": "../../schemas/prompt-schema.json",
+  "name": "organize-thread-messages",
+  "title": "Organize Thread Messages",
+  "description": "Analyze and organize messages in a thread for better conversation flow",
+  "category": "thread",
+  "tags": ["thread", "organization", "messages"],
+  "arguments": [
+    {
+      "name": "thread_id",
+      "description": "Thread ID to analyze",
+      "required": true
+    },
+    {
+      "name": "organization_type",
+      "description": "How to organize (chronological, by_topic, by_importance)",
+      "required": false
+    }
+  ],
+  "template": "Analyze and organize the messages in thread {{thread_id}} using {{organization_type || 'chronological'}} organization. Provide a summary of the conversation flow and suggest any improvements for better structure.",
+  "examples": [
+    {
+      "title": "Organize by topic",
+      "description": "Group messages by discussion topics",
+      "arguments": {
+        "thread_id": "thread_abc123",
+        "organization_type": "by_topic"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:44:00.000Z",
+    "usage": "thread-management"
+  }
+}
