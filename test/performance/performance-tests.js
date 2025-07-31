@@ -413,7 +413,7 @@ class PerformanceTester {
   }
 
   async sendToCloudflareWorker(request) {
-    const url = this.testApiKey.startsWith('sk-') ? 
+    const url = this.testApiKey && this.testApiKey !== 'test-key' ? 
       `${this.cloudflareWorkerUrl}/${this.testApiKey}` : 
       this.cloudflareWorkerUrl;
       
@@ -421,7 +421,7 @@ class PerformanceTester {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(this.testApiKey.startsWith('sk-') ? {} : { 'Authorization': `Bearer ${this.testApiKey}` })
+        ...(this.testApiKey && this.testApiKey !== 'test-key' ? {} : { 'Authorization': `Bearer ${this.testApiKey}` })
       },
       body: JSON.stringify(request)
     });

@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/resource-schema.json",
+  "uri": "docs://best-practices",
+  "name": "Best Practices Guide",
+  "description": "Guidelines for optimal usage, performance, security, and cost optimization",
+  "mimeType": "text/markdown",
+  "category": "documentation",
+  "tags": ["best-practices", "guidelines", "optimization", "security"],
+  "contentType": "markdown",
+  "content": "# Best Practices Guide\n\n## Assistant Design\n\n### 1. Clear Instructions\n- Write specific, detailed instructions\n- Define the assistant's role and capabilities\n- Include examples of desired behavior\n- Set boundaries and limitations\n\n### 2. Tool Selection\n- Only enable tools that are necessary\n- `code_interpreter` for data analysis and calculations\n- `file_search` for document-based tasks\n- `function` for external API integrations\n\n### 3. Model Selection\n- `gpt-4` for complex reasoning and analysis\n- `gpt-3.5-turbo` for faster, simpler tasks\n- Consider cost vs. performance trade-offs\n\n## Thread Management\n\n### 1. Thread Organization\n- Use meaningful metadata for categorization\n- Group related conversations in single threads\n- Create new threads for different topics/users\n\n### 2. Message Structure\n- Keep messages focused and clear\n- Include necessary context\n- Use appropriate message roles\n\n## Performance Optimization\n\n### 1. Efficient API Usage\n- Batch operations when possible\n- Use pagination for large datasets\n- Implement caching for frequently accessed data\n\n### 2. Run Management\n- Monitor run status actively\n- Handle tool calls promptly\n- Set appropriate timeouts\n\n### 3. Resource Management\n- Clean up unused threads and assistants\n- Monitor token usage\n- Implement rate limiting\n\n## Security Considerations\n\n### 1. Data Protection\n- Sanitize user inputs\n- Avoid storing sensitive information in metadata\n- Use secure communication channels\n\n### 2. Access Control\n- Implement proper authentication\n- Use role-based permissions\n- Audit access logs\n\n## Cost Optimization\n\n### 1. Model Selection\n- Use appropriate models for tasks\n- Consider `gpt-3.5-turbo` for simpler operations\n- Monitor token usage patterns\n\n### 2. Efficient Prompting\n- Write concise, effective instructions\n- Avoid unnecessary context\n- Use system messages appropriately\n\n### 3. Resource Cleanup\n- Delete unused assistants and threads\n- Implement automatic cleanup policies\n- Monitor resource usage regularly",
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:46:00.000Z",
+    "usage": "best-practices",
+    "size": 2560
+  }
+}

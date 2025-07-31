@@ -1,0 +1,43 @@
+{
+  "$schema": "../../schemas/prompt-schema.json",
+  "name": "review-code",
+  "title": "Code Review",
+  "description": "Perform comprehensive code review with suggestions for improvement",
+  "category": "analysis",
+  "tags": ["code", "review", "quality"],
+  "arguments": [
+    {
+      "name": "code",
+      "description": "Code to review",
+      "required": true
+    },
+    {
+      "name": "language",
+      "description": "Programming language",
+      "required": false
+    },
+    {
+      "name": "focus_areas",
+      "description": "Specific areas to focus on (security, performance, readability, best_practices)",
+      "required": false
+    }
+  ],
+  "template": "Please review this {{language || 'auto-detect'}} code focusing on {{focus_areas || 'all aspects'}}:\n\n```\n{{code}}\n```\n\nProvide feedback on code quality, potential issues, and suggestions for improvement.",
+  "examples": [
+    {
+      "title": "Security-focused review",
+      "description": "Review code with emphasis on security vulnerabilities",
+      "arguments": {
+        "code": "def login(username, password):\n    query = f\"SELECT * FROM users WHERE username='{username}' AND password='{password}'\"\n    return db.execute(query)",
+        "language": "python",
+        "focus_areas": "security"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:43:00.000Z",
+    "usage": "code-analysis"
+  }
+}

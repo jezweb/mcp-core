@@ -382,7 +382,7 @@ class ComprehensiveTestRunner {
     console.log('Examples:');
     console.log('  node test/run-all-tests.js');
     console.log('  node test/run-all-tests.js --core-only');
-    console.log('  OPENAI_API_KEY=sk-... node test/run-all-tests.js');
+    console.log('  OPENAI_API_KEY=your-api-key node test/run-all-tests.js');
   }
 }
 

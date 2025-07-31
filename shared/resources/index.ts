@@ -9,9 +9,10 @@
 // Export all resource functions and data
 export * from './resources.js';
 
-// Re-export commonly used resources for convenience
+// Re-export commonly used resources for convenience (using new generated exports)
 export {
-  mcpResources,
-  resourceContent,
-  getResourceContent
+  getResources,
+  getResource,
+  getResourcesByCategory,
+  RESOURCE_URIS
 } from './resources.js';

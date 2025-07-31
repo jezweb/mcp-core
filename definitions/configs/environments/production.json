@@ -1,0 +1,48 @@
+{
+  "environment": "production",
+  "features": {
+    "enableAllTools": true,
+    "enableValidation": true,
+    "enableTypeGeneration": true,
+    "enableBackwardCompatibility": true,
+    "enableHotReload": false,
+    "enableDebugLogging": false
+  },
+  "build": {
+    "minify": true,
+    "sourceMap": false,
+    "target": "es2022",
+    "outputFormat": "esm",
+    "generateDocs": false
+  },
+  "validation": {
+    "strict": true,
+    "warnOnMissingExamples": false,
+    "requireDescriptions": true,
+    "maxDescriptionLength": 1500
+  },
+  "tools": {
+    "categories": {
+      "assistant": {
+        "enabled": true,
+        "tools": ["assistant-create", "assistant-list", "assistant-get", "assistant-update", "assistant-delete"]
+      },
+      "thread": {
+        "enabled": true,
+        "tools": ["thread-create", "thread-get", "thread-update", "thread-delete"]
+      },
+      "message": {
+        "enabled": true,
+        "tools": ["message-create", "message-list", "message-get", "message-update", "message-delete"]
+      },
+      "run": {
+        "enabled": true,
+        "tools": ["run-create", "run-list", "run-get", "run-update", "run-cancel", "run-submit-tool-outputs"]
+      },
+      "run-step": {
+        "enabled": true,
+        "tools": ["run-step-list", "run-step-get"]
+      }
+    }
+  }
+}

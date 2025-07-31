@@ -1,0 +1,58 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "run-step-list",
+  "title": "List Run Steps",
+  "description": "Retrieve all steps in a run execution with pagination support. Use this to understand how an assistant processed a run, debug issues, or analyze assistant behavior. Each step shows what the assistant did during the run, including tool calls and message creation.",
+  "category": "run-step",
+  "hints": {
+    "readOnly": true
+  },
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string",
+        "description": "The unique identifier of the thread containing the run (format: \"thread_abc123...\")."
+      },
+      "run_id": {
+        "type": "string",
+        "description": "The unique identifier of the run to list steps from (format: \"run_abc123...\")."
+      },
+      "limit": {
+        "type": "number",
+        "description": "Maximum number of steps to return in one request (1-100, default: 20)."
+      },
+      "order": {
+        "type": "string",
+        "enum": ["asc", "desc"],
+        "description": "Sort order by creation date: \"desc\" for newest first (default), \"asc\" for oldest first (chronological order)."
+      },
+      "after": {
+        "type": "string",
+        "description": "Pagination cursor - step ID to start listing after (format: \"step_abc123...\")."
+      },
+      "before": {
+        "type": "string",
+        "description": "Pagination cursor - step ID to end listing before (format: \"step_abc123...\")."
+      }
+    },
+    "required": ["thread_id", "run_id"]
+  },
+  "examples": [
+    {
+      "title": "Debug run execution",
+      "description": "View all steps to understand how the assistant processed the run",
+      "input": {
+        "thread_id": "thread_abc123def456ghi789jkl012",
+        "run_id": "run_abc123def456ghi789jkl012",
+        "order": "asc"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:41:00.000Z",
+    "tags": ["run-step", "list", "debugging", "analysis"]
+  }
+}

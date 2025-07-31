@@ -29,6 +29,16 @@ export { BaseToolHandler } from './handlers/base-tool-handler.js';
 export type { ToolHandlerContext } from './handlers/base-tool-handler.js';
 export { ToolRegistry } from './tool-registry.js';
 export type { ToolRegistryStats } from './tool-registry.js';
+export { BaseMCPHandler } from './base-mcp-handler.js';
+export type { BaseMCPHandlerConfig, TransportAdapter } from './base-mcp-handler.js';
+
+// Transport adapters exports
+export {
+  CloudflareWorkerTransportAdapter,
+  StdioTransportAdapter,
+  ProxyTransportAdapter,
+  LocalDevTransportAdapter
+} from './transport-adapters.js';
 
 // Handler exports
 export {
@@ -49,6 +59,9 @@ export {
   generateToolDefinitions,
   validateToolDefinitions
 } from './tool-definitions.js';
+
+// Pagination utilities exports
+export * from './pagination-utils.js';
 
 // Import types for internal use
 import { ToolHandlerContext } from './handlers/base-tool-handler.js';

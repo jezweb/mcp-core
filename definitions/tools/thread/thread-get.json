@@ -1,0 +1,35 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "thread-get",
+  "title": "Get Thread Details",
+  "description": "Retrieve detailed information about a specific conversation thread including its metadata and current state. Use this to inspect thread properties, verify configurations, or get thread details for management purposes. Essential for understanding thread context and debugging conversation flows.",
+  "category": "thread",
+  "hints": {
+    "readOnly": true
+  },
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string",
+        "description": "The unique identifier of the thread to retrieve (format: \"thread_abc123...\"). Get this from thread-create response or other thread operations."
+      }
+    },
+    "required": ["thread_id"]
+  },
+  "examples": [
+    {
+      "title": "Get thread details",
+      "description": "Retrieve complete information about a specific conversation thread",
+      "input": {
+        "thread_id": "thread_abc123def456ghi789jkl012"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:36:00.000Z",
+    "tags": ["thread", "get", "details", "conversation"]
+  }
+}

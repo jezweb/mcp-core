@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "run-update",
+  "title": "Update Run",
+  "description": "Modify an existing run's metadata. Use this to add tracking information, update run categorization, or organize run data better. Note that run configuration cannot be changed, only metadata can be updated.",
+  "category": "run",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string",
+        "description": "The unique identifier of the thread containing the run (format: \"thread_abc123...\")."
+      },
+      "run_id": {
+        "type": "string",
+        "description": "The unique identifier of the run to update (format: \"run_abc123...\")."
+      },
+      "metadata": {
+        "type": "object",
+        "description": "New metadata key-value pairs to replace existing metadata (e.g., {\"priority\": \"high\", \"category\": \"analysis\"})."
+      }
+    },
+    "required": ["thread_id", "run_id"]
+  },
+  "examples": [
+    {
+      "title": "Tag run with priority",
+      "description": "Add metadata to categorize and prioritize a run",
+      "input": {
+        "thread_id": "thread_abc123def456ghi789jkl012",
+        "run_id": "run_abc123def456ghi789jkl012",
+        "metadata": {
+          "priority": "high",
+          "category": "code_review",
+          "department": "engineering"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:39:00.000Z",
+    "tags": ["run", "update", "metadata", "organization"]
+  }
+}

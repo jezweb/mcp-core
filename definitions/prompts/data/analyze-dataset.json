@@ -1,0 +1,43 @@
+{
+  "$schema": "../../schemas/prompt-schema.json",
+  "name": "analyze-dataset",
+  "title": "Analyze Dataset",
+  "description": "Perform comprehensive analysis of a dataset",
+  "category": "data",
+  "tags": ["data", "analysis", "statistics"],
+  "arguments": [
+    {
+      "name": "dataset_description",
+      "description": "Description of the dataset",
+      "required": true
+    },
+    {
+      "name": "analysis_goals",
+      "description": "What you want to learn from the data",
+      "required": true
+    },
+    {
+      "name": "data_format",
+      "description": "Format of the data (CSV, JSON, database, etc.)",
+      "required": false
+    }
+  ],
+  "template": "Analyze this {{data_format || 'CSV'}} dataset: {{dataset_description}}\n\nAnalysis goals: {{analysis_goals}}\n\nPerform exploratory data analysis, identify patterns, and provide insights. Include statistical summaries and visualizations where appropriate.",
+  "examples": [
+    {
+      "title": "Sales data analysis",
+      "description": "Analyze sales performance data",
+      "arguments": {
+        "dataset_description": "Monthly sales data for 2024 including product categories, regions, and revenue",
+        "analysis_goals": "Identify top-performing products and seasonal trends",
+        "data_format": "CSV"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:43:00.000Z",
+    "usage": "data-analysis"
+  }
+}

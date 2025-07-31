@@ -203,7 +203,7 @@ class NPMPackageSpecificTester {
       const testCases = [
         {
           name: 'Valid API Key',
-          env: { OPENAI_API_KEY: 'sk-test123' },
+          env: { OPENAI_API_KEY: 'test-api-key-123' },
           expectError: false
         },
         {

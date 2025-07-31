@@ -544,10 +544,10 @@ node test/validation/validation-tests.js
 
 ## 🔗 Related Documentation
 
-- [Main README](README.md) - Complete server overview and setup
-- [MCP Resources Guide](MCP-RESOURCES.md) - Detailed resource documentation
+- [Main README](../../README.md) - Complete server overview and setup
+- [MCP Resources Guide](../compliance/MCP-RESOURCES.md) - Detailed resource documentation
 - [Validation Guide](VALIDATION-GUIDE.md) - Parameter validation and error handling
-- [Usage Examples](USAGE-EXAMPLES.md) - Practical implementation examples
+- [Usage Examples](../deployment/USAGE-EXAMPLES.md) - Practical implementation examples
 
 ---
 

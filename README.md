@@ -72,6 +72,36 @@ Choose the deployment option that best fits your needs:
 
 **🚀 Deployment Parity Maintained**: Both Cloudflare Workers and NPM package provide identical enhanced functionality with the new modular architecture, all 22 tools, and 9 resources working seamlessly across both deployment options.
 
+## 📚 Documentation
+
+This project includes comprehensive documentation organized into logical categories for easy navigation and reference:
+
+### 📖 [Complete Documentation Index](docs/)
+**Comprehensive documentation organized by category**
+
+- **🏗️ [Architecture](docs/architecture/)** - Design principles, analysis, and architectural documentation
+- **💻 [Implementation](docs/implementation/)** - Concrete implementation details, examples, and migration guides
+- **✅ [Compliance](docs/compliance/)** - MCP specification compliance and protocol adherence
+- **🧪 [Testing](docs/testing/)** - Test coverage, quality assurance, and testing strategies
+- **🚀 [Deployment](docs/deployment/)** - Live deployment, usage examples, and operational guidance
+- **🔧 [Development](docs/development/)** - Development process, changelog, and workflow documentation
+
+### 🎯 Quick Documentation Links
+
+#### For Developers
+- [Implementation Examples](docs/implementation/IMPLEMENTATION-EXAMPLES.md) - Concrete code patterns and examples
+- [Phase 1 Architecture](docs/architecture/PHASE-1-ARCHITECTURE.md) - Modular architecture details
+- [Test Coverage Analysis](docs/testing/TEST-COVERAGE-ANALYSIS.md) - Quality metrics and testing strategies
+
+#### For Operations
+- [Live Deployment Guide](docs/deployment/LIVE-DEPLOYMENT.md) - Production deployment status and configuration
+- [Usage Examples](docs/deployment/USAGE-EXAMPLES.md) - Comprehensive usage patterns and examples
+
+#### For Architects
+- [Architectural Analysis](docs/architecture/ARCHITECTURAL-ANALYSIS.md) - Comprehensive architectural review
+- [MCP Compliance Analysis](docs/compliance/MCP-SPECIFICATION-COMPLIANCE-ANALYSIS.md) - Protocol compliance assessment
+- [Future Extensibility](docs/architecture/FUTURE-EXTENSIBILITY-AND-PLUGIN-ARCHITECTURE.md) - Forward-looking architectural planning
+
 ## 🛠️ Planned Tools
 
 ### Assistant Management
@@ -121,7 +151,7 @@ Before using this MCP server, you'll need to set up your OpenAI account and API 
 #### 1. **Get Your OpenAI API Key**
 - Visit the [OpenAI API Keys page](https://platform.openai.com/api-keys)
 - Create a new API key or use an existing one
-- Copy your API key (starts with `sk-proj-` or `sk-`)
+- Copy your API key
 
 #### 2. **Check Your Assistants Dashboard**
 - Monitor your assistants at [OpenAI Assistants Dashboard](https://platform.openai.com/assistants)

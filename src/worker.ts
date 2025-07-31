@@ -1,5 +1,5 @@
 import { MCPHandler } from './mcp-handler.js';
-import { MCPRequest, MCPError, ErrorCodes, Env } from '@shared/types';
+import { MCPRequest, MCPError, ErrorCodes, Env, createStandardErrorResponse, LegacyErrorCodes, createEnhancedError } from '@shared/types';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -34,15 +34,19 @@ export default {
       
       // Expected format: /mcp/{api-key}
       if (pathParts.length !== 3 || pathParts[1] !== 'mcp') {
+        const errorResponse = createStandardErrorResponse(
+          null,
+          ErrorCodes.INVALID_REQUEST,
+          'Invalid URL format. Expected: /mcp/{api-key}',
+          {
+            receivedPath: url.pathname,
+            expectedFormat: '/mcp/{api-key}',
+            documentation: 'https://docs.openai.com/api-reference'
+          }
+        );
+        
         return new Response(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: null,
-            error: {
-              code: ErrorCodes.INVALID_REQUEST,
-              message: 'Invalid URL format. Expected: /mcp/{api-key}',
-            },
-          }),
+          JSON.stringify(errorResponse),
           {
             status: 400,
             headers: {
@@ -55,15 +59,25 @@ export default {
 
       const apiKey = pathParts[2];
       if (!apiKey || apiKey.length < 10) {
+        const authError = createEnhancedError(
+          LegacyErrorCodes.UNAUTHORIZED,
+          'Invalid or missing API key',
+          {
+            keyLength: apiKey?.length || 0,
+            minLength: 10,
+            documentation: 'https://docs.openai.com/api-reference/authentication'
+          }
+        );
+        
+        const errorResponse = createStandardErrorResponse(
+          null,
+          authError.code,
+          authError.message,
+          authError.data
+        );
+        
         return new Response(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: null,
-            error: {
-              code: ErrorCodes.UNAUTHORIZED,
-              message: 'Invalid or missing API key',
-            },
-          }),
+          JSON.stringify(errorResponse),
           {
             status: 401,
             headers: {
@@ -79,15 +93,18 @@ export default {
       try {
         mcpRequest = await request.json();
       } catch (error) {
+        const errorResponse = createStandardErrorResponse(
+          null,
+          ErrorCodes.PARSE_ERROR,
+          'Invalid JSON in request body',
+          {
+            parseError: error instanceof Error ? error.message : 'Unknown parse error',
+            documentation: 'https://www.jsonrpc.org/specification'
+          }
+        );
+        
         return new Response(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: null,
-            error: {
-              code: ErrorCodes.PARSE_ERROR,
-              message: 'Invalid JSON in request body',
-            },
-          }),
+          JSON.stringify(errorResponse),
           {
             status: 400,
             headers: {
@@ -100,15 +117,25 @@ export default {
 
       // Validate JSON-RPC format
       if (!mcpRequest.jsonrpc || mcpRequest.jsonrpc !== '2.0' || !mcpRequest.method) {
-        return new Response(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: mcpRequest.id || null,
-            error: {
-              code: ErrorCodes.INVALID_REQUEST,
-              message: 'Invalid JSON-RPC 2.0 request format',
+        const errorResponse = createStandardErrorResponse(
+          mcpRequest.id || null,
+          ErrorCodes.INVALID_REQUEST,
+          'Invalid JSON-RPC 2.0 request format',
+          {
+            missingFields: {
+              jsonrpc: !mcpRequest.jsonrpc || mcpRequest.jsonrpc !== '2.0',
+              method: !mcpRequest.method
             },
-          }),
+            received: {
+              jsonrpc: mcpRequest.jsonrpc,
+              method: mcpRequest.method
+            },
+            documentation: 'https://www.jsonrpc.org/specification'
+          }
+        );
+        
+        return new Response(
+          JSON.stringify(errorResponse),
           {
             status: 400,
             headers: {
@@ -133,15 +160,21 @@ export default {
     } catch (error) {
       console.error('Worker error:', error);
       
+      const errorResponse = createStandardErrorResponse(
+        null,
+        ErrorCodes.INTERNAL_ERROR,
+        'Internal server error',
+        {
+          timestamp: new Date().toISOString(),
+          error: error instanceof Error ? {
+            name: error.name,
+            message: error.message
+          } : 'Unknown error'
+        }
+      );
+      
       return new Response(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id: null,
-          error: {
-            code: ErrorCodes.INTERNAL_ERROR,
-            message: 'Internal server error',
-          },
-        }),
+        JSON.stringify(errorResponse),
         {
           status: 500,
           headers: {

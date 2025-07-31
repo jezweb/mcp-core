@@ -513,8 +513,8 @@ class CloudflareWorkersSpecificTester {
   async testAPIKeyInURL() {
     await this.tracker.runTest('API Key in URL', async () => {
       // Test the API key in URL feature specific to Cloudflare Workers
-      if (!this.testApiKey.startsWith('sk-')) {
-        this.tracker.log('⚠️  Skipping API key in URL test (no real API key)', 'warn');
+      if (!this.testApiKey || this.testApiKey === 'test-key') {
+        this.tracker.log('⚠️  Skipping API key in URL test (using test key)', 'warn');
         return;
       }
 

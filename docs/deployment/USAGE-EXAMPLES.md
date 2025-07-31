@@ -154,7 +154,7 @@ Add this to your Roo configuration:
 ### List All Available Resources
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -198,7 +198,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 
 #### Get Coding Assistant Template
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -229,7 +229,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 
 #### Use Template to Create Assistant
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -260,7 +260,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 
 #### Get Complete Workflow Guide
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -276,7 +276,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 
 #### Get Best Practices Guide
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -290,7 +290,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 
 #### Get Error Handling Guide
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -310,7 +310,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 
 **Request with Invalid ID:**
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -346,7 +346,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 
 **Request Missing Model:**
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -382,7 +382,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 
 **Request with Tool/Resource Mismatch:**
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -427,7 +427,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Initialize Connection
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -447,7 +447,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### List All Available Tools
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -462,7 +462,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Step 1: Create an Assistant
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -506,7 +506,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Step 2: Create a Thread
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -527,7 +527,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Step 3: Add a Message
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -547,7 +547,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Step 4: Run the Assistant
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -567,7 +567,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Step 5: Check Run Status
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -586,7 +586,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Step 6: Get Messages (Including Assistant Response)
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -607,7 +607,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### List All Assistants
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -626,7 +626,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Update Assistant
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -650,7 +650,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Delete Assistant
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -670,7 +670,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Cancel a Running Execution
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -689,7 +689,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Submit Tool Outputs
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -714,7 +714,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### List Run Steps
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -838,7 +838,7 @@ class OpenAIAssistantsMCP {
 }
 
 // Usage example
-const client = new OpenAIAssistantsMCP('sk-your-api-key');
+const client = new OpenAIAssistantsMCP('your-api-key');
 
 async function example() {
   try {
@@ -979,7 +979,7 @@ See docs://openai-assistants-api for parameter limits.
 #### 1. Use Resource Documentation
 ```bash
 # Get comprehensive error handling guide
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -992,7 +992,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 #### 2. Reference Assistant Templates
 ```bash
 # Get working configuration examples
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -1005,7 +1005,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 #### 3. Follow Workflow Examples
 ```bash
 # Get step-by-step guidance
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -1047,7 +1047,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/invalid-key 
 ### Invalid Method
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -1072,7 +1072,7 @@ curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-
 ### Missing Required Parameters
 
 ```bash
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/sk-your-api-key \
+curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",

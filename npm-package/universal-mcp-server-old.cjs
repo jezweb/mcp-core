@@ -517,8 +517,8 @@ class RooCompatibleMCPServer {
       return;
     }
 
-    if (!apiKey.startsWith('sk-')) {
-      this.sendErrorResponse(request.id, -32602, 'Invalid params', 'OPENAI_API_KEY must be a valid OpenAI API key starting with "sk-"');
+    if (!apiKey || apiKey.trim().length === 0) {
+      this.sendErrorResponse(request.id, -32602, 'Invalid params', 'OPENAI_API_KEY must be a valid non-empty API key');
       return;
     }
 

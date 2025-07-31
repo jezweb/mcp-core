@@ -77,7 +77,7 @@ https://assistants.jezweb.com/mcp/{your-openai-api-key}
 
 **Example Request:**
 ```bash
-curl -X POST https://assistants.jezweb.com/mcp/sk-your-api-key \
+curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -258,7 +258,7 @@ The enhanced server provides comprehensive MCP resources for better user experie
 
 ```bash
 # 1. Create an assistant (handled by AssistantCreateHandler)
-curl -X POST https://assistants.jezweb.com/mcp/sk-your-api-key \
+curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -275,7 +275,7 @@ curl -X POST https://assistants.jezweb.com/mcp/sk-your-api-key \
   }'
 
 # 2. Create a thread (handled by ThreadCreateHandler)
-curl -X POST https://assistants.jezweb.com/mcp/sk-your-api-key \
+curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -288,7 +288,7 @@ curl -X POST https://assistants.jezweb.com/mcp/sk-your-api-key \
   }'
 
 # 3. Add a message (handled by MessageCreateHandler)
-curl -X POST https://assistants.jezweb.com/mcp/sk-your-api-key \
+curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -305,7 +305,7 @@ curl -X POST https://assistants.jezweb.com/mcp/sk-your-api-key \
   }'
 
 # 4. Run the assistant (handled by RunCreateHandler)
-curl -X POST https://assistants.jezweb.com/mcp/sk-your-api-key \
+curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",

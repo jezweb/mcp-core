@@ -504,9 +504,9 @@ print(workflow)
 
 ## 🔗 Related Documentation
 
-- [Main README](README.md) - Complete server documentation
-- [Usage Examples](USAGE-EXAMPLES.md) - Practical usage examples
-- [Enhanced Features](ENHANCED-FEATURES.md) - Detailed feature documentation
+- [Main README](../../README.md) - Complete server documentation
+- [Usage Examples](../deployment/USAGE-EXAMPLES.md) - Practical usage examples
+- [Enhanced Features](../implementation/ENHANCED-FEATURES.md) - Detailed feature documentation
 - [Validation Guide](VALIDATION-GUIDE.md) - Parameter validation and error handling
 
 ---

@@ -33,6 +33,8 @@ import {
   ListRunStepsResponse,
   MCPError,
   ErrorCodes,
+  LegacyErrorCodes,
+  formatOpenAIError,
 } from '../types/index.js';
 
 export class OpenAIService {
@@ -70,10 +72,10 @@ export class OpenAIService {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({})) as any;
-        throw new MCPError(
-          this.mapHttpStatusToErrorCode(response.status),
-          errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`,
-          errorData
+        throw formatOpenAIError(
+          response.status,
+          errorData,
+          `${method} ${endpoint}`
         );
       }
 
@@ -91,6 +93,8 @@ export class OpenAIService {
   }
 
   private mapHttpStatusToErrorCode(status: number): number {
+    // Legacy method kept for backward compatibility
+    // New code should use formatOpenAIError instead
     switch (status) {
       case 401:
         return ErrorCodes.UNAUTHORIZED;

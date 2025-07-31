@@ -14,6 +14,7 @@ import { createThreadHandlers } from './thread-handlers.js';
 import { createMessageHandlers } from './message-handlers.js';
 import { createRunHandlers } from './run-handlers.js';
 import { createRunStepHandlers } from './run-step-handlers.js';
+import { createCompletionHandlers } from './completion-handlers.js';
 
 // Re-export base classes and interfaces
 export { BaseToolHandler } from './base-tool-handler.js';
@@ -25,6 +26,7 @@ export { createThreadHandlers } from './thread-handlers.js';
 export { createMessageHandlers } from './message-handlers.js';
 export { createRunHandlers } from './run-handlers.js';
 export { createRunStepHandlers } from './run-step-handlers.js';
+export { createCompletionHandlers } from './completion-handlers.js';
 
 /**
  * Create all tool handlers for the MCP server

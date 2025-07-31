@@ -6,6 +6,9 @@
         "-y",
         "@modelcontextprotocol/server-filesystem",
         "/home/jez/Documents"
+      ],
+      "alwaysAllow": [
+        "get_file_info"
       ]
     },
     "memory": {

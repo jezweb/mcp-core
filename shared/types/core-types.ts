@@ -58,6 +58,10 @@ export interface MCPInitializeResponse extends JsonRpcResponse {
         subscribe?: boolean;
         listChanged?: boolean;
       };
+      prompts?: {
+        listChanged?: boolean;
+      };
+      completions?: {};
     };
     serverInfo: {
       name: string;
@@ -69,7 +73,9 @@ export interface MCPInitializeResponse extends JsonRpcResponse {
 // MCP Tools types
 export interface MCPToolsListRequest extends JsonRpcRequest {
   method: 'tools/list';
-  params?: {};
+  params?: {
+    cursor?: string;
+  };
 }
 
 export interface MCPTool {
@@ -91,6 +97,7 @@ export interface Tool extends MCPTool {} // Legacy compatibility
 export interface MCPToolsListResponse extends JsonRpcResponse {
   result: {
     tools: MCPTool[];
+    nextCursor?: string;
   };
 }
 
@@ -122,12 +129,15 @@ export interface MCPResource {
 
 export interface MCPResourcesListRequest extends JsonRpcRequest {
   method: 'resources/list';
-  params?: {};
+  params?: {
+    cursor?: string;
+  };
 }
 
 export interface MCPResourcesListResponse extends JsonRpcResponse {
   result: {
     resources: MCPResource[];
+    nextCursor?: string;
   };
 }
 
@@ -608,18 +618,169 @@ export class MCPError extends Error {
   }
 }
 
-// Common error codes
+// Enhanced error creation helpers for JSON-RPC 2.0 compliance
+export function createEnhancedError(
+  legacyCode: number,
+  message: string,
+  additionalData?: any
+): MCPError {
+  const mapping = ErrorCodeMapping[legacyCode as keyof typeof ErrorCodeMapping];
+  
+  if (mapping) {
+    // Use standard JSON-RPC code with enhanced data
+    const enhancedData = {
+      originalCode: legacyCode,
+      category: mapping.category,
+      documentation: mapping.documentation,
+      ...additionalData
+    };
+    
+    return new MCPError(mapping.standardCode, message, enhancedData);
+  }
+  
+  // Fallback for unmapped codes
+  return new MCPError(legacyCode, message, additionalData);
+}
+
+// Helper to create standard JSON-RPC error responses
+export function createStandardErrorResponse(
+  id: string | number | null,
+  code: number,
+  message: string,
+  data?: any
+): JsonRpcResponse {
+  return {
+    jsonrpc: '2.0',
+    id,
+    error: {
+      code,
+      message,
+      data
+    }
+  };
+}
+
+// Helper to format OpenAI API errors with enhanced data
+export function formatOpenAIError(
+  httpStatus: number,
+  openaiError: any,
+  context?: string
+): MCPError {
+  let legacyCode: number;
+  let message: string;
+  
+  switch (httpStatus) {
+    case 401:
+      legacyCode = LegacyErrorCodes.UNAUTHORIZED;
+      message = 'Authentication failed. Please check your API key.';
+      break;
+    case 403:
+      legacyCode = LegacyErrorCodes.FORBIDDEN;
+      message = 'Access forbidden. Please check your permissions.';
+      break;
+    case 404:
+      legacyCode = LegacyErrorCodes.NOT_FOUND;
+      message = 'Resource not found. Please check the ID and try again.';
+      break;
+    case 429:
+      legacyCode = LegacyErrorCodes.RATE_LIMITED;
+      message = 'Rate limit exceeded. Please wait and try again.';
+      break;
+    default:
+      return new MCPError(
+        ErrorCodes.INTERNAL_ERROR,
+        openaiError?.error?.message || `HTTP ${httpStatus}: Request failed`,
+        {
+          httpStatus,
+          openaiError,
+          context
+        }
+      );
+  }
+  
+  return createEnhancedError(legacyCode, message, {
+    httpStatus,
+    openaiError,
+    context,
+    retryAfter: httpStatus === 429 ? '60s' : undefined
+  });
+}
+
+// JSON-RPC 2.0 Standard Error Codes
 export const ErrorCodes = {
+  // Standard JSON-RPC 2.0 error codes
   PARSE_ERROR: -32700,
   INVALID_REQUEST: -32600,
   METHOD_NOT_FOUND: -32601,
   INVALID_PARAMS: -32602,
   INTERNAL_ERROR: -32603,
+  
+  // Legacy custom codes mapped to standard codes for backward compatibility
+  // These now map to standard JSON-RPC codes with enhanced info in error.data
+  UNAUTHORIZED: -32603,    // Maps to Internal Error (was -32001)
+  FORBIDDEN: -32603,       // Maps to Internal Error (was -32002)
+  NOT_FOUND: -32602,       // Maps to Invalid Params (was -32003)
+  RATE_LIMITED: -32602,    // Maps to Invalid Params (was -32004)
+} as const;
+
+// Legacy error codes for backward compatibility and enhanced error data
+export const LegacyErrorCodes = {
   UNAUTHORIZED: -32001,
   FORBIDDEN: -32002,
   NOT_FOUND: -32003,
   RATE_LIMITED: -32004,
 } as const;
+
+// Error code mapping for enhanced error data
+export const ErrorCodeMapping = {
+  [LegacyErrorCodes.UNAUTHORIZED]: {
+    standardCode: ErrorCodes.UNAUTHORIZED,
+    category: 'authentication',
+    documentation: 'https://docs.openai.com/api-reference/authentication'
+  },
+  [LegacyErrorCodes.FORBIDDEN]: {
+    standardCode: ErrorCodes.FORBIDDEN,
+    category: 'authorization',
+    documentation: 'https://docs.openai.com/api-reference/errors'
+  },
+  [LegacyErrorCodes.NOT_FOUND]: {
+    standardCode: ErrorCodes.NOT_FOUND,
+    category: 'resource',
+    documentation: 'https://docs.openai.com/api-reference/assistants'
+  },
+  [LegacyErrorCodes.RATE_LIMITED]: {
+    standardCode: ErrorCodes.RATE_LIMITED,
+    category: 'rate_limiting',
+    documentation: 'https://docs.openai.com/api-reference/rate-limits'
+  },
+} as const;
+
+// MCP Completions types
+export interface MCPCompletionRequest extends JsonRpcRequest {
+  method: 'completion/complete';
+  params: {
+    ref: {
+      type: 'ref/prompt' | 'ref/resource';
+      name: string;
+    };
+    argument: {
+      name: string;
+      value: string;
+    };
+  };
+}
+
+export interface MCPCompletionItem {
+  values: string[];
+  total?: number;
+  hasMore?: boolean;
+}
+
+export interface MCPCompletionResponse extends JsonRpcResponse {
+  result: {
+    completions: MCPCompletionItem[];
+  };
+}
 
 // Response interfaces for tools
 export interface ToolResponse {

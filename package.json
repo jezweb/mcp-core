@@ -1,6 +1,6 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Enhanced Universal OpenAI Assistants MCP Server - Complete 22-tool implementation with 9 MCP resources, enhanced tool descriptions, improved validation, and comprehensive user guidance. Deploy via Cloudflare Workers, NPM package, or local development with identical functionality.",
   "main": "dist/worker.js",
   "type": "module",
@@ -26,7 +26,15 @@
     "test:ci": "node test/run-all-tests.js --skip-performance",
     "test:watch": "nodemon --exec 'npm test' --watch test/ --watch src/",
     "test:coverage": "c8 npm test",
-    "test:debug": "node --inspect-brk test/run-all-tests.js"
+    "test:debug": "node --inspect-brk test/run-all-tests.js",
+    "definitions:validate": "node definitions/scripts/validate.js",
+    "definitions:build": "node definitions/scripts/build.js",
+    "definitions:watch": "nodemon --exec \"npm run definitions:build\" --watch definitions/ --ext json",
+    "definitions:clean": "rm -rf definitions/generated/*",
+    "definitions:migrate": "node definitions/scripts/migrate.js",
+    "definitions:tools": "node definitions/scripts/build.js --type=tools",
+    "definitions:prompts": "node definitions/scripts/build.js --type=prompts",
+    "definitions:resources": "node definitions/scripts/build.js --type=resources"
   },
   "keywords": [
     "mcp",

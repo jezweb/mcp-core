@@ -1,0 +1,35 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "assistant-get",
+  "title": "Get Assistant Details",
+  "description": "Retrieve detailed information about a specific AI assistant including its configuration, tools, and metadata. Use this to inspect assistant settings, verify configurations, or get assistant details for management purposes. Essential for debugging assistant behavior and understanding current settings.",
+  "category": "assistant",
+  "hints": {
+    "readOnly": true
+  },
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "assistant_id": {
+        "type": "string",
+        "description": "The unique identifier of the assistant to retrieve (format: \"asst_abc123...\"). Get this from assistant-create response or assistant-list results."
+      }
+    },
+    "required": ["assistant_id"]
+  },
+  "examples": [
+    {
+      "title": "Get assistant details",
+      "description": "Retrieve complete information about a specific assistant",
+      "input": {
+        "assistant_id": "asst_abc123def456ghi789jkl012"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:35:00.000Z",
+    "tags": ["assistant", "get", "details", "management"]
+  }
+}

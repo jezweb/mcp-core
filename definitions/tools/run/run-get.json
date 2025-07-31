@@ -1,0 +1,40 @@
+{
+  "$schema": "../../schemas/tool-schema.json",
+  "name": "run-get",
+  "title": "Get Run Details",
+  "description": "Retrieve detailed information about a specific assistant run including its status, configuration, and results. Use this to monitor run progress, check completion status, or debug run issues. Essential for understanding run execution and handling different run states.",
+  "category": "run",
+  "hints": {
+    "readOnly": true
+  },
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string",
+        "description": "The unique identifier of the thread containing the run (format: \"thread_abc123...\")."
+      },
+      "run_id": {
+        "type": "string",
+        "description": "The unique identifier of the run to retrieve (format: \"run_abc123...\")."
+      }
+    },
+    "required": ["thread_id", "run_id"]
+  },
+  "examples": [
+    {
+      "title": "Check run status",
+      "description": "Get current status and details of a running assistant",
+      "input": {
+        "thread_id": "thread_abc123def456ghi789jkl012",
+        "run_id": "run_abc123def456ghi789jkl012"
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "OpenAI Assistants MCP Team",
+    "lastModified": "2025-01-31T02:39:00.000Z",
+    "tags": ["run", "get", "status", "monitoring"]
+  }
+}
