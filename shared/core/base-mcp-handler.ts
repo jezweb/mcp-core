@@ -40,7 +40,7 @@ import {
   createStandardErrorResponse,
 } from '../types/index.js';
 import { OpenAIService } from '../services/index.js';
-import { getResources, getResource } from '../resources/index.js';
+import { getResources, getResource, getResourceContent } from '../resources/index.js';
 import { setupHandlerSystem, ToolRegistry, generateToolDefinitions } from './index.js';
 import { createPromptHandlers, PromptHandlerContext } from './handlers/prompt-handlers.js';
 import { createCompletionHandlers, CompletionHandlerContext } from './handlers/completion-handlers.js';
@@ -406,7 +406,7 @@ export class BaseMCPHandler {
           {
             uri,
             mimeType: resourceData.mimeType,
-            text: (resourceData as any).content,
+            text: getResourceContent(uri),
           },
         ],
       },

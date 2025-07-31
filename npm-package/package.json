@@ -1,6 +1,6 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Enhanced Universal OpenAI Assistants MCP Server - Complete 22-tool implementation with 9 MCP resources, enhanced tool descriptions, improved validation, assistant templates, and comprehensive user guidance. Optimized for stdio transport with enhanced Roo and Claude Desktop compatibility.",
   "main": "universal-mcp-server.cjs",
   "type": "commonjs",
@@ -50,6 +50,7 @@
   "files": [
     "universal-mcp-server.cjs",
     "openai-service.cjs",
+    "src/",
     "README.md"
   ]
 }

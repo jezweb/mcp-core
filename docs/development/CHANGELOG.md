@@ -1,5 +1,42 @@
 # 📋 Changelog - OpenAI Assistants MCP Server
 
+## 🚀 Version 2.1.1 - Critical NPM Package Fix (2025-01-31)
+
+### 🔧 Critical Bug Fix
+
+#### 🎯 Connection Closed Error Resolution
+- **Issue**: NPM package was missing `src/` directory in published package
+- **Symptom**: Roo Code and other MCP clients getting "connection closed" error (-32000)
+- **Root Cause**: `universal-mcp-server.cjs` requires `./src/mcp-handler.cjs` but `src/` was excluded from package
+- **Fix**: Added `src/` directory to `package.json` files array
+- **Impact**: Resolves all connection issues with Roo Code and other stdio-based MCP clients
+
+#### 📦 NPM Package Improvements
+- **Fixed Missing Dependencies**: All required CommonJS modules now included in package
+- **Verified Stdio Transport**: Confirmed proper MCP initialization and communication
+- **Enhanced Package Structure**: Proper file inclusion for reliable deployment
+- **Backward Compatible**: No breaking changes to existing functionality
+
+#### 🧪 Validation & Testing
+- **Local Testing**: Verified fix works with local NPM package simulation
+- **Stdio Communication**: Confirmed proper JSON-RPC 2.0 message handling
+- **Roo Code Compatibility**: Tested with actual Roo Code configuration
+- **Process Stability**: No more unexpected process exits causing connection drops
+
+### 🔄 Migration Guide
+
+#### From v2.1.0 to v2.1.1
+1. **Update Package**: `npm update openai-assistants-mcp@latest` or use `npx openai-assistants-mcp@latest`
+2. **No Configuration Changes**: Existing Roo Code and Claude Desktop configurations work unchanged
+3. **Immediate Fix**: Connection closed errors should resolve immediately after update
+
+#### Roo Code Users
+- **Update Command**: Roo Code will automatically use the latest version with `@latest`
+- **No Reconfiguration**: Existing MCP server configuration remains valid
+- **Instant Resolution**: Connection issues should disappear with the updated package
+
+---
+
 ## 🚀 Version 2.1.0 - MCP Compliance & Advanced Features (2025-01-31)
 
 ### 🎯 Major MCP Compliance Improvements
