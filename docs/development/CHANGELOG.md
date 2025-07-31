@@ -1,5 +1,18 @@
 # 📋 Changelog - OpenAI Assistants MCP Server
 
+## 🚀 Version 2.1.2 - MCP Resource Validation Fix (2025-07-31)
+
+### 🔧 Bug Fix
+
+#### 🎯 MCP Resource Validation Enhancement
+- **Issue**: Resource validation error in MCP handler (GitHub issue #1)
+- **Fix**: Enhanced resource validation in `shared/core/base-mcp-handler.ts`
+- **Improvement**: Better error handling for resource not found scenarios
+- **Enhancement**: Added available resources context to error messages
+- **Impact**: Improved debugging and user experience for resource access
+
+---
+
 ## 🚀 Version 2.1.1 - Critical NPM Package Fix (2025-01-31)
 
 ### 🔧 Critical Bug Fix
