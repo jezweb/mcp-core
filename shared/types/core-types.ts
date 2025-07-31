@@ -125,6 +125,19 @@ export interface MCPResource {
   name: string;
   description?: string;
   mimeType?: string;
+  // Enhanced metadata for better LLM understanding
+  annotations?: {
+    audience?: 'beginner' | 'intermediate' | 'advanced' | 'all';
+    priority?: 'low' | 'medium' | 'high' | 'critical';
+    lastModified?: string;
+    tags?: string[];
+    category?: string;
+    version?: string;
+    author?: string;
+    usageContext?: string;
+    prerequisites?: string[];
+    relatedResources?: string[];
+  };
 }
 
 export interface MCPResourcesListRequest extends JsonRpcRequest {

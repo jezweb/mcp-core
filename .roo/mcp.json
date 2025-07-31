@@ -8,7 +8,9 @@
         "/home/jez/Documents"
       ],
       "alwaysAllow": [
-        "get_file_info"
+        "get_file_info",
+        "list_directory",
+        "read_multiple_files"
       ]
     },
     "memory": {

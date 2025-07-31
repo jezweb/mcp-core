@@ -1,0 +1,242 @@
+{
+  "uri": "examples://workflows/data-analysis",
+  "name": "Data Analysis Workflow",
+  "description": "Complete workflow for automated data analysis using OpenAI Assistants with code interpreter, file search, and statistical analysis capabilities",
+  "mimeType": "application/json",
+  "annotations": {
+    "audience": ["data-scientists", "analysts", "researchers", "developers"],
+    "priority": "high",
+    "lastModified": "2025-01-31T12:39:00.000Z",
+    "tags": ["data-analysis", "statistics", "visualization", "code-interpreter", "file-search", "workflow"],
+    "difficulty": "intermediate",
+    "estimatedTime": "30-45 minutes",
+    "prerequisites": ["basic-statistics", "python-knowledge", "data-formats"],
+    "relatedResources": [
+      "assistant://templates/data-analyst",
+      "docs://best-practices",
+      "examples://workflows/batch-processing"
+    ]
+  },
+  "content": {
+    "workflow": {
+      "title": "Comprehensive Data Analysis Workflow",
+      "description": "End-to-end workflow for performing statistical analysis, data visualization, and generating insights using OpenAI Assistants",
+      "version": "2.0.0",
+      "lastUpdated": "2025-01-31"
+    },
+    "overview": {
+      "purpose": "Demonstrate how to create and use a data analysis assistant for comprehensive statistical analysis, visualization, and reporting",
+      "capabilities": [
+        "Automated data cleaning and preprocessing",
+        "Statistical analysis and hypothesis testing",
+        "Data visualization and charting",
+        "Trend analysis and forecasting",
+        "Report generation with insights",
+        "File processing and format conversion"
+      ],
+      "tools_used": [
+        "code_interpreter",
+        "file_search"
+      ],
+      "data_formats": [
+        "CSV",
+        "Excel",
+        "JSON",
+        "Parquet",
+        "SQL exports"
+      ]
+    },
+    "step_by_step_implementation": {
+      "step_1": {
+        "title": "Create Data Analysis Assistant",
+        "description": "Set up an assistant with data analysis capabilities",
+        "code": {
+          "language": "javascript",
+          "example": "// Create a specialized data analysis assistant\nconst assistant = await openai.beta.assistants.create({\n  name: \"Data Analysis Expert\",\n  instructions: `You are an expert data analyst with advanced statistical knowledge.\n\nYour capabilities:\n- Perform comprehensive data analysis using Python\n- Create professional visualizations with matplotlib, seaborn, plotly\n- Conduct statistical tests and hypothesis testing\n- Generate executive summaries and insights\n- Handle multiple data formats (CSV, Excel, JSON, etc.)\n- Perform time series analysis and forecasting\n- Create correlation and regression analyses\n\nAlways:\n1. Start with data exploration and quality assessment\n2. Provide clear explanations of your methodology\n3. Include statistical significance and confidence intervals\n4. Create publication-ready visualizations\n5. Summarize key findings and actionable insights\n6. Suggest next steps for further analysis\n\nFor each analysis:\n- Show descriptive statistics\n- Check for missing values and outliers\n- Validate assumptions for statistical tests\n- Provide both statistical and practical significance\n- Include data quality assessment`,\n  model: \"gpt-4\",\n  tools: [\n    { type: \"code_interpreter\" },\n    { type: \"file_search\" }\n  ],\n  metadata: {\n    purpose: \"data-analysis\",\n    version: \"2.0\",\n    specialization: \"statistical-analysis\"\n  }\n});\n\nconsole.log(`Created data analysis assistant: ${assistant.id}`);"
+        },
+        "notes": [
+          "Code interpreter enables Python execution for statistical analysis",
+          "File search allows processing of uploaded datasets",
+          "Instructions emphasize statistical rigor and clear communication"
+        ]
+      },
+      "step_2": {
+        "title": "Upload and Prepare Dataset",
+        "description": "Upload data files and create a vector store for file search",
+        "code": {
+          "language": "javascript",
+          "example": "// Upload dataset files\nconst salesDataFile = await openai.files.create({\n  file: fs.createReadStream('./data/sales_data.csv'),\n  purpose: 'assistants'\n});\n\nconst customerDataFile = await openai.files.create({\n  file: fs.createReadStream('./data/customer_demographics.xlsx'),\n  purpose: 'assistants'\n});\n\nconst marketDataFile = await openai.files.create({\n  file: fs.createReadStream('./data/market_trends.json'),\n  purpose: 'assistants'\n});\n\n// Create vector store for file search\nconst vectorStore = await openai.beta.vectorStores.create({\n  name: \"Sales Analysis Dataset\",\n  metadata: {\n    project: \"q4-sales-analysis\",\n    data_period: \"2024-q1-q4\"\n  }\n});\n\n// Add files to vector store\nconst fileBatch = await openai.beta.vectorStores.fileBatches.create(\n  vectorStore.id,\n  {\n    file_ids: [salesDataFile.id, customerDataFile.id, marketDataFile.id]\n  }\n);\n\n// Update assistant with vector store\nconst updatedAssistant = await openai.beta.assistants.update(assistant.id, {\n  tool_resources: {\n    file_search: {\n      vector_store_ids: [vectorStore.id]\n    }\n  }\n});\n\nconsole.log(`Dataset uploaded and configured for analysis`);"
+        },
+        "notes": [
+          "Multiple file formats supported for comprehensive analysis",
+          "Vector store enables semantic search across datasets",
+          "File batch upload is efficient for multiple files"
+        ]
+      },
+      "step_3": {
+        "title": "Create Analysis Thread and Initial Exploration",
+        "description": "Start the analysis with data exploration and quality assessment",
+        "code": {
+          "language": "javascript",
+          "example": "// Create analysis thread\nconst thread = await openai.beta.threads.create({\n  metadata: {\n    analysis_type: \"sales-performance\",\n    priority: \"high\"\n  }\n});\n\n// Initial data exploration request\nconst explorationMessage = await openai.beta.threads.messages.create(thread.id, {\n  role: \"user\",\n  content: `Please perform a comprehensive data exploration of our sales dataset:\n\n1. **Data Quality Assessment**:\n   - Load and examine all uploaded datasets\n   - Check for missing values, duplicates, and outliers\n   - Validate data types and formats\n   - Assess data completeness and quality\n\n2. **Descriptive Statistics**:\n   - Generate summary statistics for all numerical variables\n   - Create frequency distributions for categorical variables\n   - Identify key patterns and initial insights\n\n3. **Data Visualization**:\n   - Create histograms and box plots for key metrics\n   - Generate correlation heatmaps\n   - Show time series plots if temporal data exists\n\n4. **Initial Findings**:\n   - Highlight any data quality issues\n   - Identify interesting patterns or anomalies\n   - Suggest areas for deeper analysis\n\nPlease provide both statistical output and clear explanations suitable for stakeholders.`\n});\n\n// Run the exploration\nconst run = await openai.beta.threads.runs.create(thread.id, {\n  assistant_id: assistant.id,\n  instructions: \"Focus on providing actionable insights and clear visualizations. Include statistical significance where relevant.\"\n});\n\nconsole.log(`Started data exploration analysis: ${run.id}`);"
+        },
+        "notes": [
+          "Comprehensive exploration covers data quality and initial insights",
+          "Request includes both technical analysis and business-friendly explanations",
+          "Thread metadata helps track analysis progress"
+        ]
+      },
+      "step_4": {
+        "title": "Perform Statistical Analysis",
+        "description": "Conduct detailed statistical tests and hypothesis testing",
+        "code": {
+          "language": "javascript",
+          "example": "// Wait for exploration to complete, then perform statistical analysis\nconst statisticalAnalysisMessage = await openai.beta.threads.messages.create(thread.id, {\n  role: \"user\",\n  content: `Based on the initial exploration, please perform detailed statistical analysis:\n\n1. **Hypothesis Testing**:\n   - Test for significant differences in sales performance across regions\n   - Analyze seasonal patterns and trends\n   - Compare customer segments for statistical significance\n   - Test correlation between marketing spend and sales\n\n2. **Regression Analysis**:\n   - Build predictive models for sales forecasting\n   - Identify key drivers of sales performance\n   - Assess model fit and statistical significance\n   - Provide confidence intervals for predictions\n\n3. **Advanced Analytics**:\n   - Perform customer segmentation analysis\n   - Conduct cohort analysis if applicable\n   - Analyze customer lifetime value patterns\n   - Identify outliers and their business impact\n\n4. **Statistical Validation**:\n   - Check assumptions for all statistical tests\n   - Provide p-values and effect sizes\n   - Include confidence intervals\n   - Assess practical vs statistical significance\n\nPlease include both the statistical code and business interpretations.`\n});\n\nconst statisticalRun = await openai.beta.threads.runs.create(thread.id, {\n  assistant_id: assistant.id,\n  instructions: \"Ensure all statistical tests are properly validated and include clear business implications.\"\n});\n\nconsole.log(`Started statistical analysis: ${statisticalRun.id}`);"
+        },
+        "notes": [
+          "Focuses on rigorous statistical methodology",
+          "Includes both technical validation and business interpretation",
+          "Covers multiple analysis types for comprehensive insights"
+        ]
+      },
+      "step_5": {
+        "title": "Generate Visualizations and Reports",
+        "description": "Create professional visualizations and comprehensive reports",
+        "code": {
+          "language": "javascript",
+          "example": "// Request comprehensive visualization and reporting\nconst reportingMessage = await openai.beta.threads.messages.create(thread.id, {\n  role: \"user\",\n  content: `Please create a comprehensive analysis report with professional visualizations:\n\n1. **Executive Dashboard**:\n   - Key performance indicators (KPIs) summary\n   - High-level trends and insights\n   - Critical findings requiring immediate attention\n   - ROI and business impact metrics\n\n2. **Detailed Visualizations**:\n   - Interactive charts showing sales trends over time\n   - Geographic performance heatmaps\n   - Customer segment analysis charts\n   - Correlation matrices and scatter plots\n   - Forecasting charts with confidence bands\n\n3. **Statistical Summary**:\n   - Summary table of all statistical tests performed\n   - Effect sizes and practical significance\n   - Model performance metrics\n   - Assumptions validation results\n\n4. **Business Recommendations**:\n   - Actionable insights based on the analysis\n   - Prioritized recommendations with expected impact\n   - Areas for further investigation\n   - Next steps and implementation suggestions\n\n5. **Technical Appendix**:\n   - Detailed methodology explanation\n   - Code snippets for reproducibility\n   - Data quality assessment results\n   - Limitations and caveats\n\nPlease ensure all visualizations are publication-ready and include proper titles, labels, and legends.`\n});\n\nconst reportRun = await openai.beta.threads.runs.create(thread.id, {\n  assistant_id: assistant.id,\n  instructions: \"Create professional, publication-ready visualizations and provide clear, actionable business recommendations.\"\n});\n\nconsole.log(`Started report generation: ${reportRun.id}`);"
+        },
+        "notes": [
+          "Combines technical analysis with business-focused reporting",
+          "Emphasizes actionable insights and recommendations",
+          "Includes both executive summary and technical details"
+        ]
+      },
+      "step_6": {
+        "title": "Monitor and Retrieve Results",
+        "description": "Monitor analysis progress and retrieve comprehensive results",
+        "code": {
+          "language": "javascript",
+          "example": "// Function to monitor run completion and retrieve results\nasync function monitorAnalysisProgress(threadId, runId) {\n  let run = await openai.beta.threads.runs.retrieve(threadId, runId);\n  \n  while (run.status === 'in_progress' || run.status === 'queued') {\n    console.log(`Analysis status: ${run.status}`);\n    await new Promise(resolve => setTimeout(resolve, 2000));\n    run = await openai.beta.threads.runs.retrieve(threadId, runId);\n  }\n  \n  if (run.status === 'completed') {\n    console.log('✅ Analysis completed successfully');\n    \n    // Retrieve all messages from the thread\n    const messages = await openai.beta.threads.messages.list(threadId, {\n      order: 'asc'\n    });\n    \n    // Extract analysis results\n    const analysisResults = {\n      exploration: [],\n      statistical_analysis: [],\n      visualizations: [],\n      reports: [],\n      files_generated: []\n    };\n    \n    for (const message of messages.data) {\n      if (message.role === 'assistant') {\n        // Extract text content\n        const textContent = message.content\n          .filter(content => content.type === 'text')\n          .map(content => content.text.value);\n        \n        // Extract file attachments (charts, reports, etc.)\n        const fileAttachments = message.attachments || [];\n        \n        analysisResults.reports.push({\n          timestamp: message.created_at,\n          content: textContent,\n          files: fileAttachments\n        });\n        \n        // Track generated files\n        fileAttachments.forEach(attachment => {\n          analysisResults.files_generated.push({\n            file_id: attachment.file_id,\n            tools: attachment.tools\n          });\n        });\n      }\n    }\n    \n    return analysisResults;\n  } else {\n    console.error(`❌ Analysis failed with status: ${run.status}`);\n    if (run.last_error) {\n      console.error('Error details:', run.last_error);\n    }\n    throw new Error(`Analysis failed: ${run.status}`);\n  }\n}\n\n// Monitor the report generation\nconst results = await monitorAnalysisProgress(thread.id, reportRun.id);\nconsole.log('📊 Analysis completed with', results.files_generated.length, 'files generated');\n\n// Download generated files (charts, reports, etc.)\nfor (const fileInfo of results.files_generated) {\n  try {\n    const fileContent = await openai.files.content(fileInfo.file_id);\n    const fileName = `analysis_output_${fileInfo.file_id}.png`; // or appropriate extension\n    \n    // Save file locally\n    fs.writeFileSync(`./output/${fileName}`, fileContent);\n    console.log(`📁 Downloaded: ${fileName}`);\n  } catch (error) {\n    console.error(`Failed to download file ${fileInfo.file_id}:`, error.message);\n  }\n}"
+        },
+        "notes": [
+          "Comprehensive monitoring of analysis progress",
+          "Automatic extraction and organization of results",
+          "Downloads all generated files (charts, reports, etc.)"
+        ]
+      }
+    },
+    "advanced_features": {
+      "batch_processing": {
+        "description": "Process multiple datasets simultaneously",
+        "example": "// Process multiple datasets in parallel\nconst datasets = ['sales_q1.csv', 'sales_q2.csv', 'sales_q3.csv', 'sales_q4.csv'];\nconst analysisPromises = datasets.map(async (dataset) => {\n  const thread = await openai.beta.threads.create();\n  const message = await openai.beta.threads.messages.create(thread.id, {\n    role: 'user',\n    content: `Analyze ${dataset} and provide quarterly insights`\n  });\n  return openai.beta.threads.runs.create(thread.id, { assistant_id: assistant.id });\n});\n\nconst results = await Promise.all(analysisPromises);"
+      },
+      "real_time_monitoring": {
+        "description": "Set up real-time analysis monitoring",
+        "example": "// Monitor analysis with webhooks\nconst run = await openai.beta.threads.runs.create(thread.id, {\n  assistant_id: assistant.id,\n  webhook: {\n    url: 'https://your-app.com/analysis-webhook',\n    headers: { 'Authorization': 'Bearer your-token' }\n  }\n});"
+      },
+      "custom_functions": {
+        "description": "Add custom analysis functions",
+        "example": "// Define custom statistical functions\nconst customAnalysisAssistant = await openai.beta.assistants.create({\n  name: \"Custom Analytics Expert\",\n  tools: [\n    { type: \"code_interpreter\" },\n    {\n      type: \"function\",\n      function: {\n        name: \"calculate_customer_ltv\",\n        description: \"Calculate customer lifetime value with custom parameters\",\n        parameters: {\n          type: \"object\",\n          properties: {\n            revenue_data: { type: \"array\" },\n            retention_rate: { type: \"number\" },\n            discount_rate: { type: \"number\" }\n          }\n        }\n      }\n    }\n  ]\n});"
+      }
+    },
+    "best_practices": {
+      "data_preparation": [
+        "Always validate data quality before analysis",
+        "Handle missing values appropriately for your use case",
+        "Document data transformations and cleaning steps",
+        "Maintain data lineage and version control"
+      ],
+      "statistical_rigor": [
+        "Check assumptions for all statistical tests",
+        "Use appropriate sample sizes for reliable results",
+        "Report both statistical and practical significance",
+        "Include confidence intervals and effect sizes"
+      ],
+      "visualization": [
+        "Choose appropriate chart types for your data",
+        "Include clear titles, labels, and legends",
+        "Use consistent color schemes and formatting",
+        "Provide context and interpretation for charts"
+      ],
+      "reporting": [
+        "Start with executive summary for stakeholders",
+        "Provide both technical details and business insights",
+        "Include actionable recommendations",
+        "Document methodology for reproducibility"
+      ]
+    },
+    "common_use_cases": {
+      "sales_analysis": {
+        "description": "Comprehensive sales performance analysis",
+        "metrics": ["Revenue trends", "Customer acquisition", "Seasonal patterns", "Regional performance"],
+        "deliverables": ["Executive dashboard", "Forecasting models", "Performance reports"]
+      },
+      "customer_analytics": {
+        "description": "Customer behavior and segmentation analysis",
+        "metrics": ["Customer lifetime value", "Churn analysis", "Segmentation", "Satisfaction scores"],
+        "deliverables": ["Customer profiles", "Retention strategies", "Segmentation reports"]
+      },
+      "financial_analysis": {
+        "description": "Financial performance and risk analysis",
+        "metrics": ["Profitability analysis", "Cost optimization", "Risk assessment", "Budget variance"],
+        "deliverables": ["Financial dashboards", "Risk reports", "Budget recommendations"]
+      },
+      "operational_analytics": {
+        "description": "Operational efficiency and process optimization",
+        "metrics": ["Process efficiency", "Resource utilization", "Quality metrics", "Performance KPIs"],
+        "deliverables": ["Efficiency reports", "Process improvements", "Resource optimization"]
+      }
+    },
+    "troubleshooting": {
+      "common_issues": {
+        "large_datasets": {
+          "problem": "Analysis timeout with large datasets",
+          "solution": "Split data into chunks or use sampling techniques",
+          "code": "// Process large datasets in chunks\nconst chunkSize = 10000;\nfor (let i = 0; i < data.length; i += chunkSize) {\n  const chunk = data.slice(i, i + chunkSize);\n  await processChunk(chunk);\n}"
+        },
+        "memory_errors": {
+          "problem": "Out of memory errors during analysis",
+          "solution": "Use streaming processing or reduce data dimensionality",
+          "code": "// Use pandas chunking for large files\npd.read_csv('large_file.csv', chunksize=1000)"
+        },
+        "statistical_assumptions": {
+          "problem": "Statistical test assumptions violated",
+          "solution": "Use non-parametric alternatives or data transformations",
+          "code": "// Check normality and use appropriate tests\nfrom scipy import stats\nif stats.shapiro(data).pvalue < 0.05:\n    # Use non-parametric test\n    result = stats.mannwhitneyu(group1, group2)"
+        }
+      }
+    },
+    "performance_optimization": {
+      "tips": [
+        "Use appropriate data types to reduce memory usage",
+        "Leverage vectorized operations in pandas/numpy",
+        "Cache intermediate results for complex analyses",
+        "Use parallel processing for independent analyses",
+        "Optimize file formats (parquet vs CSV)",
+        "Implement progressive analysis for large datasets"
+      ],
+      "monitoring": [
+        "Track analysis execution time",
+        "Monitor memory usage during processing",
+        "Log data quality metrics",
+        "Measure statistical test power",
+        "Track model performance metrics"
+      ]
+    },
+    "integration_examples": {
+      "database_integration": {
+        "description": "Connect to databases for live data analysis",
+        "code": "// Example: Connect to PostgreSQL for live analysis\nconst analysisMessage = `\nConnect to our PostgreSQL database and analyze:\n- Table: sales_transactions\n- Date range: Last 90 days\n- Metrics: Revenue, customer count, average order value\n\nConnection details will be provided securely.\n`;"
+      },
+      "api_integration": {
+        "description": "Integrate with external APIs for enriched analysis",
+        "code": "// Example: Enrich analysis with external market data\nconst enrichedAnalysis = `\nPerform sales analysis and enrich with:\n- Market trend data from external API\n- Economic indicators\n- Competitor benchmarking data\n\nProvide comparative analysis and market positioning insights.\n`;"
+      },
+      "automated_reporting": {
+        "description": "Set up automated recurring analysis",
+        "code": "// Schedule weekly analysis reports\nconst weeklyAnalysis = await scheduleRecurringAnalysis({\n  frequency: 'weekly',\n  assistant_id: assistant.id,\n  analysis_type: 'sales_performance',\n  recipients: ['team@company.com']\n});"
+      }
+    }
+  }
+}
