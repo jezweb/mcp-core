@@ -1,5 +1,43 @@
 # 📋 Changelog - OpenAI Assistants MCP Server
 
+## 🚀 Version 2.2.2 - NPM Package Files Fix (2025-07-31)
+
+### 🔧 Critical Bug Fix
+
+#### 📦 NPM Package Missing Files Fix
+- **Issue**: NPM package was missing required `shared/` and `definitions/` directories
+- **Root Cause**: package.json `files` array was incomplete, causing "Cannot find module" errors
+- **Fix**: Added missing `shared/` and `definitions/` directories to NPM package files
+- **Impact**: NPM package now includes all required files for full 22 tools and 13 resources functionality
+
+#### 🔍 Module Resolution Improvements
+- **Fixed Module Paths**: Resolved `../../shared/resources/resources.cjs` import errors
+- **Complete Package**: NPM package now includes all dependencies for proper operation
+- **File Structure**: Ensured consistent file structure between local and published package
+- **Dependency Resolution**: Fixed relative path resolution for all shared modules
+
+#### 🧪 Validation & Testing
+- **Package Contents**: Verified all required files are included in published package
+- **Module Loading**: Confirmed all imports resolve correctly in production
+- **Tool/Resource Counts**: Validated full 22 tools and 13 resources are accessible
+- **Production Testing**: Ensured NPM package works correctly when installed globally
+
+### 🔄 Migration Guide
+
+#### From v2.2.1 to v2.2.2
+1. **Update Package**: `npm update openai-assistants-mcp@latest` or use `npx openai-assistants-mcp@latest`
+2. **No Configuration Changes**: Existing configurations work unchanged
+3. **Immediate Fix**: Module resolution errors should resolve immediately after update
+4. **Verification**: Package should now load without "Cannot find module" errors
+
+#### Expected Results After Update
+- **Tools**: 22 tools available (consistent with v2.2.1)
+- **Resources**: 13 resources available (consistent with v2.2.1)
+- **Module Loading**: All imports resolve correctly without errors
+- **Full Functionality**: Complete feature set now available via NPM package
+
+---
+
 ## 🚀 Version 2.2.1 - NPM Package Proxy Fix (2025-07-31)
 
 ### 🔧 Critical Bug Fix
