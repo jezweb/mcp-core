@@ -398,6 +398,12 @@ export class BaseMCPHandler {
       );
     }
 
+    // Get resource content and ensure it's a string
+    const rawContent = getResourceContent(uri);
+    const textContent = typeof rawContent === 'string'
+      ? rawContent
+      : JSON.stringify(rawContent, null, 2);
+
     return {
       jsonrpc: '2.0',
       id: request.id,
@@ -405,8 +411,9 @@ export class BaseMCPHandler {
         contents: [
           {
             uri,
+            name: resourceData.name,           // Add required name field
             mimeType: resourceData.mimeType,
-            text: getResourceContent(uri),
+            text: textContent,                 // Ensure content is always a string
           },
         ],
       },

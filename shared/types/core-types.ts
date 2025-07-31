@@ -152,6 +152,7 @@ export interface MCPResourcesReadResponse extends JsonRpcResponse {
   result: {
     contents: Array<{
       uri: string;
+      name: string;                    // Required name field per MCP specification
       mimeType?: string;
       text?: string;
       blob?: string;
