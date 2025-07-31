@@ -45,29 +45,53 @@ export function createAllHandlers(context: ToolHandlerContext): {
   runStep: Record<string, BaseToolHandler>;
   all: Record<string, BaseToolHandler>;
 } {
-  const assistantHandlers = createAssistantHandlers(context);
-  const threadHandlers = createThreadHandlers(context);
-  const messageHandlers = createMessageHandlers(context);
-  const runHandlers = createRunHandlers(context);
-  const runStepHandlers = createRunStepHandlers(context);
+  console.log('[HandlerIndex] DEBUG: Creating all handlers...');
+  
+  try {
+    console.log('[HandlerIndex] DEBUG: Creating assistant handlers...');
+    const assistantHandlers = createAssistantHandlers(context);
+    console.log(`[HandlerIndex] DEBUG: Created ${Object.keys(assistantHandlers).length} assistant handlers:`, Object.keys(assistantHandlers));
+    
+    console.log('[HandlerIndex] DEBUG: Creating thread handlers...');
+    const threadHandlers = createThreadHandlers(context);
+    console.log(`[HandlerIndex] DEBUG: Created ${Object.keys(threadHandlers).length} thread handlers:`, Object.keys(threadHandlers));
+    
+    console.log('[HandlerIndex] DEBUG: Creating message handlers...');
+    const messageHandlers = createMessageHandlers(context);
+    console.log(`[HandlerIndex] DEBUG: Created ${Object.keys(messageHandlers).length} message handlers:`, Object.keys(messageHandlers));
+    
+    console.log('[HandlerIndex] DEBUG: Creating run handlers...');
+    const runHandlers = createRunHandlers(context);
+    console.log(`[HandlerIndex] DEBUG: Created ${Object.keys(runHandlers).length} run handlers:`, Object.keys(runHandlers));
+    
+    console.log('[HandlerIndex] DEBUG: Creating run step handlers...');
+    const runStepHandlers = createRunStepHandlers(context);
+    console.log(`[HandlerIndex] DEBUG: Created ${Object.keys(runStepHandlers).length} run step handlers:`, Object.keys(runStepHandlers));
 
-  // Combine all handlers into a single flat object
-  const allHandlers = {
-    ...assistantHandlers,
-    ...threadHandlers,
-    ...messageHandlers,
-    ...runHandlers,
-    ...runStepHandlers
-  };
+    // Combine all handlers into a single flat object
+    const allHandlers = {
+      ...assistantHandlers,
+      ...threadHandlers,
+      ...messageHandlers,
+      ...runHandlers,
+      ...runStepHandlers
+    };
 
-  return {
-    assistant: assistantHandlers,
-    thread: threadHandlers,
-    message: messageHandlers,
-    run: runHandlers,
-    runStep: runStepHandlers,
-    all: allHandlers
-  };
+    console.log(`[HandlerIndex] DEBUG: Combined all handlers. Total: ${Object.keys(allHandlers).length}`);
+    console.log('[HandlerIndex] DEBUG: All handler names:', Object.keys(allHandlers).sort());
+
+    return {
+      assistant: assistantHandlers,
+      thread: threadHandlers,
+      message: messageHandlers,
+      run: runHandlers,
+      runStep: runStepHandlers,
+      all: allHandlers
+    };
+  } catch (error) {
+    console.error('[HandlerIndex] FATAL ERROR creating handlers:', error);
+    throw error;
+  }
 }
 
 /**

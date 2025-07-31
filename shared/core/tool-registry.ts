@@ -49,23 +49,38 @@ export class ToolRegistry {
    * @throws MCPError if tool is already registered
    */
   register(toolName: string, handler: BaseToolHandler): void {
-    if (this.handlers.has(toolName)) {
-      throw new MCPError(
-        ErrorCodes.INTERNAL_ERROR,
-        `Tool '${toolName}' is already registered. Cannot register duplicate handlers.`
-      );
-    }
+    try {
+      console.log(`[ToolRegistry] DEBUG: Attempting to register tool: ${toolName}`);
+      
+      if (this.handlers.has(toolName)) {
+        const error = new MCPError(
+          ErrorCodes.INTERNAL_ERROR,
+          `Tool '${toolName}' is already registered. Cannot register duplicate handlers.`
+        );
+        console.error(`[ToolRegistry] ERROR: ${error.message}`);
+        throw error;
+      }
 
-    // Validate that the handler's tool name matches the registration name
-    if (handler.getToolName() !== toolName) {
-      throw new MCPError(
-        ErrorCodes.INTERNAL_ERROR,
-        `Handler tool name '${handler.getToolName()}' does not match registration name '${toolName}'.`
-      );
-    }
+      // Validate that the handler's tool name matches the registration name
+      const handlerToolName = handler.getToolName();
+      console.log(`[ToolRegistry] DEBUG: Handler reports tool name: ${handlerToolName}`);
+      
+      if (handlerToolName !== toolName) {
+        const error = new MCPError(
+          ErrorCodes.INTERNAL_ERROR,
+          `Handler tool name '${handlerToolName}' does not match registration name '${toolName}'.`
+        );
+        console.error(`[ToolRegistry] ERROR: ${error.message}`);
+        throw error;
+      }
 
-    this.handlers.set(toolName, handler);
-    this.logRegistration(toolName, handler);
+      this.handlers.set(toolName, handler);
+      this.logRegistration(toolName, handler);
+      console.log(`[ToolRegistry] SUCCESS: Registered tool: ${toolName} (total: ${this.handlers.size})`);
+    } catch (error) {
+      console.error(`[ToolRegistry] FATAL ERROR registering ${toolName}:`, error);
+      throw error;
+    }
   }
 
   /**

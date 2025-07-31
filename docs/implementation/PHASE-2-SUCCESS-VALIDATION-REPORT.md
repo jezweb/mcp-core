@@ -77,7 +77,7 @@ shared/
 ## ✅ Production Deployment Validation
 
 ### Live System Status: **OPERATIONAL**
-- **Production URL**: `https://assistants.jezweb.com/mcp`
+- **Production URL**: `https://openai-assistants-mcp.jezweb.ai/mcp/{api-key}`
 - **Deployment Status**: ✅ **LIVE & FUNCTIONAL**
 - **Version ID**: `58347988-ff32-42ab-b6fc-48f1c636ae7d`
 

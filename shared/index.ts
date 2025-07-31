@@ -80,9 +80,12 @@ export {
 
 // Export resources
 export {
-  mcpResources,
+  getAllResources,
+  getResource,
   getResourceContent,
-  resourceContent
+  getResourcesByCategory,
+  searchResources,
+  getResourceStats
 } from './resources/index.js';
 
 // Export services

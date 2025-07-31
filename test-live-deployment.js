@@ -5,7 +5,7 @@
  * Tests the deployed Cloudflare Worker
  */
 
-const WORKER_URL = 'https://openai-assistants-mcp.webfonts.workers.dev';
+const WORKER_URL = 'https://openai-assistants-mcp.jezweb.ai';
 const TEST_API_KEY = 'test-api-key-12345';
 
 async function testMCPEndpoint(method, params = {}) {

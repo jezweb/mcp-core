@@ -6,13 +6,25 @@
  * to import resources using @shared/resources.
  */
 
-// Export all resource functions and data
-export * from './resources.js';
-
-// Re-export commonly used resources for convenience (using new generated exports)
-export {
-  getResources,
+// Import from CommonJS module and re-export as ES modules
+import {
+  getAllResources,
   getResource,
+  getResourceContent,
   getResourcesByCategory,
-  RESOURCE_URIS
-} from './resources.js';
+  searchResources,
+  getResourceStats
+} from './resources.cjs';
+
+// Export all resource functions and data
+export {
+  getAllResources,
+  getResource,
+  getResourceContent,
+  getResourcesByCategory,
+  searchResources,
+  getResourceStats
+};
+
+// Legacy exports for backward compatibility
+export const getResources = getAllResources;

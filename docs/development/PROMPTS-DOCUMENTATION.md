@@ -143,7 +143,7 @@ Perform comprehensive analysis of a dataset.
 ### Listing Available Prompts
 
 ```bash
-curl -X POST https://assistants.jezweb.com/mcp/test \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/test \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -180,7 +180,7 @@ curl -X POST https://assistants.jezweb.com/mcp/test \
 ### Getting a Specific Prompt
 
 ```bash
-curl -X POST https://assistants.jezweb.com/mcp/test \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/test \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",

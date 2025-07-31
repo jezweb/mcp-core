@@ -401,12 +401,12 @@ For programmatic access:
 
 ```bash
 # List all resources
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": {}}'
 
 # Read a specific resource
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "id": 2, "method": "resources/read", "params": {"uri": "assistant://templates/coding-assistant"}}'
 ```

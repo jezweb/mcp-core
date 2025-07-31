@@ -1,5 +1,43 @@
 # 📋 Changelog - OpenAI Assistants MCP Server
 
+## 🚀 Version 2.2.4 - Critical Path Fix (2025-07-31)
+
+### 🔧 Critical Bug Fix
+
+#### 🛠️ Module Import Path Fix
+- **Issue**: NPM package was failing with "Cannot find module '../../shared/resources/resources.cjs'" error
+- **Root Cause**: Incorrect relative path in mcp-handler.cjs - used `../../` instead of `../` from src/ directory
+- **Fix**: Corrected import path from `../../shared/resources/resources.cjs` to `../shared/resources/resources.cjs`
+- **Impact**: NPM package now loads correctly and shows all 22 tools and 13 resources
+
+#### 🔍 Connection Error Resolution
+- **Fixed Error**: Resolved "connection close -32000" errors that users were experiencing
+- **Module Loading**: All imports now resolve correctly in production environment
+- **Production Ready**: Package works correctly when installed globally via npx
+- **Immediate Fix**: No configuration changes required, just update to v2.2.4
+
+#### 🧪 Validation & Testing
+- **Path Verification**: Confirmed correct relative paths from npm-package/src/ to shared/ directory
+- **Module Loading**: Verified all imports resolve correctly in production
+- **Tool/Resource Counts**: Validated full 22 tools and 13 resources are accessible
+- **Production Testing**: Ensured NPM package works correctly when installed globally
+
+### 🔄 Migration Guide
+
+#### From v2.2.3 to v2.2.4
+1. **Update Package**: `npm update openai-assistants-mcp@latest` or use `npx openai-assistants-mcp@latest`
+2. **No Configuration Changes**: Existing configurations work unchanged
+3. **Immediate Fix**: Module resolution errors should resolve immediately after update
+4. **Full Functionality**: All 22 tools and 13 resources should now be available
+
+#### Expected Results After Update
+- **Tools**: 22 tools available (up from broken state in v2.2.3)
+- **Resources**: 13 resources available (up from broken state in v2.2.3)
+- **Module Loading**: All imports resolve correctly without errors
+- **No Connection Errors**: "connection close -32000" errors should be resolved
+
+---
+
 ## 🚀 Version 2.2.3 - NPM Package Structure Fix (2025-07-31)
 
 ### 🔧 Critical Bug Fix

@@ -37,7 +37,7 @@ This directory contains comprehensive deployment documentation for the OpenAI As
 ## 🚀 Deployment Status Overview
 
 ### ✅ Production Deployment: LIVE & OPERATIONAL
-- **Endpoint**: `https://assistants.jezweb.com/mcp`
+- **Endpoint**: `https://openai-assistants-mcp.jezweb.ai/mcp/{api-key}`
 - **Version**: v3.0.0 Phase 1 Refactored
 - **Architecture**: Revolutionary modular handler system
 - **Status**: 100% operational with enhanced features
@@ -52,7 +52,7 @@ This directory contains comprehensive deployment documentation for the OpenAI As
 ## 🛠️ Deployment Options
 
 ### 1. 🚀 Cloudflare Workers (Production Ready)
-- **URL**: `https://assistants.jezweb.com/mcp`
+- **URL**: `https://openai-assistants-mcp.jezweb.ai/mcp/{api-key}`
 - **Features**: Zero setup, global edge distribution, sub-100ms response times
 - **Benefits**: No local dependencies, automatic scaling, DDoS protection
 - **Use Case**: Production deployments, web-based clients, global availability
@@ -109,7 +109,7 @@ This directory contains comprehensive deployment documentation for the OpenAI As
   "mcpServers": {
     "openai-assistants": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://assistants.jezweb.com/mcp/YOUR_OPENAI_API_KEY"]
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_OPENAI_API_KEY"]
     }
   }
 }

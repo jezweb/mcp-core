@@ -11,7 +11,7 @@ import {
   ErrorCodes,
   OpenAIService,
   validateModel,
-  mcpResources,
+  getAllResources,
   Assistant,
   Thread,
   Message,
@@ -41,7 +41,8 @@ function testSharedLibraries(): void {
   console.log('ID patterns available:', Object.keys(ID_PATTERNS));
   
   // Test resources
-  console.log('Available resources:', mcpResources.length);
+  const allResources = getAllResources();
+  console.log('Available resources:', allResources.length);
   const templateContent = getResourceContent('assistant://templates/coding-assistant');
   console.log('Template content available:', !!templateContent);
   

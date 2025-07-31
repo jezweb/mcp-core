@@ -2,7 +2,7 @@
 
 ## 🌐 **NEW PRODUCTION ENDPOINT**
 ```
-https://assistants.jezweb.com/mcp
+https://openai-assistants-mcp.jezweb.ai/mcp/{api-key}
 ```
 
 ## ✅ **Deployment Status: LIVE & OPERATIONAL - v3.0.0 PHASE 1 REFACTORED**
@@ -62,7 +62,7 @@ For **Claude Desktop** or **Roo**, add this to your MCP configuration:
   "mcpServers": {
     "openai-assistants": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://assistants.jezweb.com/mcp/YOUR_OPENAI_API_KEY"]
+      "args": ["-y", "@modelcontextprotocol/server-fetch", "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_OPENAI_API_KEY"]
     }
   }
 }
@@ -72,12 +72,12 @@ For **Claude Desktop** or **Roo**, add this to your MCP configuration:
 
 **Base URL Format:**
 ```
-https://assistants.jezweb.com/mcp/{your-openai-api-key}
+https://openai-assistants-mcp.jezweb.ai/mcp/{your-openai-api-key}
 ```
 
 **Example Request:**
 ```bash
-curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -90,7 +90,7 @@ curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
 ### 3. **JavaScript/TypeScript Usage**
 
 ```javascript
-const WORKER_URL = 'https://assistants.jezweb.com/mcp';
+const WORKER_URL = 'https://openai-assistants-mcp.jezweb.ai/mcp';
 const API_KEY = 'sk-your-openai-api-key';
 
 async function callMCPTool(method, params = {}) {
@@ -258,7 +258,7 @@ The enhanced server provides comprehensive MCP resources for better user experie
 
 ```bash
 # 1. Create an assistant (handled by AssistantCreateHandler)
-curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -275,7 +275,7 @@ curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
   }'
 
 # 2. Create a thread (handled by ThreadCreateHandler)
-curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -288,7 +288,7 @@ curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
   }'
 
 # 3. Add a message (handled by MessageCreateHandler)
-curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -305,7 +305,7 @@ curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
   }'
 
 # 4. Run the assistant (handled by RunCreateHandler)
-curl -X POST https://assistants.jezweb.com/mcp/your-api-key \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/your-api-key \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",

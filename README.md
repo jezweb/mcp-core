@@ -7,7 +7,7 @@ A production-ready Model Context Protocol (MCP) server featuring a **revolutiona
 Choose the deployment option that best fits your needs:
 
 ### 🚀 Option 1: Cloudflare Workers (Production Ready - Phase 1 Refactored)
-**NEW Production URL**: `https://assistants.jezweb.com/mcp`
+**NEW Production URL**: `https://openai-assistants-mcp.jezweb.ai/mcp/{api-key}`
 - ✅ **Modular Architecture** - 22 individual handler classes
 - ✅ **93% Complexity Reduction** - Strategy pattern implementation
 - ✅ Zero setup required
@@ -271,7 +271,7 @@ npm install -g mcp-proxy
       "command": "npx",
       "args": [
         "mcp-proxy",
-        "https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_OPENAI_API_KEY_HERE"
+        "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_OPENAI_API_KEY_HERE"
       ]
     }
   }
@@ -332,12 +332,12 @@ Resources can be accessed through any MCP client that supports the resources pro
 
 ```bash
 # List all available resources
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": {}}'
 
 # Read a specific resource
-curl -X POST https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY \
+curl -X POST https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "id": 2, "method": "resources/read", "params": {"uri": "assistant://templates/coding-assistant"}}'
 ```
@@ -581,12 +581,12 @@ Test the Cloudflare Workers deployment directly with curl:
 
 ```bash
 # List available tools
-curl -X POST "https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY" \
+curl -X POST "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 
 # Create an assistant
-curl -X POST "https://openai-assistants-mcp.webfonts.workers.dev/mcp/YOUR_API_KEY" \
+curl -X POST "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",

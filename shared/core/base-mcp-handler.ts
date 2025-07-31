@@ -40,7 +40,7 @@ import {
   createStandardErrorResponse,
 } from '../types/index.js';
 import { OpenAIService } from '../services/index.js';
-import { getResources, getResource, getResourceContent } from '../resources/index.js';
+import { getAllResources, getResource, getResourceContent } from '../resources/index.js';
 import { setupHandlerSystem, ToolRegistry, generateToolDefinitions } from './index.js';
 import { createPromptHandlers, PromptHandlerContext } from './handlers/prompt-handlers.js';
 import { createCompletionHandlers, CompletionHandlerContext } from './handlers/completion-handlers.js';
@@ -133,16 +133,42 @@ export class BaseMCPHandler {
       requestId: null
     };
     
+    console.log('[BaseMCPHandler] DEBUG: Starting handler system initialization...');
     this.log('Initializing handler system...');
-    this.toolRegistry = setupHandlerSystem(context);
     
-    // Validate tool count
-    const registeredTools = this.toolRegistry.getRegisteredTools();
-    this.log(`Registered ${registeredTools.length} tools:`, registeredTools);
-    
-    if (registeredTools.length !== 22) {
-      console.error(`[BaseMCPHandler] ERROR: Expected 22 tools, got ${registeredTools.length}`);
-      console.error('[BaseMCPHandler] Registry stats:', this.toolRegistry.getStats());
+    try {
+      this.toolRegistry = setupHandlerSystem(context);
+      console.log('[BaseMCPHandler] DEBUG: Handler system setup completed');
+      
+      // Validate tool count
+      const registeredTools = this.toolRegistry.getRegisteredTools();
+      console.log(`[BaseMCPHandler] DEBUG: Registry returned ${registeredTools.length} tools`);
+      this.log(`Registered ${registeredTools.length} tools:`, registeredTools);
+      
+      if (registeredTools.length !== 22) {
+        console.error(`[BaseMCPHandler] ERROR: Expected 22 tools, got ${registeredTools.length}`);
+        console.error('[BaseMCPHandler] Registry stats:', this.toolRegistry.getStats());
+        console.error('[BaseMCPHandler] Missing tools analysis:');
+        
+        const expectedTools = [
+          'assistant-create', 'assistant-list', 'assistant-get', 'assistant-update', 'assistant-delete',
+          'thread-create', 'thread-get', 'thread-update', 'thread-delete',
+          'message-create', 'message-list', 'message-get', 'message-update', 'message-delete',
+          'run-create', 'run-list', 'run-get', 'run-update', 'run-cancel', 'run-submit-tool-outputs',
+          'run-step-list', 'run-step-get'
+        ];
+        
+        const missingTools = expectedTools.filter(tool => !registeredTools.includes(tool));
+        const extraTools = registeredTools.filter(tool => !expectedTools.includes(tool));
+        
+        console.error('[BaseMCPHandler] Missing tools:', missingTools);
+        console.error('[BaseMCPHandler] Extra tools:', extraTools);
+      } else {
+        console.log('[BaseMCPHandler] SUCCESS: All 22 tools registered correctly');
+      }
+    } catch (error) {
+      console.error('[BaseMCPHandler] FATAL ERROR during handler system initialization:', error);
+      throw error;
     }
   }
 
@@ -350,7 +376,7 @@ export class BaseMCPHandler {
   protected async handleResourcesList(request: MCPResourcesListRequest): Promise<MCPResourcesListResponse> {
     this.log('Listing resources with pagination...');
     
-    const allResources = getResources();
+    const allResources = getAllResources();
     this.log(`Found ${allResources.length} resources`);
 
     // Apply pagination
@@ -369,7 +395,7 @@ export class BaseMCPHandler {
       jsonrpc: '2.0',
       id: request.id,
       result: {
-        resources: paginationResult.items.map(resource => ({
+        resources: paginationResult.items.map((resource: any) => ({
           uri: resource.uri,
           name: resource.name,
           description: resource.description,
@@ -386,14 +412,14 @@ export class BaseMCPHandler {
   protected async handleResourcesRead(request: MCPResourcesReadRequest): Promise<MCPResourcesReadResponse> {
     const { uri } = request.params;
     
-    const resourceData = getResource(uri);
+    const resourceData = getResource(uri) as any;
     if (!resourceData) {
       throw createEnhancedError(
         LegacyErrorCodes.NOT_FOUND,
         `Resource not found: ${uri}`,
         {
           resourceUri: uri,
-          availableResources: getResources().map(r => r.uri)
+          availableResources: getAllResources().map((r: any) => r.uri)
         }
       );
     }

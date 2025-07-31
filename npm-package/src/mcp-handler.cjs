@@ -14,7 +14,7 @@ const { OpenAIService } = require('../openai-service.cjs');
  */
 
 // Import the shared resources system
-const { getAllResources } = require('../../shared/resources/resources.cjs');
+const { getAllResources } = require('../shared/resources/resources.cjs');
 
 /**
  * Base Tool Handler - CommonJS version matching shared system

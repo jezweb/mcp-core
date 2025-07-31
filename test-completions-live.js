@@ -9,7 +9,7 @@
 
 class LiveCompletionsTest {
   constructor() {
-    this.cloudflareWorkerUrl = 'https://assistants.jezweb.com/mcp';
+    this.cloudflareWorkerUrl = 'https://openai-assistants-mcp.jezweb.ai/mcp';
     this.testApiKey = process.env.OPENAI_API_KEY || 'test-api-key-for-validation';
     this.testResults = [];
   }
