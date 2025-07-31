@@ -10,7 +10,8 @@
       "alwaysAllow": [
         "get_file_info",
         "list_directory",
-        "read_multiple_files"
+        "read_multiple_files",
+        "edit_file"
       ]
     },
     "memory": {
