@@ -1,0 +1,139 @@
+{
+  "summary": {
+    "timestamp": "2025-08-01T05:38:54.726Z",
+    "duration": "-23.74ms",
+    "totalTests": 3,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 12,
+    "successRate": "0.00%",
+    "configuration": {
+      "mode": "all",
+      "target": "both",
+      "phase": "preparation",
+      "verbose": true,
+      "parallel": true,
+      "reportPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/reports"
+    }
+  },
+  "suiteResults": {
+    "regression": {
+      "name": "regression",
+      "startTime": 26.550813,
+      "endTime": 27.019482,
+      "tests": [
+        {
+          "name": "deployment-parity.test.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        },
+        {
+          "name": "feature-completeness.test.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        },
+        {
+          "name": "error-handling.test.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        }
+      ],
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "errors": []
+    },
+    "integration": {
+      "name": "integration",
+      "startTime": 26.67336,
+      "endTime": 27.114764,
+      "tests": [
+        {
+          "name": "unified-components.test.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        },
+        {
+          "name": "cross-deployment.test.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        },
+        {
+          "name": "end-to-end.test.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        }
+      ],
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "errors": []
+    },
+    "validation": {
+      "name": "validation",
+      "startTime": 26.720581,
+      "endTime": 27.1644,
+      "tests": [
+        {
+          "name": "checkpoint-validator.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        },
+        {
+          "name": "rollback-validator.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        },
+        {
+          "name": "consistency-checker.js",
+          "status": "skipped",
+          "reason": "Suite not implemented yet",
+          "duration": 0
+        }
+      ],
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "errors": []
+    },
+    "before-after": {
+      "name": "before-after",
+      "startTime": 26.316384,
+      "endTime": 27.382491,
+      "tests": [
+        {
+          "name": "behavioral-consistency.test.js",
+          "status": "skipped",
+          "reason": "Test file not implemented yet",
+          "duration": 0
+        },
+        {
+          "name": "api-compatibility.test.js",
+          "status": "skipped",
+          "reason": "Test file not implemented yet",
+          "duration": 0
+        },
+        {
+          "name": "performance-impact.test.js",
+          "status": "skipped",
+          "reason": "Test file not implemented yet",
+          "duration": 0
+        }
+      ],
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "errors": []
+    }
+  },
+  "errors": [],
+  "warnings": []
+}

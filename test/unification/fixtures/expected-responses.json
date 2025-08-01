@@ -1,0 +1,337 @@
+{
+  "assistant_create": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "asst_test123",
+      "object": "assistant",
+      "created_at": 1699472932,
+      "name": "Test Assistant",
+      "description": "A test assistant for unification testing",
+      "model": "gpt-4",
+      "instructions": "You are a helpful test assistant.",
+      "tools": [
+        {
+          "type": "code_interpreter"
+        }
+      ],
+      "metadata": {
+        "test": "true",
+        "environment": "unification"
+      }
+    }
+  },
+  "assistant_list": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "object": "list",
+      "data": [
+        {
+          "id": "asst_test123",
+          "object": "assistant",
+          "created_at": 1699472932,
+          "name": "Test Assistant",
+          "description": "A test assistant for unification testing",
+          "model": "gpt-4",
+          "instructions": "You are a helpful test assistant.",
+          "tools": [
+            {
+              "type": "code_interpreter"
+            }
+          ],
+          "metadata": {
+            "test": "true",
+            "environment": "unification"
+          }
+        }
+      ],
+      "first_id": "asst_test123",
+      "last_id": "asst_test123",
+      "has_more": false
+    }
+  },
+  "assistant_get": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "asst_test123",
+      "object": "assistant",
+      "created_at": 1699472932,
+      "name": "Test Assistant",
+      "description": "A test assistant for unification testing",
+      "model": "gpt-4",
+      "instructions": "You are a helpful test assistant.",
+      "tools": [
+        {
+          "type": "code_interpreter"
+        }
+      ],
+      "metadata": {
+        "test": "true",
+        "environment": "unification"
+      }
+    }
+  },
+  "assistant_update": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "asst_test123",
+      "object": "assistant",
+      "created_at": 1699472932,
+      "name": "Updated Test Assistant",
+      "description": "An updated test assistant",
+      "model": "gpt-4",
+      "instructions": "You are an updated helpful test assistant.",
+      "tools": [
+        {
+          "type": "code_interpreter"
+        }
+      ],
+      "metadata": {
+        "test": "true",
+        "environment": "unification"
+      }
+    }
+  },
+  "assistant_delete": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "asst_test123",
+      "object": "assistant.deleted",
+      "deleted": true
+    }
+  },
+  "thread_create": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "thread_test123",
+      "object": "thread",
+      "created_at": 1699472932,
+      "metadata": {
+        "test": "true"
+      }
+    }
+  },
+  "message_create": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "msg_test123",
+      "object": "thread.message",
+      "created_at": 1699472932,
+      "thread_id": "thread_test123",
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": {
+            "value": "This is a test message for unification testing.",
+            "annotations": []
+          }
+        }
+      ],
+      "metadata": {}
+    }
+  },
+  "run_create": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "run_test123",
+      "object": "thread.run",
+      "created_at": 1699472932,
+      "assistant_id": "asst_test123",
+      "thread_id": "thread_test123",
+      "status": "queued",
+      "started_at": null,
+      "expires_at": 1699476532,
+      "cancelled_at": null,
+      "failed_at": null,
+      "completed_at": null,
+      "model": "gpt-4",
+      "instructions": "Please respond to the user's message.",
+      "tools": [
+        {
+          "type": "code_interpreter"
+        }
+      ],
+      "metadata": {}
+    }
+  },
+  "vector_store_create": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "vs_test123",
+      "object": "vector_store",
+      "created_at": 1699472932,
+      "name": "Test Vector Store",
+      "usage_bytes": 0,
+      "file_counts": {
+        "in_progress": 0,
+        "completed": 0,
+        "failed": 0,
+        "cancelled": 0,
+        "total": 0
+      },
+      "status": "completed",
+      "expires_after": null,
+      "expires_at": null,
+      "last_active_at": 1699472932,
+      "metadata": {
+        "test": "true"
+      }
+    }
+  },
+  "file_upload": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "file_test123",
+      "object": "file",
+      "bytes": 15,
+      "created_at": 1699472932,
+      "filename": "test-file.txt",
+      "purpose": "assistants"
+    }
+  },
+  "error_responses": {
+    "invalid_auth": {
+      "status": 401,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "error": {
+          "message": "Invalid authentication credentials",
+          "type": "invalid_request_error",
+          "code": "invalid_api_key"
+        }
+      }
+    },
+    "missing_required_field": {
+      "status": 400,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "error": {
+          "message": "Missing required parameter: 'model'",
+          "type": "invalid_request_error",
+          "param": "model",
+          "code": "missing_required_parameter"
+        }
+      }
+    },
+    "invalid_resource_id": {
+      "status": 404,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "error": {
+          "message": "No assistant found with id 'invalid_id'",
+          "type": "invalid_request_error",
+          "param": "assistant_id",
+          "code": "resource_not_found"
+        }
+      }
+    },
+    "rate_limit_exceeded": {
+      "status": 429,
+      "headers": {
+        "Content-Type": "application/json",
+        "Retry-After": "60"
+      },
+      "body": {
+        "error": {
+          "message": "Rate limit exceeded. Please try again later.",
+          "type": "rate_limit_error",
+          "code": "rate_limit_exceeded"
+        }
+      }
+    }
+  },
+  "performance_benchmarks": {
+    "response_times": {
+      "assistant_create": {
+        "p50": 150,
+        "p95": 300,
+        "p99": 500
+      },
+      "assistant_list": {
+        "p50": 100,
+        "p95": 200,
+        "p99": 350
+      },
+      "assistant_get": {
+        "p50": 80,
+        "p95": 150,
+        "p99": 250
+      },
+      "message_create": {
+        "p50": 120,
+        "p95": 250,
+        "p99": 400
+      },
+      "run_create": {
+        "p50": 200,
+        "p95": 400,
+        "p99": 600
+      }
+    },
+    "memory_usage": {
+      "baseline": 50,
+      "peak": 200,
+      "average": 75
+    },
+    "cpu_usage": {
+      "baseline": 5,
+      "peak": 80,
+      "average": 15
+    }
+  },
+  "behavioral_patterns": {
+    "error_handling": {
+      "authentication_errors": "401_with_error_object",
+      "validation_errors": "400_with_detailed_message",
+      "not_found_errors": "404_with_resource_info",
+      "rate_limit_errors": "429_with_retry_after"
+    },
+    "response_patterns": {
+      "success_format": "consistent_object_structure",
+      "list_format": "object_with_data_array",
+      "timestamps": "unix_timestamp_format",
+      "ids": "prefixed_identifier_format"
+    },
+    "state_management": {
+      "resource_creation": "immediate_availability",
+      "resource_updates": "eventual_consistency",
+      "resource_deletion": "soft_delete_pattern"
+    }
+  }
+}

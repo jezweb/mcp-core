@@ -1,0 +1,246 @@
+{
+  "assistant_create": {
+    "method": "POST",
+    "path": "/assistants",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer test-token"
+    },
+    "body": {
+      "model": "gpt-4",
+      "name": "Test Assistant",
+      "description": "A test assistant for unification testing",
+      "instructions": "You are a helpful test assistant.",
+      "tools": [
+        {
+          "type": "code_interpreter"
+        }
+      ],
+      "metadata": {
+        "test": "true",
+        "environment": "unification"
+      }
+    }
+  },
+  "assistant_list": {
+    "method": "GET",
+    "path": "/assistants",
+    "headers": {
+      "Authorization": "Bearer test-token"
+    },
+    "query": {
+      "limit": 20,
+      "order": "desc"
+    }
+  },
+  "assistant_get": {
+    "method": "GET",
+    "path": "/assistants/asst_test123",
+    "headers": {
+      "Authorization": "Bearer test-token"
+    }
+  },
+  "assistant_update": {
+    "method": "POST",
+    "path": "/assistants/asst_test123",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer test-token"
+    },
+    "body": {
+      "name": "Updated Test Assistant",
+      "description": "An updated test assistant",
+      "instructions": "You are an updated helpful test assistant."
+    }
+  },
+  "assistant_delete": {
+    "method": "DELETE",
+    "path": "/assistants/asst_test123",
+    "headers": {
+      "Authorization": "Bearer test-token"
+    }
+  },
+  "thread_create": {
+    "method": "POST",
+    "path": "/threads",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer test-token"
+    },
+    "body": {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Hello, this is a test message."
+        }
+      ],
+      "metadata": {
+        "test": "true"
+      }
+    }
+  },
+  "message_create": {
+    "method": "POST",
+    "path": "/threads/thread_test123/messages",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer test-token"
+    },
+    "body": {
+      "role": "user",
+      "content": "This is a test message for unification testing."
+    }
+  },
+  "run_create": {
+    "method": "POST",
+    "path": "/threads/thread_test123/runs",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer test-token"
+    },
+    "body": {
+      "assistant_id": "asst_test123",
+      "instructions": "Please respond to the user's message."
+    }
+  },
+  "vector_store_create": {
+    "method": "POST",
+    "path": "/vector_stores",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer test-token"
+    },
+    "body": {
+      "name": "Test Vector Store",
+      "metadata": {
+        "test": "true"
+      }
+    }
+  },
+  "file_upload": {
+    "method": "POST",
+    "path": "/files",
+    "headers": {
+      "Authorization": "Bearer test-token"
+    },
+    "body": {
+      "purpose": "assistants",
+      "file": "test-file-content"
+    }
+  },
+  "error_scenarios": {
+    "invalid_auth": {
+      "method": "GET",
+      "path": "/assistants",
+      "headers": {
+        "Authorization": "Bearer invalid-token"
+      }
+    },
+    "missing_required_field": {
+      "method": "POST",
+      "path": "/assistants",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer test-token"
+      },
+      "body": {
+        "name": "Test Assistant"
+      }
+    },
+    "invalid_resource_id": {
+      "method": "GET",
+      "path": "/assistants/invalid_id",
+      "headers": {
+        "Authorization": "Bearer test-token"
+      }
+    },
+    "rate_limit_exceeded": {
+      "method": "GET",
+      "path": "/assistants",
+      "headers": {
+        "Authorization": "Bearer test-token",
+        "X-Simulate-Rate-Limit": "true"
+      }
+    }
+  },
+  "performance_test_requests": {
+    "concurrent_assistant_creates": {
+      "count": 10,
+      "request": {
+        "method": "POST",
+        "path": "/assistants",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer test-token"
+        },
+        "body": {
+          "model": "gpt-4",
+          "name": "Performance Test Assistant {{index}}",
+          "description": "Assistant for performance testing",
+          "instructions": "You are a performance test assistant."
+        }
+      }
+    },
+    "bulk_message_creation": {
+      "count": 50,
+      "request": {
+        "method": "POST",
+        "path": "/threads/thread_perf_test/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer test-token"
+        },
+        "body": {
+          "role": "user",
+          "content": "Performance test message {{index}}"
+        }
+      }
+    }
+  },
+  "edge_cases": {
+    "large_payload": {
+      "method": "POST",
+      "path": "/assistants",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer test-token"
+      },
+      "body": {
+        "model": "gpt-4",
+        "name": "Large Payload Test",
+        "description": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "instructions": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      }
+    },
+    "unicode_content": {
+      "method": "POST",
+      "path": "/threads/thread_test123/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer test-token"
+      },
+      "body": {
+        "role": "user",
+        "content": "Unicode test: 🚀 🎯 📊 中文 العربية русский 日本語"
+      }
+    },
+    "empty_request": {
+      "method": "POST",
+      "path": "/assistants",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer test-token"
+      },
+      "body": {}
+    },
+    "malformed_json": {
+      "method": "POST",
+      "path": "/assistants",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer test-token"
+      },
+      "body": "{ invalid json"
+    }
+  }
+}

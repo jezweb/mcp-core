@@ -41,7 +41,9 @@ import {
 } from '../types/index.js';
 import { OpenAIService } from '../services/index.js';
 import { getAllResources, getResource, getResourceContent } from '../resources/index.js';
-import { setupHandlerSystem, ToolRegistry, generateToolDefinitions } from './index.js';
+import { ToolRegistry } from './tool-registry.js';
+import { createFlatHandlerMap, validateHandlerCompleteness, TOTAL_TOOL_COUNT, HANDLER_CATEGORIES } from './handlers/index.js';
+import { generateToolDefinitions } from './tool-definitions.js';
 import { createPromptHandlers, PromptHandlerContext } from './handlers/prompt-handlers.js';
 import { createCompletionHandlers, CompletionHandlerContext } from './handlers/completion-handlers.js';
 import {
@@ -50,6 +52,14 @@ import {
   createPaginationMetadata,
   PAGINATION_DEFAULTS
 } from './pagination-utils.js';
+import {
+  ConfigurationSystem,
+  getGlobalConfigSystem,
+  isFeatureEnabled,
+  getConfig,
+  type MCPServerConfig,
+  type EvaluationContext
+} from '../config/index.js';
 
 /**
  * Configuration interface for the base MCP handler
@@ -70,19 +80,16 @@ export interface BaseMCPHandlerConfig {
     prompts?: { listChanged?: boolean };
     completions?: {};
   };
+  /** Configuration system instance (optional) */
+  configSystem?: ConfigurationSystem;
+  /** Environment for feature flag evaluation */
+  environment?: string;
+  /** Deployment type for feature flag evaluation */
+  deployment?: string;
 }
 
-/**
- * Transport adapter interface for deployment-specific implementations
- */
-export interface TransportAdapter {
-  /** Handle transport-specific request preprocessing */
-  preprocessRequest?(request: MCPRequest): Promise<MCPRequest>;
-  /** Handle transport-specific response postprocessing */
-  postprocessResponse?(response: MCPResponse): Promise<MCPResponse>;
-  /** Handle transport-specific error formatting */
-  formatError?(error: MCPError, requestId: string | number | null): MCPResponse;
-}
+// Import TransportAdapter from transport-adapters module
+import { TransportAdapter } from './transport-adapters.js';
 
 /**
  * Base MCP Handler class that consolidates all deployment targets
@@ -95,27 +102,53 @@ export class BaseMCPHandler {
   protected toolRegistry!: ToolRegistry; // Definite assignment assertion - initialized in initializeHandlerSystem
   protected promptHandlers: Record<string, any> = {};
   protected completionHandlers: Record<string, any> = {};
-  protected config: Required<BaseMCPHandlerConfig>;
+  protected config: BaseMCPHandlerConfig & {
+    serverName: string;
+    serverVersion: string;
+    debug: boolean;
+    capabilities: NonNullable<BaseMCPHandlerConfig['capabilities']>;
+    environment: string;
+    deployment: string;
+  };
   protected transportAdapter?: TransportAdapter;
   protected isInitialized: boolean = false;
+  protected configSystem: ConfigurationSystem;
+  protected evaluationContext: EvaluationContext;
 
   constructor(config: BaseMCPHandlerConfig, transportAdapter?: TransportAdapter) {
     // Set default configuration
     this.config = {
-      serverName: 'openai-assistants-mcp',
-      serverVersion: '1.0.0',
-      debug: false,
+      ...config,
+      serverName: config.serverName || 'openai-assistants-mcp',
+      serverVersion: config.serverVersion || '2.2.4',
+      debug: config.debug || false,
       capabilities: {
         tools: { listChanged: false },
         resources: { subscribe: false, listChanged: false },
         prompts: { listChanged: false },
         completions: {},
+        ...config.capabilities,
       },
-      ...config,
+      environment: config.environment || 'development',
+      deployment: config.deployment || 'local',
     };
 
     this.transportAdapter = transportAdapter;
     this.openaiService = new OpenAIService(config.apiKey);
+    
+    // Initialize configuration system
+    this.configSystem = config.configSystem || getGlobalConfigSystem();
+    
+    // Create evaluation context for feature flags
+    this.evaluationContext = {
+      environment: this.config.environment,
+      deployment: this.config.deployment,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        serverName: this.config.serverName,
+        serverVersion: this.config.serverVersion,
+      },
+    };
     
     // Initialize the handler system once (performance optimization)
     this.initializeHandlerSystem();
@@ -137,7 +170,20 @@ export class BaseMCPHandler {
     this.log('Initializing handler system...');
     
     try {
-      this.toolRegistry = setupHandlerSystem(context);
+      this.toolRegistry = new ToolRegistry(context);
+      const handlers = createFlatHandlerMap(context);
+      
+      // Validate that we have all expected handlers
+      const validation = validateHandlerCompleteness(handlers);
+      if (!validation.isComplete) {
+        console.warn('[BaseMCPHandler] Missing handlers:', validation.missingTools);
+        if (validation.extraTools.length > 0) {
+          console.warn('[BaseMCPHandler] Extra handlers:', validation.extraTools);
+        }
+      }
+      
+      // Register all handlers
+      this.toolRegistry.registerBatch(handlers);
       console.log('[BaseMCPHandler] DEBUG: Handler system setup completed');
       
       // Validate tool count
@@ -289,6 +335,14 @@ export class BaseMCPHandler {
   protected async handleToolsList(request: MCPToolsListRequest): Promise<MCPToolsListResponse> {
     this.log('Generating tool definitions with pagination...');
     
+    // Check if tools feature is enabled
+    if (!this.isFeatureEnabled('tools')) {
+      throw new MCPError(
+        ErrorCodes.METHOD_NOT_FOUND,
+        'Tools functionality is disabled'
+      );
+    }
+    
     // Use the shared tool definition generator for consistency
     const allTools = generateToolDefinitions(this.toolRegistry);
     this.log(`Generated ${allTools.length} tool definitions`);
@@ -305,9 +359,11 @@ export class BaseMCPHandler {
 
     const paginationResult = paginateArray(allTools, paginationParams);
     
-    // Log pagination metadata
-    const metadata = createPaginationMetadata(paginationParams, paginationResult);
-    this.log('Tools pagination:', metadata);
+    // Log pagination metadata if enhanced logging is enabled
+    if (this.isFeatureEnabled('enhanced-logging')) {
+      const metadata = createPaginationMetadata(paginationParams, paginationResult);
+      this.log('Tools pagination:', metadata);
+    }
 
     return {
       jsonrpc: '2.0',
@@ -325,8 +381,26 @@ export class BaseMCPHandler {
   protected async handleToolsCall(request: MCPToolsCallRequest): Promise<MCPToolsCallResponse> {
     const { name, arguments: args } = request.params;
 
+    // Check if tools feature is enabled
+    if (!this.isFeatureEnabled('tools')) {
+      throw new MCPError(
+        ErrorCodes.METHOD_NOT_FOUND,
+        'Tools functionality is disabled'
+      );
+    }
+
     try {
       this.log(`Executing tool: ${name}`);
+      
+      // Enhanced logging for debugging if enabled
+      if (this.isFeatureEnabled('enhanced-logging')) {
+        this.log(`Tool execution details:`, {
+          toolName: name,
+          arguments: args,
+          requestId: request.id,
+          timestamp: new Date().toISOString(),
+        });
+      }
       
       // Update context for this specific request (no registry recreation)
       const currentContext = {
@@ -341,6 +415,11 @@ export class BaseMCPHandler {
       // Execute the tool using the existing registry
       const result = await this.toolRegistry.execute(name, args);
 
+      // Enhanced result formatting if enabled
+      const responseText = this.isFeatureEnabled('enhanced-formatting')
+        ? JSON.stringify(result, null, 2)
+        : JSON.stringify(result);
+
       return {
         jsonrpc: '2.0',
         id: request.id,
@@ -348,12 +427,17 @@ export class BaseMCPHandler {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(result, null, 2),
+              text: responseText,
             },
           ],
         },
       };
     } catch (error) {
+      // Enhanced error reporting if enabled
+      const errorText = this.isFeatureEnabled('enhanced-error-reporting')
+        ? `Error in ${name}: ${error instanceof Error ? error.message : 'Unknown error'}\nStack: ${error instanceof Error ? error.stack : 'N/A'}`
+        : `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+
       return {
         jsonrpc: '2.0',
         id: request.id,
@@ -361,7 +445,7 @@ export class BaseMCPHandler {
           content: [
             {
               type: 'text',
-              text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              text: errorText,
             },
           ],
           isError: true,
@@ -376,6 +460,14 @@ export class BaseMCPHandler {
   protected async handleResourcesList(request: MCPResourcesListRequest): Promise<MCPResourcesListResponse> {
     this.log('Listing resources with pagination...');
     
+    // Check if resources feature is enabled
+    if (!this.isFeatureEnabled('resources')) {
+      throw new MCPError(
+        ErrorCodes.METHOD_NOT_FOUND,
+        'Resources functionality is disabled'
+      );
+    }
+    
     const allResources = getAllResources();
     this.log(`Found ${allResources.length} resources`);
 
@@ -387,9 +479,11 @@ export class BaseMCPHandler {
 
     const paginationResult = paginateArray(allResources, paginationParams);
     
-    // Log pagination metadata
-    const metadata = createPaginationMetadata(paginationParams, paginationResult);
-    this.log('Resources pagination:', metadata);
+    // Log pagination metadata if enhanced logging is enabled
+    if (this.isFeatureEnabled('enhanced-logging')) {
+      const metadata = createPaginationMetadata(paginationParams, paginationResult);
+      this.log('Resources pagination:', metadata);
+    }
 
     return {
       jsonrpc: '2.0',
@@ -615,11 +709,47 @@ export class BaseMCPHandler {
   }
 
   /**
-   * Debug logging
+   * Check if a feature is enabled using the feature flags system
+   */
+  protected isFeatureEnabled(flagName: string): boolean {
+    return this.configSystem.isFeatureEnabled(flagName, this.evaluationContext);
+  }
+
+  /**
+   * Get feature configuration
+   */
+  protected getFeatureConfig(flagName: string): any {
+    return this.configSystem.getFeatureConfig(flagName, this.evaluationContext);
+  }
+
+  /**
+   * Update evaluation context (e.g., when user context changes)
+   */
+  updateEvaluationContext(updates: Partial<EvaluationContext>): void {
+    this.evaluationContext = {
+      ...this.evaluationContext,
+      ...updates,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Get current configuration from the configuration system
+   */
+  getCurrentConfig(): MCPServerConfig {
+    return this.configSystem.getConfiguration();
+  }
+
+  /**
+   * Debug logging with feature flag support
    */
   protected log(message: string, ...args: any[]): void {
-    if (this.config.debug) {
-      console.log(`[BaseMCPHandler] ${message}`, ...args);
+    const shouldLog = this.config.debug || this.isFeatureEnabled('debug-logging');
+    if (shouldLog) {
+      const timestamp = this.isFeatureEnabled('enhanced-logging')
+        ? `[${new Date().toISOString()}] `
+        : '';
+      console.log(`${timestamp}[BaseMCPHandler] ${message}`, ...args);
     }
   }
 }

@@ -1,188 +1,94 @@
-import { MCPHandler } from './mcp-handler.js';
-import { MCPRequest, MCPError, ErrorCodes, Env, createStandardErrorResponse, LegacyErrorCodes, createEnhancedError } from '@shared/types';
+/**
+ * Thin HTTP Adapter for Cloudflare Workers
+ * 
+ * This adapter handles only HTTP-specific concerns:
+ * - CORS preflight requests
+ * - HTTP method validation
+ * - URL path parsing for API key extraction
+ * - JSON-RPC request parsing from HTTP body
+ * - HTTP response formatting
+ * 
+ * All business logic is delegated to the shared BaseMCPHandler.
+ */
+
+import { BaseMCPHandler, BaseMCPHandlerConfig, CloudflareWorkerTransportAdapter } from '../shared/core/index.js';
+import { HTTPTransportAdapter } from '../shared/core/transport-adapters.js';
+import { initializeGlobalConfig, ConfigUtils } from '../shared/config/index.js';
+import { Env } from '@shared/types';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Handle CORS preflight requests
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Max-Age': '86400',
-        },
-      });
-    }
-
-    // Only allow POST requests for MCP
-    if (request.method !== 'POST') {
-      return new Response('Method not allowed', {
-        status: 405,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'text/plain',
-        },
-      });
-    }
+    const httpAdapter = new HTTPTransportAdapter();
 
     try {
+      // Handle CORS preflight requests
+      if (request.method === 'OPTIONS') {
+        return httpAdapter.createCORSResponse();
+      }
+
+      // Only allow POST requests for MCP
+      if (request.method !== 'POST') {
+        return httpAdapter.createMethodNotAllowedResponse();
+      }
+
       // Extract API key from URL path
       const url = new URL(request.url);
-      const pathParts = url.pathname.split('/');
+      const { apiKey, error: apiKeyError } = httpAdapter.extractApiKeyFromPath(url.pathname);
       
-      // Expected format: /mcp/{api-key}
-      if (pathParts.length !== 3 || pathParts[1] !== 'mcp') {
-        const errorResponse = createStandardErrorResponse(
-          null,
-          ErrorCodes.INVALID_REQUEST,
-          'Invalid URL format. Expected: /mcp/{api-key}',
-          {
-            receivedPath: url.pathname,
-            expectedFormat: '/mcp/{api-key}',
-            documentation: 'https://docs.openai.com/api-reference'
-          }
-        );
-        
-        return new Response(
-          JSON.stringify(errorResponse),
-          {
-            status: 400,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Content-Type': 'application/json',
-            },
-          }
+      if (apiKeyError) {
+        return httpAdapter.createResponse(apiKeyError, 400);
+      }
+
+      // Parse and validate JSON-RPC request
+      const { mcpRequest, error: parseError } = await httpAdapter.parseRequest(request);
+      
+      if (parseError) {
+        return httpAdapter.createResponse(parseError, 400);
+      }
+
+      if (!mcpRequest) {
+        // This shouldn't happen with current logic, but handle gracefully
+        return httpAdapter.createResponse(
+          { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request' } },
+          400
         );
       }
 
-      const apiKey = pathParts[2];
-      if (!apiKey || apiKey.length < 10) {
-        const authError = createEnhancedError(
-          LegacyErrorCodes.UNAUTHORIZED,
-          'Invalid or missing API key',
-          {
-            keyLength: apiKey?.length || 0,
-            minLength: 10,
-            documentation: 'https://docs.openai.com/api-reference/authentication'
-          }
-        );
-        
-        const errorResponse = createStandardErrorResponse(
-          null,
-          authError.code,
-          authError.message,
-          authError.data
-        );
-        
-        return new Response(
-          JSON.stringify(errorResponse),
-          {
-            status: 401,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
+      // Initialize global configuration system for Cloudflare Workers
+      await initializeGlobalConfig();
 
-      // Parse request body
-      let mcpRequest: MCPRequest;
-      try {
-        mcpRequest = await request.json();
-      } catch (error) {
-        const errorResponse = createStandardErrorResponse(
-          null,
-          ErrorCodes.PARSE_ERROR,
-          'Invalid JSON in request body',
-          {
-            parseError: error instanceof Error ? error.message : 'Unknown parse error',
-            documentation: 'https://www.jsonrpc.org/specification'
-          }
-        );
-        
-        return new Response(
-          JSON.stringify(errorResponse),
-          {
-            status: 400,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
+      // Create production configuration with feature flags
+      const productionConfig = ConfigUtils.createProductionConfig();
+      
+      // Create and configure the shared MCP handler
+      const config: BaseMCPHandlerConfig = {
+        apiKey: apiKey!,
+        serverName: 'openai-assistants-mcp',
+        serverVersion: '2.2.4',
+        debug: false, // Disable debug logging in production Workers
+        environment: 'production',
+        deployment: 'cloudflare',
+        capabilities: {
+          tools: { listChanged: false },
+          resources: { subscribe: false, listChanged: false },
+          prompts: { listChanged: false },
+          completions: {},
+        },
+      };
 
-      // Validate JSON-RPC format
-      if (!mcpRequest.jsonrpc || mcpRequest.jsonrpc !== '2.0' || !mcpRequest.method) {
-        const errorResponse = createStandardErrorResponse(
-          mcpRequest.id || null,
-          ErrorCodes.INVALID_REQUEST,
-          'Invalid JSON-RPC 2.0 request format',
-          {
-            missingFields: {
-              jsonrpc: !mcpRequest.jsonrpc || mcpRequest.jsonrpc !== '2.0',
-              method: !mcpRequest.method
-            },
-            received: {
-              jsonrpc: mcpRequest.jsonrpc,
-              method: mcpRequest.method
-            },
-            documentation: 'https://www.jsonrpc.org/specification'
-          }
-        );
-        
-        return new Response(
-          JSON.stringify(errorResponse),
-          {
-            status: 400,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
+      // Use Cloudflare Workers transport adapter for any transport-specific optimizations
+      const transportAdapter = new CloudflareWorkerTransportAdapter();
+      const mcpHandler = new BaseMCPHandler(config, transportAdapter);
 
-      // Create MCP handler and process request
-      const mcpHandler = new MCPHandler(apiKey);
+      // Delegate all business logic to the shared handler
       const response = await mcpHandler.handleRequest(mcpRequest);
 
-      return new Response(JSON.stringify(response), {
-        status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-      });
+      // Return HTTP response with proper headers
+      return httpAdapter.createResponse(response, 200);
+
     } catch (error) {
       console.error('Worker error:', error);
-      
-      const errorResponse = createStandardErrorResponse(
-        null,
-        ErrorCodes.INTERNAL_ERROR,
-        'Internal server error',
-        {
-          timestamp: new Date().toISOString(),
-          error: error instanceof Error ? {
-            name: error.name,
-            message: error.message
-          } : 'Unknown error'
-        }
-      );
-      
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      return httpAdapter.createErrorResponse(error);
     }
   },
 };

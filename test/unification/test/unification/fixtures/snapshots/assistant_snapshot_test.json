@@ -1,0 +1,14 @@
+{
+  "name": "assistant_snapshot_test",
+  "timestamp": "2025-08-01T05:38:59.549Z",
+  "metadata": {
+    "test": "snapshot_creation"
+  },
+  "data": {
+    "id": "asst_snapshot_test",
+    "object": "assistant",
+    "name": "Snapshot Test Assistant",
+    "model": "gpt-4"
+  },
+  "hash": "fcd678f9c73a97063d19e2ba7c1a183dc59447d00a5b4cfcb88d8bb9e87bd3f3"
+}

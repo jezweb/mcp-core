@@ -1,0 +1,897 @@
+{
+  "timestamp": "2025-08-01T05:26:26.368Z",
+  "summary": {
+    "totalDuplicateFiles": 92,
+    "totalDuplicateLines": 1389,
+    "totalDuplicateSize": "41 KB",
+    "maintenanceOverhead": "100% (dual implementation required)"
+  },
+  "duplicateStructures": [
+    {
+      "type": "Complete Directory Structure",
+      "location1": "shared/",
+      "location2": "npm-package/shared/",
+      "duplicateFiles": [
+        {
+          "path": "core/base-mcp-handler.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/base-mcp-handler.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/base-mcp-handler.ts",
+          "identical": false,
+          "similarity": 8,
+          "differences": [
+            "Size difference: 24165 vs 19820 bytes",
+            "Line count difference: 755 vs 625 lines"
+          ],
+          "stats1": {
+            "size": 24165,
+            "lines": 755,
+            "content": "/**\n * Base MCP Handler - Consolidated handler for all deployment targets\n * \n * This class provides a unified MCP protocol implementation that can be used\n * across different deployment targets (Cloudflare Workers, NPM package, local dev).\n * It eliminates code duplication while preserving deployment-specific optimizations.\n * \n * Key Features:\n * - Single source of truth for MCP protocol handling\n * - Transport-agnostic design (HTTP, Stdio, etc.)\n * - Shared tool registry with performance optimizations\n * - Consistent error handling across deployments\n * - Resource management support\n * - Deployment-specific adapter pattern\n */\n\nimport {\n  MCPRequest,\n  MCPResponse,\n  MCPInitializeRequest,\n  MCPInitializeResponse,\n  MCPToolsListRequest,\n  MCPToolsListResponse,\n  MCPToolsCallRequest,\n  MCPToolsCallResponse,\n  MCPResourcesListRequest,\n  MCPResourcesListResponse,\n  MCPResourcesReadRequest,\n  MCPResourcesReadResponse,\n  MCPPromptsListRequest,\n  MCPPromptsListResponse,\n  MCPPromptsGetRequest,\n  MCPPromptsGetResponse,\n  MCPCompletionRequest,\n  MCPCompletionResponse,\n  MCPError,\n  ErrorCodes,\n  LegacyErrorCodes,\n  createEnhancedError,\n  createStandardErrorResponse,\n} from '../types/index.js';\nimport { OpenAIService } from '../services/index.js';\nimport { getAllResources, getResource, getResourceContent } from '../resources/index.js';\nimport { ToolRegistry } from './tool-registry.js';\nimport { createFlatHandlerMap, validateHandlerCompleteness, TOTAL_TOOL_COUNT, HANDLER_CATEGORIES } from './handlers/index.js';\nimport { generateToolDefinitions } from './tool-definitions.js';\nimport { createPromptHandlers, PromptHandlerContext } from './handlers/prompt-handlers.js';\nimport { createCompletionHandlers, CompletionHandlerContext } from './handlers/completion-handlers.js';\nimport {\n  paginateArray,\n  validatePaginationParams,\n  createPaginationMetadata,\n  PAGINATION_DEFAULTS\n} from './pagination-utils.js';\nimport {\n  ConfigurationSystem,\n  getGlobalConfigSystem,\n  isFeatureEnabled,\n  getConfig,\n  type MCPServerConfig,\n  type EvaluationContext\n} from '../config/index.js';\n\n/**\n * Configuration interface for the base MCP handler\n */\nexport interface BaseMCPHandlerConfig {\n  /** OpenAI API key */\n  apiKey: string;\n  /** Server name for identification */\n  serverName?: string;\n  /** Server version */\n  serverVersion?: string;\n  /** Enable debug logging */\n  debug?: boolean;\n  /** Custom capabilities */\n  capabilities?: {\n    tools?: { listChanged?: boolean };\n    resources?: { subscribe?: boolean; listChanged?: boolean };\n    prompts?: { listChanged?: boolean };\n    completions?: {};\n  };\n  /** Configuration system instance (optional) */\n  configSystem?: ConfigurationSystem;\n  /** Environment for feature flag evaluation */\n  environment?: string;\n  /** Deployment type for feature flag evaluation */\n  deployment?: string;\n}\n\n// Import TransportAdapter from transport-adapters module\nimport { TransportAdapter } from './transport-adapters.js';\n\n/**\n * Base MCP Handler class that consolidates all deployment targets\n * \n * This class implements the core MCP protocol logic and can be extended\n * or adapted for different deployment environments through the adapter pattern.\n */\nexport class BaseMCPHandler {\n  protected openaiService: OpenAIService;\n  protected toolRegistry!: ToolRegistry; // Definite assignment assertion - initialized in initializeHandlerSystem\n  protected promptHandlers: Record<string, any> = {};\n  protected completionHandlers: Record<string, any> = {};\n  protected config: BaseMCPHandlerConfig & {\n    serverName: string;\n    serverVersion: string;\n    debug: boolean;\n    capabilities: NonNullable<BaseMCPHandlerConfig['capabilities']>;\n    environment: string;\n    deployment: string;\n  };\n  protected transportAdapter?: TransportAdapter;\n  protected isInitialized: boolean = false;\n  protected configSystem: ConfigurationSystem;\n  protected evaluationContext: EvaluationContext;\n\n  constructor(config: BaseMCPHandlerConfig, transportAdapter?: TransportAdapter) {\n    // Set default configuration\n    this.config = {\n      ...config,\n      serverName: config.serverName || 'openai-assistants-mcp',\n      serverVersion: config.serverVersion || '2.2.4',\n      debug: config.debug || false,\n      capabilities: {\n        tools: { listChanged: false },\n        resources: { subscribe: false, listChanged: false },\n        prompts: { listChanged: false },\n        completions: {},\n        ...config.capabilities,\n      },\n      environment: config.environment || 'development',\n      deployment: config.deployment || 'local',\n    };\n\n    this.transportAdapter = transportAdapter;\n    this.openaiService = new OpenAIService(config.apiKey);\n    \n    // Initialize configuration system\n    this.configSystem = config.configSystem || getGlobalConfigSystem();\n    \n    // Create evaluation context for feature flags\n    this.evaluationContext = {\n      environment: this.config.environment,\n      deployment: this.config.deployment,\n      timestamp: new Date().toISOString(),\n      metadata: {\n        serverName: this.config.serverName,\n        serverVersion: this.config.serverVersion,\n      },\n    };\n    \n    // Initialize the handler system once (performance optimization)\n    this.initializeHandlerSystem();\n    this.initializePromptHandlers();\n    this.initializeCompletionHandlers();\n  }\n\n  /**\n   * Initialize the handler system with performance optimizations\n   */\n  private initializeHandlerSystem(): void {\n    const context = {\n      openaiService: this.openaiService,\n      toolName: '',\n      requestId: null\n    };\n    \n    console.log('[BaseMCPHandler] DEBUG: Starting handler system initialization...');\n    this.log('Initializing handler system...');\n    \n    try {\n      this.toolRegistry = new ToolRegistry(context);\n      const handlers = createFlatHandlerMap(context);\n      \n      // Validate that we have all expected handlers\n      const validation = validateHandlerCompleteness(handlers);\n      if (!validation.isComplete) {\n        console.warn('[BaseMCPHandler] Missing handlers:', validation.missingTools);\n        if (validation.extraTools.length > 0) {\n          console.warn('[BaseMCPHandler] Extra handlers:', validation.extraTools);\n        }\n      }\n      \n      // Register all handlers\n      this.toolRegistry.registerBatch(handlers);\n      console.log('[BaseMCPHandler] DEBUG: Handler system setup completed');\n      \n      // Validate tool count\n      const registeredTools = this.toolRegistry.getRegisteredTools();\n      console.log(`[BaseMCPHandler] DEBUG: Registry returned ${registeredTools.length} tools`);\n      this.log(`Registered ${registeredTools.length} tools:`, registeredTools);\n      \n      if (registeredTools.length !== 22) {\n        console.error(`[BaseMCPHandler] ERROR: Expected 22 tools, got ${registeredTools.length}`);\n        console.error('[BaseMCPHandler] Registry stats:', this.toolRegistry.getStats());\n        console.error('[BaseMCPHandler] Missing tools analysis:');\n        \n        const expectedTools = [\n          'assistant-create', 'assistant-list', 'assistant-get', 'assistant-update', 'assistant-delete',\n          'thread-create', 'thread-get', 'thread-update', 'thread-delete',\n          'message-create', 'message-list', 'message-get', 'message-update', 'message-delete',\n          'run-create', 'run-list', 'run-get', 'run-update', 'run-cancel', 'run-submit-tool-outputs',\n          'run-step-list', 'run-step-get'\n        ];\n        \n        const missingTools = expectedTools.filter(tool => !registeredTools.includes(tool));\n        const extraTools = registeredTools.filter(tool => !expectedTools.includes(tool));\n        \n        console.error('[BaseMCPHandler] Missing tools:', missingTools);\n        console.error('[BaseMCPHandler] Extra tools:', extraTools);\n      } else {\n        console.log('[BaseMCPHandler] SUCCESS: All 22 tools registered correctly');\n      }\n    } catch (error) {\n      console.error('[BaseMCPHandler] FATAL ERROR during handler system initialization:', error);\n      throw error;\n    }\n  }\n\n  /**\n   * Initialize the prompt handlers system\n   */\n  private initializePromptHandlers(): void {\n    const context: PromptHandlerContext = {\n      requestId: null\n    };\n    \n    this.log('Initializing prompt handlers...');\n    this.promptHandlers = createPromptHandlers(context);\n    \n    const handlerCount = Object.keys(this.promptHandlers).length;\n    this.log(`Registered ${handlerCount} prompt handlers:`, Object.keys(this.promptHandlers));\n  }\n\n  /**\n   * Initialize the completion handlers system\n   */\n  private initializeCompletionHandlers(): void {\n    const context: CompletionHandlerContext = {\n      requestId: null\n    };\n    \n    this.log('Initializing completion handlers...');\n    this.completionHandlers = createCompletionHandlers(context);\n    \n    const handlerCount = Object.keys(this.completionHandlers).length;\n    this.log(`Registered ${handlerCount} completion handlers:`, Object.keys(this.completionHandlers));\n  }\n\n  /**\n   * Main request handler - entry point for all MCP requests\n   */\n  async handleRequest(request: MCPRequest): Promise<MCPResponse> {\n    try {\n      // Transport-specific preprocessing\n      if (this.transportAdapter?.preprocessRequest) {\n        request = await this.transportAdapter.preprocessRequest(request);\n      }\n\n      // Route to appropriate handler\n      let response: MCPResponse;\n      switch (request.method) {\n        case 'initialize':\n          response = await this.handleInitialize(request as MCPInitializeRequest);\n          break;\n        case 'tools/list':\n          response = await this.handleToolsList(request as MCPToolsListRequest);\n          break;\n        case 'tools/call':\n          response = await this.handleToolsCall(request as MCPToolsCallRequest);\n          break;\n        case 'resources/list':\n          response = await this.handleResourcesList(request as MCPResourcesListRequest);\n          break;\n        case 'resources/read':\n          response = await this.handleResourcesRead(request as MCPResourcesReadRequest);\n          break;\n        case 'prompts/list':\n          response = await this.handlePromptsList(request as MCPPromptsListRequest);\n          break;\n        case 'prompts/get':\n          response = await this.handlePromptsGet(request as MCPPromptsGetRequest);\n          break;\n        case 'completion/complete':\n          response = await this.handleCompletion(request as MCPCompletionRequest);\n          break;\n        default:\n          throw new MCPError(\n            ErrorCodes.METHOD_NOT_FOUND,\n            `Method not found: ${request.method}`\n          );\n      }\n\n      // Transport-specific postprocessing\n      if (this.transportAdapter?.postprocessResponse) {\n        response = await this.transportAdapter.postprocessResponse(response);\n      }\n\n      return response;\n    } catch (error) {\n      return this.handleError(error, request.id);\n    }\n  }\n\n  /**\n   * Handle initialize requests\n   */\n  protected async handleInitialize(request: MCPInitializeRequest): Promise<MCPInitializeResponse> {\n    this.log('Handling initialize request');\n    this.isInitialized = true;\n\n    return {\n      jsonrpc: '2.0',\n      id: request.id,\n      result: {\n        protocolVersion: '2024-11-05',\n        capabilities: {\n          tools: this.config.capabilities.tools || { listChanged: false },\n          resources: this.config.capabilities.resources,\n          prompts: this.config.capabilities.prompts || { listChanged: false },\n          completions: this.config.capabilities.completions || {},\n        },\n        serverInfo: {\n          name: this.config.serverName,\n          version: this.config.serverVersion,\n        },\n      },\n    };\n  }\n\n  /**\n   * Handle tools list requests with pagination support\n   */\n  protected async handleToolsList(request: MCPToolsListRequest): Promise<MCPToolsListResponse> {\n    this.log('Generating tool definitions with pagination...');\n    \n    // Check if tools feature is enabled\n    if (!this.isFeatureEnabled('tools')) {\n      throw new MCPError(\n        ErrorCodes.METHOD_NOT_FOUND,\n        'Tools functionality is disabled'\n      );\n    }\n    \n    // Use the shared tool definition generator for consistency\n    const allTools = generateToolDefinitions(this.toolRegistry);\n    this.log(`Generated ${allTools.length} tool definitions`);\n    \n    if (allTools.length !== 22) {\n      console.error(`[BaseMCPHandler] ERROR: Expected 22 tool definitions, got ${allTools.length}`);\n    }\n\n    // Apply pagination\n    const paginationParams = {\n      cursor: request.params?.cursor,\n      limit: PAGINATION_DEFAULTS.DEFAULT_LIMIT // Use default limit for tools\n    };\n\n    const paginationResult = paginateArray(allTools, paginationParams);\n    \n    // Log pagination metadata if enhanced logging is enabled\n    if (this.isFeatureEnabled('enhanced-logging')) {\n      const metadata = createPaginationMetadata(paginationParams, paginationResult);\n      this.log('Tools pagination:', metadata);\n    }\n\n    return {\n      jsonrpc: '2.0',\n      id: request.id,\n      result: {\n        tools: paginationResult.items,\n        nextCursor: paginationResult.nextCursor,\n      },\n    };\n  }\n\n  /**\n   * Handle tools call requests with optimized registry usage\n   */\n  protected async handleToolsCall(request: MCPToolsCallRequest): Promise<MCPToolsCallResponse> {\n    const { name, arguments: args } = request.params;\n\n    // Check if tools feature is enabled\n    if (!this.isFeatureEnabled('tools')) {\n      throw new MCPError(\n        ErrorCodes.METHOD_NOT_FOUND,\n        'Tools functionality is disabled'\n      );\n    }\n\n    try {\n      this.log(`Executing tool: ${name}`);\n      \n      // Enhanced logging for debugging if enabled\n      if (this.isFeatureEnabled('enhanced-logging')) {\n        this.log(`Tool execution details:`, {\n          toolName: name,\n          arguments: args,\n          requestId: request.id,\n          timestamp: new Date().toISOString(),\n        });\n      }\n      \n      // Update context for this specific request (no registry recreation)\n      const currentContext = {\n        openaiService: this.openaiService,\n        toolName: name,\n        requestId: request.id\n      };\n      \n      // Update the existing registry's context instead of recreating it\n      this.updateRegistryContext(currentContext);\n      \n      // Execute the tool using the existing registry\n      const result = await this.toolRegistry.execute(name, args);\n\n      // Enhanced result formatting if enabled\n      const responseText = this.isFeatureEnabled('enhanced-formatting')\n        ? JSON.stringify(result, null, 2)\n        : JSON.stringify(result);\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result: {\n          content: [\n            {\n              type: 'text',\n              text: responseText,\n            },\n          ],\n        },\n      };\n    } catch (error) {\n      // Enhanced error reporting if enabled\n      const errorText = this.isFeatureEnabled('enhanced-error-reporting')\n        ? `Error in ${name}: ${error instanceof Error ? error.message : 'Unknown error'}\\nStack: ${error instanceof Error ? error.stack : 'N/A'}`\n        : `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result: {\n          content: [\n            {\n              type: 'text',\n              text: errorText,\n            },\n          ],\n          isError: true,\n        },\n      };\n    }\n  }\n\n  /**\n   * Handle resources list requests with pagination support\n   */\n  protected async handleResourcesList(request: MCPResourcesListRequest): Promise<MCPResourcesListResponse> {\n    this.log('Listing resources with pagination...');\n    \n    // Check if resources feature is enabled\n    if (!this.isFeatureEnabled('resources')) {\n      throw new MCPError(\n        ErrorCodes.METHOD_NOT_FOUND,\n        'Resources functionality is disabled'\n      );\n    }\n    \n    const allResources = getAllResources();\n    this.log(`Found ${allResources.length} resources`);\n\n    // Apply pagination\n    const paginationParams = {\n      cursor: request.params?.cursor,\n      limit: PAGINATION_DEFAULTS.DEFAULT_LIMIT // Use default limit for resources\n    };\n\n    const paginationResult = paginateArray(allResources, paginationParams);\n    \n    // Log pagination metadata if enhanced logging is enabled\n    if (this.isFeatureEnabled('enhanced-logging')) {\n      const metadata = createPaginationMetadata(paginationParams, paginationResult);\n      this.log('Resources pagination:', metadata);\n    }\n\n    return {\n      jsonrpc: '2.0',\n      id: request.id,\n      result: {\n        resources: paginationResult.items.map((resource: any) => ({\n          uri: resource.uri,\n          name: resource.name,\n          description: resource.description,\n          mimeType: resource.mimeType\n        })),\n        nextCursor: paginationResult.nextCursor,\n      },\n    };\n  }\n\n  /**\n   * Handle resources read requests\n   */\n  protected async handleResourcesRead(request: MCPResourcesReadRequest): Promise<MCPResourcesReadResponse> {\n    const { uri } = request.params;\n    \n    const resourceData = getResource(uri) as any;\n    if (!resourceData) {\n      throw createEnhancedError(\n        LegacyErrorCodes.NOT_FOUND,\n        `Resource not found: ${uri}`,\n        {\n          resourceUri: uri,\n          availableResources: getAllResources().map((r: any) => r.uri)\n        }\n      );\n    }\n\n    // Get resource content and ensure it's a string\n    const rawContent = getResourceContent(uri);\n    const textContent = typeof rawContent === 'string'\n      ? rawContent\n      : JSON.stringify(rawContent, null, 2);\n\n    return {\n      jsonrpc: '2.0',\n      id: request.id,\n      result: {\n        contents: [\n          {\n            uri,\n            name: resourceData.name,           // Add required name field\n            mimeType: resourceData.mimeType,\n            text: textContent,                 // Ensure content is always a string\n          },\n        ],\n      },\n    };\n  }\n\n  /**\n   * Handle prompts list requests\n   */\n  protected async handlePromptsList(request: MCPPromptsListRequest): Promise<MCPPromptsListResponse> {\n    this.log('Handling prompts/list request');\n    \n    try {\n      const handler = this.promptHandlers['prompts/list'];\n      if (!handler) {\n        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'Prompts list handler not found');\n      }\n\n      // Update context for this request\n      handler.context.requestId = request.id;\n      \n      const result = await handler.handle(request.params);\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result\n      };\n    } catch (error) {\n      throw error instanceof MCPError ? error : new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        `Failed to list prompts: ${error instanceof Error ? error.message : 'Unknown error'}`\n      );\n    }\n  }\n\n  /**\n   * Handle prompts get requests\n   */\n  protected async handlePromptsGet(request: MCPPromptsGetRequest): Promise<MCPPromptsGetResponse> {\n    this.log('Handling prompts/get request');\n    \n    try {\n      const handler = this.promptHandlers['prompts/get'];\n      if (!handler) {\n        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'Prompts get handler not found');\n      }\n\n      // Update context for this request\n      handler.context.requestId = request.id;\n      \n      const result = await handler.handle(request.params);\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result\n      };\n    } catch (error) {\n      throw error instanceof MCPError ? error : new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        `Failed to get prompt: ${error instanceof Error ? error.message : 'Unknown error'}`\n      );\n    }\n  }\n\n  /**\n   * Handle completion requests\n   */\n  protected async handleCompletion(request: MCPCompletionRequest): Promise<MCPCompletionResponse> {\n    this.log('Handling completion/complete request');\n    \n    try {\n      const handler = this.completionHandlers['completion/complete'];\n      if (!handler) {\n        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'Completion handler not found');\n      }\n\n      // Update context for this request\n      handler.context.requestId = request.id;\n      \n      const result = await handler.handle(request.params);\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result\n      };\n    } catch (error) {\n      throw error instanceof MCPError ? error : new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        `Failed to handle completion: ${error instanceof Error ? error.message : 'Unknown error'}`\n      );\n    }\n  }\n\n  /**\n   * Update registry context without recreating the entire registry\n   * This is a performance optimization to avoid the registry recreation issue\n   */\n  private updateRegistryContext(newContext: any): void {\n    // Update the context for all registered handlers\n    for (const toolName of this.toolRegistry.getRegisteredTools()) {\n      const handler = this.toolRegistry.getHandler(toolName);\n      if (handler) {\n        (handler as any).context = newContext;\n      }\n    }\n  }\n\n  /**\n   * Centralized error handling with transport adapter support and JSON-RPC 2.0 compliance\n   */\n  protected handleError(error: any, requestId: string | number | null): MCPResponse {\n    let mcpError: MCPError;\n    \n    if (error instanceof MCPError) {\n      mcpError = error;\n    } else {\n      // Create enhanced error for unknown errors\n      mcpError = new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        error instanceof Error ? error.message : 'Unknown error',\n        {\n          originalError: error instanceof Error ? {\n            name: error.name,\n            message: error.message,\n            stack: error.stack\n          } : error,\n          timestamp: new Date().toISOString(),\n          requestId\n        }\n      );\n    }\n\n    // Use transport adapter for error formatting if available\n    if (this.transportAdapter?.formatError) {\n      return this.transportAdapter.formatError(mcpError, requestId);\n    }\n\n    // Default JSON-RPC 2.0 compliant error response\n    return createStandardErrorResponse(requestId, mcpError.code, mcpError.message, mcpError.data);\n  }\n\n  /**\n   * Update API key and reinitialize services\n   */\n  updateApiKey(apiKey: string): void {\n    this.config.apiKey = apiKey;\n    this.openaiService = new OpenAIService(apiKey);\n    \n    // Update the context in the existing registry\n    const context = {\n      openaiService: this.openaiService,\n      toolName: '',\n      requestId: null\n    };\n    this.updateRegistryContext(context);\n  }\n\n  /**\n   * Get registry statistics for debugging\n   */\n  getRegistryStats() {\n    return this.toolRegistry.getStats();\n  }\n\n  /**\n   * Check if handler is initialized\n   */\n  getIsInitialized(): boolean {\n    return this.isInitialized;\n  }\n\n  /**\n   * Check if a feature is enabled using the feature flags system\n   */\n  protected isFeatureEnabled(flagName: string): boolean {\n    return this.configSystem.isFeatureEnabled(flagName, this.evaluationContext);\n  }\n\n  /**\n   * Get feature configuration\n   */\n  protected getFeatureConfig(flagName: string): any {\n    return this.configSystem.getFeatureConfig(flagName, this.evaluationContext);\n  }\n\n  /**\n   * Update evaluation context (e.g., when user context changes)\n   */\n  updateEvaluationContext(updates: Partial<EvaluationContext>): void {\n    this.evaluationContext = {\n      ...this.evaluationContext,\n      ...updates,\n      timestamp: new Date().toISOString(),\n    };\n  }\n\n  /**\n   * Get current configuration from the configuration system\n   */\n  getCurrentConfig(): MCPServerConfig {\n    return this.configSystem.getConfiguration();\n  }\n\n  /**\n   * Debug logging with feature flag support\n   */\n  protected log(message: string, ...args: any[]): void {\n    const shouldLog = this.config.debug || this.isFeatureEnabled('debug-logging');\n    if (shouldLog) {\n      const timestamp = this.isFeatureEnabled('enhanced-logging')\n        ? `[${new Date().toISOString()}] `\n        : '';\n      console.log(`${timestamp}[BaseMCPHandler] ${message}`, ...args);\n    }\n  }\n}",
+            "hash": "bc6bd4dd8021bc14648da124080659a4"
+          },
+          "stats2": {
+            "size": 19820,
+            "lines": 625,
+            "content": "/**\n * Base MCP Handler - Consolidated handler for all deployment targets\n * \n * This class provides a unified MCP protocol implementation that can be used\n * across different deployment targets (Cloudflare Workers, NPM package, local dev).\n * It eliminates code duplication while preserving deployment-specific optimizations.\n * \n * Key Features:\n * - Single source of truth for MCP protocol handling\n * - Transport-agnostic design (HTTP, Stdio, etc.)\n * - Shared tool registry with performance optimizations\n * - Consistent error handling across deployments\n * - Resource management support\n * - Deployment-specific adapter pattern\n */\n\nimport {\n  MCPRequest,\n  MCPResponse,\n  MCPInitializeRequest,\n  MCPInitializeResponse,\n  MCPToolsListRequest,\n  MCPToolsListResponse,\n  MCPToolsCallRequest,\n  MCPToolsCallResponse,\n  MCPResourcesListRequest,\n  MCPResourcesListResponse,\n  MCPResourcesReadRequest,\n  MCPResourcesReadResponse,\n  MCPPromptsListRequest,\n  MCPPromptsListResponse,\n  MCPPromptsGetRequest,\n  MCPPromptsGetResponse,\n  MCPCompletionRequest,\n  MCPCompletionResponse,\n  MCPError,\n  ErrorCodes,\n  LegacyErrorCodes,\n  createEnhancedError,\n  createStandardErrorResponse,\n} from '../types/index.js';\nimport { OpenAIService } from '../services/index.js';\nimport { getAllResources, getResource, getResourceContent } from '../resources/index.js';\nimport { setupHandlerSystem, ToolRegistry, generateToolDefinitions } from './index.js';\nimport { createPromptHandlers, PromptHandlerContext } from './handlers/prompt-handlers.js';\nimport { createCompletionHandlers, CompletionHandlerContext } from './handlers/completion-handlers.js';\nimport {\n  paginateArray,\n  validatePaginationParams,\n  createPaginationMetadata,\n  PAGINATION_DEFAULTS\n} from './pagination-utils.js';\n\n/**\n * Configuration interface for the base MCP handler\n */\nexport interface BaseMCPHandlerConfig {\n  /** OpenAI API key */\n  apiKey: string;\n  /** Server name for identification */\n  serverName?: string;\n  /** Server version */\n  serverVersion?: string;\n  /** Enable debug logging */\n  debug?: boolean;\n  /** Custom capabilities */\n  capabilities?: {\n    tools?: { listChanged?: boolean };\n    resources?: { subscribe?: boolean; listChanged?: boolean };\n    prompts?: { listChanged?: boolean };\n    completions?: {};\n  };\n}\n\n/**\n * Transport adapter interface for deployment-specific implementations\n */\nexport interface TransportAdapter {\n  /** Handle transport-specific request preprocessing */\n  preprocessRequest?(request: MCPRequest): Promise<MCPRequest>;\n  /** Handle transport-specific response postprocessing */\n  postprocessResponse?(response: MCPResponse): Promise<MCPResponse>;\n  /** Handle transport-specific error formatting */\n  formatError?(error: MCPError, requestId: string | number | null): MCPResponse;\n}\n\n/**\n * Base MCP Handler class that consolidates all deployment targets\n * \n * This class implements the core MCP protocol logic and can be extended\n * or adapted for different deployment environments through the adapter pattern.\n */\nexport class BaseMCPHandler {\n  protected openaiService: OpenAIService;\n  protected toolRegistry!: ToolRegistry; // Definite assignment assertion - initialized in initializeHandlerSystem\n  protected promptHandlers: Record<string, any> = {};\n  protected completionHandlers: Record<string, any> = {};\n  protected config: Required<BaseMCPHandlerConfig>;\n  protected transportAdapter?: TransportAdapter;\n  protected isInitialized: boolean = false;\n\n  constructor(config: BaseMCPHandlerConfig, transportAdapter?: TransportAdapter) {\n    // Set default configuration\n    this.config = {\n      serverName: 'openai-assistants-mcp',\n      serverVersion: '1.0.0',\n      debug: false,\n      capabilities: {\n        tools: { listChanged: false },\n        resources: { subscribe: false, listChanged: false },\n        prompts: { listChanged: false },\n        completions: {},\n      },\n      ...config,\n    };\n\n    this.transportAdapter = transportAdapter;\n    this.openaiService = new OpenAIService(config.apiKey);\n    \n    // Initialize the handler system once (performance optimization)\n    this.initializeHandlerSystem();\n    this.initializePromptHandlers();\n    this.initializeCompletionHandlers();\n  }\n\n  /**\n   * Initialize the handler system with performance optimizations\n   */\n  private initializeHandlerSystem(): void {\n    const context = {\n      openaiService: this.openaiService,\n      toolName: '',\n      requestId: null\n    };\n    \n    console.log('[BaseMCPHandler] DEBUG: Starting handler system initialization...');\n    this.log('Initializing handler system...');\n    \n    try {\n      this.toolRegistry = setupHandlerSystem(context);\n      console.log('[BaseMCPHandler] DEBUG: Handler system setup completed');\n      \n      // Validate tool count\n      const registeredTools = this.toolRegistry.getRegisteredTools();\n      console.log(`[BaseMCPHandler] DEBUG: Registry returned ${registeredTools.length} tools`);\n      this.log(`Registered ${registeredTools.length} tools:`, registeredTools);\n      \n      if (registeredTools.length !== 22) {\n        console.error(`[BaseMCPHandler] ERROR: Expected 22 tools, got ${registeredTools.length}`);\n        console.error('[BaseMCPHandler] Registry stats:', this.toolRegistry.getStats());\n        console.error('[BaseMCPHandler] Missing tools analysis:');\n        \n        const expectedTools = [\n          'assistant-create', 'assistant-list', 'assistant-get', 'assistant-update', 'assistant-delete',\n          'thread-create', 'thread-get', 'thread-update', 'thread-delete',\n          'message-create', 'message-list', 'message-get', 'message-update', 'message-delete',\n          'run-create', 'run-list', 'run-get', 'run-update', 'run-cancel', 'run-submit-tool-outputs',\n          'run-step-list', 'run-step-get'\n        ];\n        \n        const missingTools = expectedTools.filter(tool => !registeredTools.includes(tool));\n        const extraTools = registeredTools.filter(tool => !expectedTools.includes(tool));\n        \n        console.error('[BaseMCPHandler] Missing tools:', missingTools);\n        console.error('[BaseMCPHandler] Extra tools:', extraTools);\n      } else {\n        console.log('[BaseMCPHandler] SUCCESS: All 22 tools registered correctly');\n      }\n    } catch (error) {\n      console.error('[BaseMCPHandler] FATAL ERROR during handler system initialization:', error);\n      throw error;\n    }\n  }\n\n  /**\n   * Initialize the prompt handlers system\n   */\n  private initializePromptHandlers(): void {\n    const context: PromptHandlerContext = {\n      requestId: null\n    };\n    \n    this.log('Initializing prompt handlers...');\n    this.promptHandlers = createPromptHandlers(context);\n    \n    const handlerCount = Object.keys(this.promptHandlers).length;\n    this.log(`Registered ${handlerCount} prompt handlers:`, Object.keys(this.promptHandlers));\n  }\n\n  /**\n   * Initialize the completion handlers system\n   */\n  private initializeCompletionHandlers(): void {\n    const context: CompletionHandlerContext = {\n      requestId: null\n    };\n    \n    this.log('Initializing completion handlers...');\n    this.completionHandlers = createCompletionHandlers(context);\n    \n    const handlerCount = Object.keys(this.completionHandlers).length;\n    this.log(`Registered ${handlerCount} completion handlers:`, Object.keys(this.completionHandlers));\n  }\n\n  /**\n   * Main request handler - entry point for all MCP requests\n   */\n  async handleRequest(request: MCPRequest): Promise<MCPResponse> {\n    try {\n      // Transport-specific preprocessing\n      if (this.transportAdapter?.preprocessRequest) {\n        request = await this.transportAdapter.preprocessRequest(request);\n      }\n\n      // Route to appropriate handler\n      let response: MCPResponse;\n      switch (request.method) {\n        case 'initialize':\n          response = await this.handleInitialize(request as MCPInitializeRequest);\n          break;\n        case 'tools/list':\n          response = await this.handleToolsList(request as MCPToolsListRequest);\n          break;\n        case 'tools/call':\n          response = await this.handleToolsCall(request as MCPToolsCallRequest);\n          break;\n        case 'resources/list':\n          response = await this.handleResourcesList(request as MCPResourcesListRequest);\n          break;\n        case 'resources/read':\n          response = await this.handleResourcesRead(request as MCPResourcesReadRequest);\n          break;\n        case 'prompts/list':\n          response = await this.handlePromptsList(request as MCPPromptsListRequest);\n          break;\n        case 'prompts/get':\n          response = await this.handlePromptsGet(request as MCPPromptsGetRequest);\n          break;\n        case 'completion/complete':\n          response = await this.handleCompletion(request as MCPCompletionRequest);\n          break;\n        default:\n          throw new MCPError(\n            ErrorCodes.METHOD_NOT_FOUND,\n            `Method not found: ${request.method}`\n          );\n      }\n\n      // Transport-specific postprocessing\n      if (this.transportAdapter?.postprocessResponse) {\n        response = await this.transportAdapter.postprocessResponse(response);\n      }\n\n      return response;\n    } catch (error) {\n      return this.handleError(error, request.id);\n    }\n  }\n\n  /**\n   * Handle initialize requests\n   */\n  protected async handleInitialize(request: MCPInitializeRequest): Promise<MCPInitializeResponse> {\n    this.log('Handling initialize request');\n    this.isInitialized = true;\n\n    return {\n      jsonrpc: '2.0',\n      id: request.id,\n      result: {\n        protocolVersion: '2024-11-05',\n        capabilities: {\n          tools: this.config.capabilities.tools || { listChanged: false },\n          resources: this.config.capabilities.resources,\n          prompts: this.config.capabilities.prompts || { listChanged: false },\n          completions: this.config.capabilities.completions || {},\n        },\n        serverInfo: {\n          name: this.config.serverName,\n          version: this.config.serverVersion,\n        },\n      },\n    };\n  }\n\n  /**\n   * Handle tools list requests with pagination support\n   */\n  protected async handleToolsList(request: MCPToolsListRequest): Promise<MCPToolsListResponse> {\n    this.log('Generating tool definitions with pagination...');\n    \n    // Use the shared tool definition generator for consistency\n    const allTools = generateToolDefinitions(this.toolRegistry);\n    this.log(`Generated ${allTools.length} tool definitions`);\n    \n    if (allTools.length !== 22) {\n      console.error(`[BaseMCPHandler] ERROR: Expected 22 tool definitions, got ${allTools.length}`);\n    }\n\n    // Apply pagination\n    const paginationParams = {\n      cursor: request.params?.cursor,\n      limit: PAGINATION_DEFAULTS.DEFAULT_LIMIT // Use default limit for tools\n    };\n\n    const paginationResult = paginateArray(allTools, paginationParams);\n    \n    // Log pagination metadata\n    const metadata = createPaginationMetadata(paginationParams, paginationResult);\n    this.log('Tools pagination:', metadata);\n\n    return {\n      jsonrpc: '2.0',\n      id: request.id,\n      result: {\n        tools: paginationResult.items,\n        nextCursor: paginationResult.nextCursor,\n      },\n    };\n  }\n\n  /**\n   * Handle tools call requests with optimized registry usage\n   */\n  protected async handleToolsCall(request: MCPToolsCallRequest): Promise<MCPToolsCallResponse> {\n    const { name, arguments: args } = request.params;\n\n    try {\n      this.log(`Executing tool: ${name}`);\n      \n      // Update context for this specific request (no registry recreation)\n      const currentContext = {\n        openaiService: this.openaiService,\n        toolName: name,\n        requestId: request.id\n      };\n      \n      // Update the existing registry's context instead of recreating it\n      this.updateRegistryContext(currentContext);\n      \n      // Execute the tool using the existing registry\n      const result = await this.toolRegistry.execute(name, args);\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result: {\n          content: [\n            {\n              type: 'text',\n              text: JSON.stringify(result, null, 2),\n            },\n          ],\n        },\n      };\n    } catch (error) {\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result: {\n          content: [\n            {\n              type: 'text',\n              text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,\n            },\n          ],\n          isError: true,\n        },\n      };\n    }\n  }\n\n  /**\n   * Handle resources list requests with pagination support\n   */\n  protected async handleResourcesList(request: MCPResourcesListRequest): Promise<MCPResourcesListResponse> {\n    this.log('Listing resources with pagination...');\n    \n    const allResources = getAllResources();\n    this.log(`Found ${allResources.length} resources`);\n\n    // Apply pagination\n    const paginationParams = {\n      cursor: request.params?.cursor,\n      limit: PAGINATION_DEFAULTS.DEFAULT_LIMIT // Use default limit for resources\n    };\n\n    const paginationResult = paginateArray(allResources, paginationParams);\n    \n    // Log pagination metadata\n    const metadata = createPaginationMetadata(paginationParams, paginationResult);\n    this.log('Resources pagination:', metadata);\n\n    return {\n      jsonrpc: '2.0',\n      id: request.id,\n      result: {\n        resources: paginationResult.items.map((resource: any) => ({\n          uri: resource.uri,\n          name: resource.name,\n          description: resource.description,\n          mimeType: resource.mimeType\n        })),\n        nextCursor: paginationResult.nextCursor,\n      },\n    };\n  }\n\n  /**\n   * Handle resources read requests\n   */\n  protected async handleResourcesRead(request: MCPResourcesReadRequest): Promise<MCPResourcesReadResponse> {\n    const { uri } = request.params;\n    \n    const resourceData = getResource(uri) as any;\n    if (!resourceData) {\n      throw createEnhancedError(\n        LegacyErrorCodes.NOT_FOUND,\n        `Resource not found: ${uri}`,\n        {\n          resourceUri: uri,\n          availableResources: getAllResources().map((r: any) => r.uri)\n        }\n      );\n    }\n\n    // Get resource content and ensure it's a string\n    const rawContent = getResourceContent(uri);\n    const textContent = typeof rawContent === 'string'\n      ? rawContent\n      : JSON.stringify(rawContent, null, 2);\n\n    return {\n      jsonrpc: '2.0',\n      id: request.id,\n      result: {\n        contents: [\n          {\n            uri,\n            name: resourceData.name,           // Add required name field\n            mimeType: resourceData.mimeType,\n            text: textContent,                 // Ensure content is always a string\n          },\n        ],\n      },\n    };\n  }\n\n  /**\n   * Handle prompts list requests\n   */\n  protected async handlePromptsList(request: MCPPromptsListRequest): Promise<MCPPromptsListResponse> {\n    this.log('Handling prompts/list request');\n    \n    try {\n      const handler = this.promptHandlers['prompts/list'];\n      if (!handler) {\n        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'Prompts list handler not found');\n      }\n\n      // Update context for this request\n      handler.context.requestId = request.id;\n      \n      const result = await handler.handle(request.params);\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result\n      };\n    } catch (error) {\n      throw error instanceof MCPError ? error : new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        `Failed to list prompts: ${error instanceof Error ? error.message : 'Unknown error'}`\n      );\n    }\n  }\n\n  /**\n   * Handle prompts get requests\n   */\n  protected async handlePromptsGet(request: MCPPromptsGetRequest): Promise<MCPPromptsGetResponse> {\n    this.log('Handling prompts/get request');\n    \n    try {\n      const handler = this.promptHandlers['prompts/get'];\n      if (!handler) {\n        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'Prompts get handler not found');\n      }\n\n      // Update context for this request\n      handler.context.requestId = request.id;\n      \n      const result = await handler.handle(request.params);\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result\n      };\n    } catch (error) {\n      throw error instanceof MCPError ? error : new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        `Failed to get prompt: ${error instanceof Error ? error.message : 'Unknown error'}`\n      );\n    }\n  }\n\n  /**\n   * Handle completion requests\n   */\n  protected async handleCompletion(request: MCPCompletionRequest): Promise<MCPCompletionResponse> {\n    this.log('Handling completion/complete request');\n    \n    try {\n      const handler = this.completionHandlers['completion/complete'];\n      if (!handler) {\n        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'Completion handler not found');\n      }\n\n      // Update context for this request\n      handler.context.requestId = request.id;\n      \n      const result = await handler.handle(request.params);\n\n      return {\n        jsonrpc: '2.0',\n        id: request.id,\n        result\n      };\n    } catch (error) {\n      throw error instanceof MCPError ? error : new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        `Failed to handle completion: ${error instanceof Error ? error.message : 'Unknown error'}`\n      );\n    }\n  }\n\n  /**\n   * Update registry context without recreating the entire registry\n   * This is a performance optimization to avoid the registry recreation issue\n   */\n  private updateRegistryContext(newContext: any): void {\n    // Update the context for all registered handlers\n    for (const toolName of this.toolRegistry.getRegisteredTools()) {\n      const handler = this.toolRegistry.getHandler(toolName);\n      if (handler) {\n        (handler as any).context = newContext;\n      }\n    }\n  }\n\n  /**\n   * Centralized error handling with transport adapter support and JSON-RPC 2.0 compliance\n   */\n  protected handleError(error: any, requestId: string | number | null): MCPResponse {\n    let mcpError: MCPError;\n    \n    if (error instanceof MCPError) {\n      mcpError = error;\n    } else {\n      // Create enhanced error for unknown errors\n      mcpError = new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        error instanceof Error ? error.message : 'Unknown error',\n        {\n          originalError: error instanceof Error ? {\n            name: error.name,\n            message: error.message,\n            stack: error.stack\n          } : error,\n          timestamp: new Date().toISOString(),\n          requestId\n        }\n      );\n    }\n\n    // Use transport adapter for error formatting if available\n    if (this.transportAdapter?.formatError) {\n      return this.transportAdapter.formatError(mcpError, requestId);\n    }\n\n    // Default JSON-RPC 2.0 compliant error response\n    return createStandardErrorResponse(requestId, mcpError.code, mcpError.message, mcpError.data);\n  }\n\n  /**\n   * Update API key and reinitialize services\n   */\n  updateApiKey(apiKey: string): void {\n    this.config.apiKey = apiKey;\n    this.openaiService = new OpenAIService(apiKey);\n    \n    // Update the context in the existing registry\n    const context = {\n      openaiService: this.openaiService,\n      toolName: '',\n      requestId: null\n    };\n    this.updateRegistryContext(context);\n  }\n\n  /**\n   * Get registry statistics for debugging\n   */\n  getRegistryStats() {\n    return this.toolRegistry.getStats();\n  }\n\n  /**\n   * Check if handler is initialized\n   */\n  getIsInitialized(): boolean {\n    return this.isInitialized;\n  }\n\n  /**\n   * Debug logging\n   */\n  protected log(message: string, ...args: any[]): void {\n    if (this.config.debug) {\n      console.log(`[BaseMCPHandler] ${message}`, ...args);\n    }\n  }\n}",
+            "hash": "9f28806afc7a0b746faa4e82e7af256c"
+          }
+        },
+        {
+          "path": "core/handlers/assistant-handlers.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/assistant-handlers.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/assistant-handlers.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/base-prompt-handler.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/base-prompt-handler.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/base-prompt-handler.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/base-tool-handler.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/base-tool-handler.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/base-tool-handler.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/completion-handlers.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/completion-handlers.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/completion-handlers.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/index.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/message-handlers.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/message-handlers.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/message-handlers.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/prompt-handlers.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/prompt-handlers.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/prompt-handlers.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/run-handlers.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/run-handlers.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/run-handlers.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/run-step-handlers.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/run-step-handlers.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/run-step-handlers.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/handlers/thread-handlers.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/handlers/thread-handlers.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/handlers/thread-handlers.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/index.ts",
+          "identical": false,
+          "similarity": 21,
+          "differences": [
+            "Size difference: 4750 vs 4693 bytes",
+            "Line count difference: 160 vs 159 lines"
+          ],
+          "stats1": {
+            "size": 4750,
+            "lines": 160,
+            "content": "/**\n * Shared Core Index - Main entry point for the refactored handler system\n * \n * This file provides the complete foundational architecture for decomposing\n * the monolithic handleToolsCall method into a modular, maintainable system.\n * \n * Key Components:\n * - BaseToolHandler: Abstract base class for all tool handlers\n * - ToolRegistry: Central registry for managing and executing handlers\n * - Handler Categories: Organized handlers for each tool type\n * - Factory Functions: Easy setup and configuration\n * \n * Usage Example:\n * ```typescript\n * import { ToolRegistry, createFlatHandlerMap } from './shared/core/index.js';\n * \n * const context = { openaiService, toolName: '', requestId: 1 };\n * const registry = new ToolRegistry(context);\n * const handlers = createFlatHandlerMap(context);\n * registry.registerBatch(handlers);\n * \n * // Execute a tool\n * const result = await registry.execute('assistant-create', args);\n * ```\n */\n\n// Core infrastructure exports\nexport { BaseToolHandler } from './handlers/base-tool-handler.js';\nexport type { ToolHandlerContext } from './handlers/base-tool-handler.js';\nexport { ToolRegistry } from './tool-registry.js';\nexport type { ToolRegistryStats } from './tool-registry.js';\nexport { BaseMCPHandler } from './base-mcp-handler.js';\nexport type { BaseMCPHandlerConfig } from './base-mcp-handler.js';\nexport type { TransportAdapter } from './transport-adapters.js';\nexport {\n  HTTPTransportAdapter,\n  StdioTransportAdapter,\n  CloudflareWorkerTransportAdapter,\n  RequestRouter,\n  ProxyTransportAdapter,\n  LocalDevTransportAdapter\n} from './transport-adapters.js';\n\n// Handler exports\nexport {\n  createAllHandlers,\n  createFlatHandlerMap,\n  createAssistantHandlers,\n  createThreadHandlers,\n  createMessageHandlers,\n  createRunHandlers,\n  createRunStepHandlers,\n  HANDLER_CATEGORIES,\n  TOTAL_TOOL_COUNT,\n  validateHandlerCompleteness\n} from './handlers/index.js';\n\n// Tool definitions exports\nexport {\n  generateToolDefinitions,\n  validateToolDefinitions\n} from './tool-definitions.js';\n\n// Pagination utilities exports\nexport * from './pagination-utils.js';\n\n// Import types for internal use\nimport { ToolHandlerContext } from './handlers/base-tool-handler.js';\nimport { ToolRegistry } from './tool-registry.js';\nimport {\n  createFlatHandlerMap,\n  validateHandlerCompleteness,\n  TOTAL_TOOL_COUNT,\n  HANDLER_CATEGORIES\n} from './handlers/index.js';\n\n// Individual handler class exports (for advanced usage)\nexport {\n  AssistantCreateHandler,\n  AssistantListHandler,\n  AssistantGetHandler,\n  AssistantUpdateHandler,\n  AssistantDeleteHandler\n} from './handlers/assistant-handlers.js';\n\nexport {\n  ThreadCreateHandler,\n  ThreadGetHandler,\n  ThreadUpdateHandler,\n  ThreadDeleteHandler\n} from './handlers/thread-handlers.js';\n\nexport {\n  MessageCreateHandler,\n  MessageListHandler,\n  MessageGetHandler,\n  MessageUpdateHandler,\n  MessageDeleteHandler\n} from './handlers/message-handlers.js';\n\nexport {\n  RunCreateHandler,\n  RunListHandler,\n  RunGetHandler,\n  RunUpdateHandler,\n  RunCancelHandler,\n  RunSubmitToolOutputsHandler\n} from './handlers/run-handlers.js';\n\nexport {\n  RunStepListHandler,\n  RunStepGetHandler\n} from './handlers/run-step-handlers.js';\n\n/**\n * Complete setup function for the handler system\n * \n * This is the main entry point for setting up the entire handler architecture.\n * It creates the registry, instantiates all handlers, and registers them.\n * \n * @param context - The handler context containing OpenAI service and request info\n * @returns Configured ToolRegistry ready for use\n */\nexport function setupHandlerSystem(context: ToolHandlerContext): ToolRegistry {\n  const registry = new ToolRegistry(context);\n  const handlers = createFlatHandlerMap(context);\n  \n  // Validate that we have all expected handlers\n  const validation = validateHandlerCompleteness(handlers);\n  if (!validation.isComplete) {\n    console.warn('[HandlerSystem] Missing handlers:', validation.missingTools);\n    if (validation.extraTools.length > 0) {\n      console.warn('[HandlerSystem] Extra handlers:', validation.extraTools);\n    }\n  }\n  \n  // Register all handlers\n  registry.registerBatch(handlers);\n  \n  console.log(`[HandlerSystem] Initialized with ${Object.keys(handlers).length} handlers`);\n  console.log('[HandlerSystem] Registry stats:', registry.getStats());\n  \n  return registry;\n}\n\n/**\n * Version information for the handler system\n */\nexport const HANDLER_SYSTEM_VERSION = '1.0.0-phase1';\n\n/**\n * System metadata\n */\nexport const SYSTEM_INFO = {\n  version: HANDLER_SYSTEM_VERSION,\n  totalHandlers: TOTAL_TOOL_COUNT,\n  categories: Object.keys(HANDLER_CATEGORIES),\n  description: 'Modular tool handler system using Strategy pattern',\n  phase: 'Phase 1 - Foundational Architecture'\n} as const;",
+            "hash": "ca11dcc5bdf722fe7ee6d05fae0e0c59"
+          },
+          "stats2": {
+            "size": 4693,
+            "lines": 159,
+            "content": "/**\n * Shared Core Index - Main entry point for the refactored handler system\n * \n * This file provides the complete foundational architecture for decomposing\n * the monolithic handleToolsCall method into a modular, maintainable system.\n * \n * Key Components:\n * - BaseToolHandler: Abstract base class for all tool handlers\n * - ToolRegistry: Central registry for managing and executing handlers\n * - Handler Categories: Organized handlers for each tool type\n * - Factory Functions: Easy setup and configuration\n * \n * Usage Example:\n * ```typescript\n * import { ToolRegistry, createFlatHandlerMap } from './shared/core/index.js';\n * \n * const context = { openaiService, toolName: '', requestId: 1 };\n * const registry = new ToolRegistry(context);\n * const handlers = createFlatHandlerMap(context);\n * registry.registerBatch(handlers);\n * \n * // Execute a tool\n * const result = await registry.execute('assistant-create', args);\n * ```\n */\n\n// Core infrastructure exports\nexport { BaseToolHandler } from './handlers/base-tool-handler.js';\nexport type { ToolHandlerContext } from './handlers/base-tool-handler.js';\nexport { ToolRegistry } from './tool-registry.js';\nexport type { ToolRegistryStats } from './tool-registry.js';\nexport { BaseMCPHandler } from './base-mcp-handler.js';\nexport type { BaseMCPHandlerConfig, TransportAdapter } from './base-mcp-handler.js';\n\n// Transport adapters exports\nexport {\n  CloudflareWorkerTransportAdapter,\n  StdioTransportAdapter,\n  ProxyTransportAdapter,\n  LocalDevTransportAdapter\n} from './transport-adapters.js';\n\n// Handler exports\nexport {\n  createAllHandlers,\n  createFlatHandlerMap,\n  createAssistantHandlers,\n  createThreadHandlers,\n  createMessageHandlers,\n  createRunHandlers,\n  createRunStepHandlers,\n  HANDLER_CATEGORIES,\n  TOTAL_TOOL_COUNT,\n  validateHandlerCompleteness\n} from './handlers/index.js';\n\n// Tool definitions exports\nexport {\n  generateToolDefinitions,\n  validateToolDefinitions\n} from './tool-definitions.js';\n\n// Pagination utilities exports\nexport * from './pagination-utils.js';\n\n// Import types for internal use\nimport { ToolHandlerContext } from './handlers/base-tool-handler.js';\nimport { ToolRegistry } from './tool-registry.js';\nimport {\n  createFlatHandlerMap,\n  validateHandlerCompleteness,\n  TOTAL_TOOL_COUNT,\n  HANDLER_CATEGORIES\n} from './handlers/index.js';\n\n// Individual handler class exports (for advanced usage)\nexport {\n  AssistantCreateHandler,\n  AssistantListHandler,\n  AssistantGetHandler,\n  AssistantUpdateHandler,\n  AssistantDeleteHandler\n} from './handlers/assistant-handlers.js';\n\nexport {\n  ThreadCreateHandler,\n  ThreadGetHandler,\n  ThreadUpdateHandler,\n  ThreadDeleteHandler\n} from './handlers/thread-handlers.js';\n\nexport {\n  MessageCreateHandler,\n  MessageListHandler,\n  MessageGetHandler,\n  MessageUpdateHandler,\n  MessageDeleteHandler\n} from './handlers/message-handlers.js';\n\nexport {\n  RunCreateHandler,\n  RunListHandler,\n  RunGetHandler,\n  RunUpdateHandler,\n  RunCancelHandler,\n  RunSubmitToolOutputsHandler\n} from './handlers/run-handlers.js';\n\nexport {\n  RunStepListHandler,\n  RunStepGetHandler\n} from './handlers/run-step-handlers.js';\n\n/**\n * Complete setup function for the handler system\n * \n * This is the main entry point for setting up the entire handler architecture.\n * It creates the registry, instantiates all handlers, and registers them.\n * \n * @param context - The handler context containing OpenAI service and request info\n * @returns Configured ToolRegistry ready for use\n */\nexport function setupHandlerSystem(context: ToolHandlerContext): ToolRegistry {\n  const registry = new ToolRegistry(context);\n  const handlers = createFlatHandlerMap(context);\n  \n  // Validate that we have all expected handlers\n  const validation = validateHandlerCompleteness(handlers);\n  if (!validation.isComplete) {\n    console.warn('[HandlerSystem] Missing handlers:', validation.missingTools);\n    if (validation.extraTools.length > 0) {\n      console.warn('[HandlerSystem] Extra handlers:', validation.extraTools);\n    }\n  }\n  \n  // Register all handlers\n  registry.registerBatch(handlers);\n  \n  console.log(`[HandlerSystem] Initialized with ${Object.keys(handlers).length} handlers`);\n  console.log('[HandlerSystem] Registry stats:', registry.getStats());\n  \n  return registry;\n}\n\n/**\n * Version information for the handler system\n */\nexport const HANDLER_SYSTEM_VERSION = '1.0.0-phase1';\n\n/**\n * System metadata\n */\nexport const SYSTEM_INFO = {\n  version: HANDLER_SYSTEM_VERSION,\n  totalHandlers: TOTAL_TOOL_COUNT,\n  categories: Object.keys(HANDLER_CATEGORIES),\n  description: 'Modular tool handler system using Strategy pattern',\n  phase: 'Phase 1 - Foundational Architecture'\n} as const;",
+            "hash": "7634a1cd356bd88c7a97786ce419212a"
+          }
+        },
+        {
+          "path": "core/pagination-utils.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/pagination-utils.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/pagination-utils.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/tool-definitions.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/tool-definitions.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/tool-definitions.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/tool-registry.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/tool-registry.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/tool-registry.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "core/transport-adapters.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/core/transport-adapters.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/core/transport-adapters.ts",
+          "identical": false,
+          "similarity": 1,
+          "differences": [
+            "Size difference: 13511 vs 5246 bytes",
+            "Line count difference: 474 vs 164 lines"
+          ],
+          "stats1": {
+            "size": 13511,
+            "lines": 474,
+            "content": "/**\n * Transport Adapters for Thin Deployment Adapters\n * \n * This module provides shared transport-specific logic that can be used\n * by thin deployment adapters to handle protocol-specific concerns while\n * delegating all business logic to the BaseMCPHandler.\n */\n\nimport {\n  MCPRequest,\n  MCPResponse,\n  MCPError,\n  ErrorCodes,\n  LegacyErrorCodes,\n  createStandardErrorResponse,\n  createEnhancedError,\n} from '../types/index.js';\n\n/**\n * Transport adapter interface for deployment-specific implementations\n */\nexport interface TransportAdapter {\n  /** Handle transport-specific request preprocessing */\n  preprocessRequest?(request: MCPRequest): Promise<MCPRequest>;\n  /** Handle transport-specific response postprocessing */\n  postprocessResponse?(response: MCPResponse): Promise<MCPResponse>;\n  /** Handle transport-specific error formatting */\n  formatError?(error: MCPError, requestId: string | number | null): MCPResponse;\n}\n\n/**\n * Cloudflare Workers Transport Adapter\n * Handles HTTP-specific optimizations for Cloudflare Workers\n */\nexport class CloudflareWorkerTransportAdapter implements TransportAdapter {\n  async preprocessRequest(request: MCPRequest): Promise<MCPRequest> {\n    // HTTP transport doesn't need special preprocessing\n    return request;\n  }\n\n  async postprocessResponse(response: MCPResponse): Promise<MCPResponse> {\n    // HTTP transport doesn't need special postprocessing\n    // The Worker handles JSON -> HTTP conversion\n    return response;\n  }\n\n  formatError(error: MCPError, requestId: string | number | null): MCPResponse {\n    return createStandardErrorResponse(requestId, error.code, error.message, error.data);\n  }\n}\n\n/**\n * HTTP Transport Adapter for Cloudflare Workers\n * Handles HTTP-specific request/response processing\n */\nexport class HTTPTransportAdapter {\n  /**\n   * Extract API key from URL path\n   */\n  extractApiKeyFromPath(pathname: string): { apiKey: string | null; error: MCPResponse | null } {\n    const pathParts = pathname.split('/');\n    \n    // Expected format: /mcp/{api-key}\n    if (pathParts.length !== 3 || pathParts[1] !== 'mcp') {\n      const errorResponse = createStandardErrorResponse(\n        null,\n        ErrorCodes.INVALID_REQUEST,\n        'Invalid URL format. Expected: /mcp/{api-key}',\n        {\n          receivedPath: pathname,\n          expectedFormat: '/mcp/{api-key}',\n          documentation: 'https://docs.openai.com/api-reference'\n        }\n      );\n      return { apiKey: null, error: errorResponse };\n    }\n\n    const apiKey = pathParts[2];\n    if (!apiKey || apiKey.length < 10) {\n      const authError = createEnhancedError(\n        LegacyErrorCodes.UNAUTHORIZED,\n        'Invalid or missing API key',\n        {\n          keyLength: apiKey?.length || 0,\n          minLength: 10,\n          documentation: 'https://docs.openai.com/api-reference/authentication'\n        }\n      );\n      \n      const errorResponse = createStandardErrorResponse(\n        null,\n        authError.code,\n        authError.message,\n        authError.data\n      );\n      return { apiKey: null, error: errorResponse };\n    }\n\n    return { apiKey, error: null };\n  }\n\n  /**\n   * Parse and validate JSON-RPC request from HTTP body\n   */\n  async parseRequest(request: Request): Promise<{ mcpRequest: MCPRequest | null; error: MCPResponse | null }> {\n    // Parse request body\n    let mcpRequest: MCPRequest;\n    try {\n      mcpRequest = await request.json();\n    } catch (error) {\n      const errorResponse = createStandardErrorResponse(\n        null,\n        ErrorCodes.PARSE_ERROR,\n        'Invalid JSON in request body',\n        {\n          parseError: error instanceof Error ? error.message : 'Unknown parse error',\n          documentation: 'https://www.jsonrpc.org/specification'\n        }\n      );\n      return { mcpRequest: null, error: errorResponse };\n    }\n\n    // Validate JSON-RPC format\n    if (!mcpRequest.jsonrpc || mcpRequest.jsonrpc !== '2.0' || !mcpRequest.method) {\n      const errorResponse = createStandardErrorResponse(\n        mcpRequest.id || null,\n        ErrorCodes.INVALID_REQUEST,\n        'Invalid JSON-RPC 2.0 request format',\n        {\n          missingFields: {\n            jsonrpc: !mcpRequest.jsonrpc || mcpRequest.jsonrpc !== '2.0',\n            method: !mcpRequest.method\n          },\n          received: {\n            jsonrpc: mcpRequest.jsonrpc,\n            method: mcpRequest.method\n          },\n          documentation: 'https://www.jsonrpc.org/specification'\n        }\n      );\n      return { mcpRequest: null, error: errorResponse };\n    }\n\n    return { mcpRequest, error: null };\n  }\n\n  /**\n   * Create HTTP Response with CORS headers\n   */\n  createResponse(data: any, status: number = 200): Response {\n    return new Response(JSON.stringify(data), {\n      status,\n      headers: {\n        'Access-Control-Allow-Origin': '*',\n        'Content-Type': 'application/json',\n      },\n    });\n  }\n\n  /**\n   * Create CORS preflight response\n   */\n  createCORSResponse(): Response {\n    return new Response(null, {\n      status: 200,\n      headers: {\n        'Access-Control-Allow-Origin': '*',\n        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',\n        'Access-Control-Allow-Headers': 'Content-Type, Authorization',\n        'Access-Control-Max-Age': '86400',\n      },\n    });\n  }\n\n  /**\n   * Create method not allowed response\n   */\n  createMethodNotAllowedResponse(): Response {\n    return new Response('Method not allowed', {\n      status: 405,\n      headers: {\n        'Access-Control-Allow-Origin': '*',\n        'Content-Type': 'text/plain',\n      },\n    });\n  }\n\n  /**\n   * Create error response with enhanced error details\n   */\n  createErrorResponse(error: any, requestId: string | number | null = null): Response {\n    const errorResponse = createStandardErrorResponse(\n      requestId,\n      ErrorCodes.INTERNAL_ERROR,\n      'Internal server error',\n      {\n        timestamp: new Date().toISOString(),\n        error: error instanceof Error ? {\n          name: error.name,\n          message: error.message\n        } : 'Unknown error'\n      }\n    );\n    \n    return this.createResponse(errorResponse, 500);\n  }\n}\n\n/**\n * Stdio Transport Helper Class\n * Provides stdio-specific utilities for NPM package deployment\n */\nclass StdioTransportHelper {\n  private debug: boolean;\n\n  constructor(debug: boolean = false) {\n    this.debug = debug;\n  }\n\n  /**\n   * Setup error handling for the process\n   */\n  setupErrorHandling(): void {\n    // Prevent crashes that cause connection issues with MCP clients\n    process.on('uncaughtException', (error) => {\n      this.logError('Uncaught exception:', error);\n      this.sendErrorResponse(null, -32603, 'Internal server error', error.message);\n    });\n\n    process.on('unhandledRejection', (reason, promise) => {\n      this.logError('Unhandled rejection at:', promise, 'reason:', reason);\n      this.sendErrorResponse(null, -32603, 'Internal server error', String(reason));\n    });\n\n    // Handle graceful shutdown\n    process.on('SIGTERM', () => {\n      this.logDebug('Received SIGTERM, shutting down gracefully');\n      process.exit(0);\n    });\n\n    process.on('SIGINT', () => {\n      this.logDebug('Received SIGINT, shutting down gracefully');\n      process.exit(0);\n    });\n  }\n\n  /**\n   * Setup stdio interface with readline\n   */\n  setupStdioInterface(handleInput: (line: string) => Promise<void>): void {\n    const readline = require('readline');\n    \n    // Ensure stdout is line-buffered for MCP client compatibility\n    process.stdout.setEncoding('utf8');\n    if (process.stdout.isTTY) {\n      // Type assertion for Node.js internal property\n      (process.stdout as any)._flush = (process.stdout as any)._flush || (() => {});\n    }\n\n    const rl = readline.createInterface({\n      input: process.stdin,\n      output: process.stdout,\n      terminal: false\n    });\n\n    rl.on('line', (line: string) => {\n      handleInput(line.trim());\n    });\n\n    rl.on('close', () => {\n      this.logDebug('Stdin closed, exiting');\n      process.exit(0);\n    });\n  }\n\n  /**\n   * Parse and validate JSON-RPC request from stdio line\n   */\n  parseRequest(line: string): { mcpRequest: MCPRequest | null; error: MCPResponse | null } {\n    // Handle empty line handshake that MCP clients send\n    if (line === '') {\n      this.logDebug('Received empty line handshake from MCP client');\n      return { mcpRequest: null, error: null };\n    }\n\n    this.logDebug('Received input:', line);\n\n    // Parse JSON-RPC message\n    let request: any;\n    try {\n      request = JSON.parse(line);\n    } catch (parseError) {\n      this.logError('JSON parse error:', parseError);\n      const errorResponse = this.createErrorResponse(null, -32700, 'Parse error', \n        parseError instanceof Error ? parseError.message : 'Unknown parse error');\n      return { mcpRequest: null, error: errorResponse };\n    }\n\n    // Validate JSON-RPC 2.0 format\n    if (request.jsonrpc !== '2.0') {\n      const errorResponse = this.createErrorResponse(request.id, -32600, 'Invalid Request', 'Invalid JSON-RPC version');\n      return { mcpRequest: null, error: errorResponse };\n    }\n\n    return { mcpRequest: request, error: null };\n  }\n\n  /**\n   * Send response via stdout\n   */\n  sendResponse(response: MCPResponse): void {\n    // Ensure messages are UTF-8 encoded and delimited by newlines\n    // Messages MUST NOT contain embedded newlines\n    const message = JSON.stringify(response);\n    \n    // Validate no embedded newlines\n    if (message.includes('\\n') || message.includes('\\r')) {\n      this.logError('Response contains embedded newlines, this will break MCP client compatibility');\n      // Remove embedded newlines to prevent protocol violation\n      const cleanMessage = message.replace(/[\\n\\r]/g, ' ');\n      process.stdout.write(cleanMessage + '\\n');\n    } else {\n      process.stdout.write(message + '\\n');\n    }\n    \n    this.logDebug('Sent response:', message);\n  }\n\n  /**\n   * Send error response\n   */\n  sendErrorResponse(id: string | number | null, code: number, message: string, data: any = null): void {\n    const response = this.createErrorResponse(id, code, message, data);\n    this.sendResponse(response);\n  }\n\n  /**\n   * Create error response\n   */\n  createErrorResponse(id: string | number | null, code: number, message: string, data: any = null): MCPResponse {\n    return {\n      jsonrpc: '2.0',\n      id: id,\n      error: {\n        code: code,\n        message: message,\n        ...(data && { data: data })\n      }\n    };\n  }\n\n  /**\n   * Create initialize response\n   */\n  createInitializeResponse(id: string | number, serverName: string, serverVersion: string): MCPResponse {\n    return {\n      jsonrpc: '2.0',\n      id: id,\n      result: {\n        protocolVersion: '2024-11-05',\n        capabilities: {\n          tools: {\n            listChanged: false\n          },\n          resources: {\n            subscribe: false,\n            listChanged: false\n          }\n        },\n        serverInfo: {\n          name: serverName,\n          version: serverVersion\n        }\n      }\n    };\n  }\n\n  /**\n   * Create initialized notification\n   */\n  createInitializedNotification(): any {\n    return {\n      jsonrpc: '2.0',\n      method: 'notifications/initialized',\n      params: {}\n    };\n  }\n\n  /**\n   * Validate API key from environment\n   */\n  validateApiKey(): { apiKey: string | null; error: MCPResponse | null } {\n    const apiKey = process.env.OPENAI_API_KEY;\n    if (!apiKey) {\n      const errorResponse = this.createErrorResponse(null, -32602, 'Invalid params', \n        'OPENAI_API_KEY environment variable is required. Please configure it in your MCP client.');\n      return { apiKey: null, error: errorResponse };\n    }\n    return { apiKey, error: null };\n  }\n\n  /**\n   * Debug logging\n   */\n  logDebug(...args: any[]): void {\n    if (this.debug) {\n      console.error('[DEBUG]', ...args);\n    }\n  }\n\n  /**\n   * Error logging\n   */\n  logError(...args: any[]): void {\n    console.error('[ERROR]', ...args);\n  }\n}\n\n/**\n * Stdio Transport Adapter that implements the TransportAdapter interface\n */\nexport class StdioTransportAdapter extends StdioTransportHelper implements TransportAdapter {\n  async preprocessRequest(request: MCPRequest): Promise<MCPRequest> {\n    // Stdio transport doesn't need special preprocessing\n    return request;\n  }\n\n  async postprocessResponse(response: MCPResponse): Promise<MCPResponse> {\n    // Stdio transport doesn't need special postprocessing\n    return response;\n  }\n\n  formatError(error: MCPError, requestId: string | number | null): MCPResponse {\n    return this.createErrorResponse(requestId, error.code, error.message, error.data);\n  }\n}\n\n/**\n * Alias for backward compatibility\n */\nexport const ProxyTransportAdapter = CloudflareWorkerTransportAdapter;\nexport const LocalDevTransportAdapter = StdioTransportAdapter;\n\n/**\n * Shared request routing logic\n */\nexport class RequestRouter {\n  /**\n   * Route request to appropriate method\n   */\n  static getMethodType(method: string): 'initialize' | 'mcp' | 'unknown' {\n    switch (method) {\n      case 'initialize':\n        return 'initialize';\n      case 'tools/list':\n      case 'tools/call':\n      case 'resources/list':\n      case 'resources/read':\n      case 'prompts/list':\n      case 'prompts/get':\n      case 'completion/complete':\n        return 'mcp';\n      default:\n        return 'unknown';\n    }\n  }\n\n  /**\n   * Check if server is initialized for MCP requests\n   */\n  static requiresInitialization(method: string): boolean {\n    return method !== 'initialize';\n  }\n}",
+            "hash": "f3da9beca938b6f1cf5e02b95cdcada9"
+          },
+          "stats2": {
+            "size": 5246,
+            "lines": 164,
+            "content": "/**\n * Transport Adapters for Different Deployment Targets\n * \n * These adapters handle deployment-specific transport logic while keeping\n * the core MCP protocol handling unified in BaseMCPHandler.\n */\n\nimport {\n  MCPRequest,\n  MCPResponse,\n  MCPError,\n  ErrorCodes,\n  createStandardErrorResponse,\n} from '../types/index.js';\nimport { TransportAdapter } from './base-mcp-handler.js';\n\n/**\n * HTTP Transport Adapter for Cloudflare Workers\n * \n * Handles HTTP-specific request/response processing for the Cloudflare Workers deployment.\n * This includes CORS handling, HTTP status code mapping, and request validation.\n */\nexport class CloudflareWorkerTransportAdapter implements TransportAdapter {\n  async preprocessRequest(request: MCPRequest): Promise<MCPRequest> {\n    // HTTP transport doesn't need special preprocessing for MCP requests\n    // The Worker already handles HTTP -> JSON conversion\n    return request;\n  }\n\n  async postprocessResponse(response: MCPResponse): Promise<MCPResponse> {\n    // HTTP transport doesn't need special postprocessing\n    // The Worker handles JSON -> HTTP conversion\n    return response;\n  }\n\n  formatError(error: MCPError, requestId: string | number | null): MCPResponse {\n    // JSON-RPC 2.0 compliant error format for HTTP transport\n    return createStandardErrorResponse(requestId, error.code, error.message, error.data);\n  }\n}\n\n/**\n * Stdio Transport Adapter for NPM Package\n * \n * Handles stdio-specific processing for the NPM package deployment.\n * This includes line-based protocol handling and stdio-specific error formatting.\n */\nexport class StdioTransportAdapter implements TransportAdapter {\n  async preprocessRequest(request: MCPRequest): Promise<MCPRequest> {\n    // Validate JSON-RPC 2.0 format for stdio transport\n    if (request.jsonrpc !== '2.0') {\n      throw new MCPError(ErrorCodes.INVALID_REQUEST, 'Invalid JSON-RPC version');\n    }\n    return request;\n  }\n\n  async postprocessResponse(response: MCPResponse): Promise<MCPResponse> {\n    // Ensure response is properly formatted for stdio\n    return response;\n  }\n\n  formatError(error: MCPError, requestId: string | number | null): MCPResponse {\n    // JSON-RPC 2.0 compliant error formatting for stdio\n    return createStandardErrorResponse(requestId, error.code, error.message, error.data);\n  }\n}\n\n/**\n * Proxy Transport Adapter for NPM Package Cloudflare Proxy Mode\n * \n * Handles forwarding requests to the Cloudflare Worker when the NPM package\n * is configured to use proxy mode instead of direct OpenAI API calls.\n */\nexport class ProxyTransportAdapter implements TransportAdapter {\n  private cloudflareWorkerUrl: string;\n\n  constructor(cloudflareWorkerUrl: string) {\n    this.cloudflareWorkerUrl = cloudflareWorkerUrl;\n  }\n\n  async preprocessRequest(request: MCPRequest): Promise<MCPRequest> {\n    // For proxy mode, we'll handle the forwarding in a special way\n    // Mark the request as needing proxy forwarding\n    (request as any)._proxyForward = true;\n    return request;\n  }\n\n  async postprocessResponse(response: MCPResponse): Promise<MCPResponse> {\n    return response;\n  }\n\n  formatError(error: MCPError, requestId: string | number | null): MCPResponse {\n    // JSON-RPC 2.0 compliant error formatting for proxy mode\n    return createStandardErrorResponse(requestId, error.code, error.message, error.data);\n  }\n\n  /**\n   * Forward request to Cloudflare Worker\n   */\n  async forwardToCloudflareWorker(request: MCPRequest): Promise<MCPResponse> {\n    try {\n      const response = await fetch(this.cloudflareWorkerUrl, {\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n        },\n        body: JSON.stringify(request)\n      });\n\n      if (!response.ok) {\n        throw new Error(`HTTP ${response.status}: ${response.statusText}`);\n      }\n\n      const result = await response.json() as MCPResponse;\n      return result;\n    } catch (error) {\n      throw new MCPError(\n        ErrorCodes.INTERNAL_ERROR,\n        'Proxy request failed',\n        error instanceof Error ? error.message : 'Unknown error'\n      );\n    }\n  }\n}\n\n/**\n * Local Development Transport Adapter\n * \n * Handles local development specific processing, including enhanced debugging\n * and development-specific optimizations.\n */\nexport class LocalDevTransportAdapter implements TransportAdapter {\n  private debug: boolean;\n\n  constructor(debug: boolean = false) {\n    this.debug = debug;\n  }\n\n  async preprocessRequest(request: MCPRequest): Promise<MCPRequest> {\n    if (this.debug) {\n      console.log('[LocalDev] Processing request:', request.method);\n    }\n    return request;\n  }\n\n  async postprocessResponse(response: MCPResponse): Promise<MCPResponse> {\n    if (this.debug) {\n      console.log('[LocalDev] Sending response for ID:', response.id);\n    }\n    return response;\n  }\n\n  formatError(error: MCPError, requestId: string | number | null): MCPResponse {\n    if (this.debug) {\n      console.error('[LocalDev] Error:', error.message);\n      if (error.data) {\n        console.error('[LocalDev] Error data:', error.data);\n      }\n    }\n    \n    // JSON-RPC 2.0 compliant error formatting for local development\n    return createStandardErrorResponse(requestId, error.code, error.message, error.data);\n  }\n}",
+            "hash": "b98e619de99d919436b775127b9a7e66"
+          }
+        },
+        {
+          "path": "index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/index.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/prompts/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/prompts/index.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/prompt-registry.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/prompts/prompt-registry.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/prompts/prompt-registry.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/prompt-templates.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/prompts/prompt-templates.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/prompts/prompt-templates.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/resources/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/resources/index.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/resources.cjs",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/resources/resources.cjs",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/resources/resources.cjs",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/resources.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/resources/resources.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/resources/resources.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "services/index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/services/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/services/index.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "services/openai-service.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/services/openai-service.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/services/openai-service.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "test-foundation.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/test-foundation.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/test-foundation.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "test-imports.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/test-imports.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/test-imports.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "types/cloudflare-types.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/types/cloudflare-types.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/types/cloudflare-types.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "types/core-types.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/types/core-types.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/types/core-types.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "types/index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/types/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/types/index.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "types/prompt-types.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/types/prompt-types.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/types/prompt-types.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "validation/index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/validation/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/validation/index.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "validation/validation.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/shared/validation/validation.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/shared/validation/validation.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        }
+      ],
+      "totalSize": 42426,
+      "totalLines": 1389,
+      "riskLevel": "CRITICAL"
+    },
+    {
+      "type": "Complete Directory Structure",
+      "location1": "definitions/",
+      "location2": "npm-package/definitions/",
+      "duplicateFiles": [
+        {
+          "path": "README.md",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/README.md",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/README.md",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "configs/environments/development.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/configs/environments/development.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/configs/environments/development.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "configs/environments/production.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/configs/environments/production.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/configs/environments/production.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "generated/index.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/generated/index.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/generated/index.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "generated/types/prompts-types.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/generated/types/prompts-types.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/generated/types/prompts-types.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "generated/types/resources-types.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/generated/types/resources-types.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/generated/types/resources-types.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "generated/types/tool-params.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/generated/types/tool-params.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/generated/types/tool-params.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "generated/types/tools-types.ts",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/generated/types/tools-types.ts",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/generated/types/tools-types.ts",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/analysis/explain-code.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/analysis/explain-code.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/analysis/explain-code.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/analysis/review-code.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/analysis/review-code.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/analysis/review-code.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/assistant/create-coding-assistant.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/assistant/create-coding-assistant.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/assistant/create-coding-assistant.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/assistant/create-data-analyst.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/assistant/create-data-analyst.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/assistant/create-data-analyst.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/assistant/create-writing-assistant.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/assistant/create-writing-assistant.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/assistant/create-writing-assistant.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/data/analyze-dataset.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/data/analyze-dataset.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/data/analyze-dataset.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/run/configure-assistant-run.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/run/configure-assistant-run.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/run/configure-assistant-run.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/run/debug-run-issues.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/run/debug-run-issues.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/run/debug-run-issues.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/thread/create-conversation-thread.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/thread/create-conversation-thread.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/thread/create-conversation-thread.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "prompts/thread/organize-thread-messages.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/prompts/thread/organize-thread-messages.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/prompts/thread/organize-thread-messages.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/documentation/api-reference.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/documentation/api-reference.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/documentation/api-reference.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/documentation/best-practices.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/documentation/best-practices.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/documentation/best-practices.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/documentation/getting-started-guide.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/documentation/getting-started-guide.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/documentation/getting-started-guide.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/documentation/tool-usage-guide.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/documentation/tool-usage-guide.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/documentation/tool-usage-guide.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/documentation/troubleshooting-guide.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/documentation/troubleshooting-guide.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/documentation/troubleshooting-guide.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/examples/batch-processing-workflow.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/examples/batch-processing-workflow.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/examples/batch-processing-workflow.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/examples/code-review-workflow.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/examples/code-review-workflow.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/examples/code-review-workflow.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/examples/create-and-run-workflow.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/examples/create-and-run-workflow.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/examples/create-and-run-workflow.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/examples/data-analysis-workflow.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/examples/data-analysis-workflow.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/examples/data-analysis-workflow.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/templates/coding-assistant-template.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/templates/coding-assistant-template.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/templates/coding-assistant-template.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/templates/customer-support-template.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/templates/customer-support-template.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/templates/customer-support-template.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/templates/data-analyst-template.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/templates/data-analyst-template.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/templates/data-analyst-template.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "resources/templates/writing-assistant-template.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/resources/templates/writing-assistant-template.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/resources/templates/writing-assistant-template.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "schemas/prompt-schema.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/schemas/prompt-schema.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/schemas/prompt-schema.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "schemas/resource-schema.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/schemas/resource-schema.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/schemas/resource-schema.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "schemas/tool-schema.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/schemas/tool-schema.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/schemas/tool-schema.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "scripts/build.js",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/scripts/build.js",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/scripts/build.js",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "scripts/migrate.js",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/scripts/migrate.js",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/scripts/migrate.js",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "scripts/validate.js",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/scripts/validate.js",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/scripts/validate.js",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/assistant/assistant-create.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/assistant/assistant-create.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/assistant/assistant-create.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/assistant/assistant-delete.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/assistant/assistant-delete.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/assistant/assistant-delete.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/assistant/assistant-get.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/assistant/assistant-get.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/assistant/assistant-get.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/assistant/assistant-list.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/assistant/assistant-list.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/assistant/assistant-list.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/assistant/assistant-update.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/assistant/assistant-update.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/assistant/assistant-update.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/message/message-create.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/message/message-create.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/message/message-create.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/message/message-delete.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/message/message-delete.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/message/message-delete.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/message/message-get.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/message/message-get.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/message/message-get.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/message/message-list.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/message/message-list.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/message/message-list.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/message/message-update.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/message/message-update.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/message/message-update.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/run/run-cancel.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/run/run-cancel.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/run/run-cancel.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/run/run-create.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/run/run-create.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/run/run-create.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/run/run-get.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/run/run-get.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/run/run-get.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/run/run-list.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/run/run-list.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/run/run-list.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/run/run-submit-tool-outputs.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/run/run-submit-tool-outputs.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/run/run-submit-tool-outputs.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/run/run-update.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/run/run-update.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/run/run-update.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/run-step/run-step-get.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/run-step/run-step-get.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/run-step/run-step-get.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/run-step/run-step-list.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/run-step/run-step-list.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/run-step/run-step-list.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/thread/thread-create.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/thread/thread-create.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/thread/thread-create.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/thread/thread-delete.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/thread/thread-delete.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/thread/thread-delete.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/thread/thread-get.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/thread/thread-get.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/thread/thread-get.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        },
+        {
+          "path": "tools/thread/thread-update.json",
+          "rootPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/definitions/tools/thread/thread-update.json",
+          "npmPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/npm-package/definitions/tools/thread/thread-update.json",
+          "identical": true,
+          "similarity": 100,
+          "differences": []
+        }
+      ],
+      "totalSize": 0,
+      "totalLines": 0,
+      "riskLevel": "HIGH"
+    }
+  ],
+  "behavioralDifferences": [
+    {
+      "component": "Base MCP Handler",
+      "similarity": 8,
+      "differences": [
+        "Size difference: 24165 vs 19820 bytes",
+        "Line count difference: 755 vs 625 lines"
+      ],
+      "riskLevel": "HIGH"
+    }
+  ],
+  "riskAssessment": [
+    {
+      "area": "Shared Directory Structure",
+      "riskLevel": "CRITICAL",
+      "impact": "Complete dual maintenance required",
+      "likelihood": "Guaranteed",
+      "consequences": [
+        "Bug fixes must be applied twice",
+        "Feature additions require dual implementation",
+        "High chance of behavioral inconsistencies",
+        "Maintenance overhead scales with every change"
+      ]
+    },
+    {
+      "area": "Definitions Directory Structure",
+      "riskLevel": "HIGH",
+      "impact": "Tool and resource definitions divergence",
+      "likelihood": "High",
+      "consequences": [
+        "Different tool behaviors between deployments",
+        "Resource template inconsistencies",
+        "Schema validation differences",
+        "Build process complications"
+      ]
+    },
+    {
+      "area": "Build Scripts",
+      "riskLevel": "MEDIUM",
+      "impact": "Build process inconsistencies",
+      "likelihood": "Medium",
+      "consequences": [
+        "Different build outputs",
+        "Deployment pipeline complications",
+        "Version synchronization issues"
+      ]
+    }
+  ],
+  "priorityRanking": [
+    {
+      "priority": 1,
+      "area": "Shared Core Components",
+      "rationale": "Critical business logic duplication",
+      "estimatedEffort": "High",
+      "impact": "Maximum"
+    },
+    {
+      "priority": 2,
+      "area": "Type Definitions",
+      "rationale": "Foundation for all other components",
+      "estimatedEffort": "Medium",
+      "impact": "High"
+    },
+    {
+      "priority": 3,
+      "area": "Tool Definitions",
+      "rationale": "User-facing functionality consistency",
+      "estimatedEffort": "Medium",
+      "impact": "High"
+    },
+    {
+      "priority": 4,
+      "area": "Resource Templates",
+      "rationale": "Content consistency across deployments",
+      "estimatedEffort": "Low",
+      "impact": "Medium"
+    },
+    {
+      "priority": 5,
+      "area": "Build Scripts",
+      "rationale": "Development workflow optimization",
+      "estimatedEffort": "Low",
+      "impact": "Low"
+    }
+  ]
+}

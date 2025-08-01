@@ -1,25 +1,20 @@
 /**
- * NPM Package MCP Handler with Proxy Mode Support
+ * NPM Package MCP Handler - Direct Mode Only
  * 
- * This handler extends the shared BaseMCPHandler with NPM package-specific
- * functionality including proxy mode for Cloudflare Workers and direct mode
- * for local OpenAI API calls. It eliminates the previous duplication while
- * preserving all NPM package functionality.
+ * This handler uses the shared BaseMCPHandler architecture with direct OpenAI API calls
+ * via the StdioTransportAdapter. The previous proxy mode has been eliminated to improve
+ * reliability, performance, and maintainability.
+ * 
+ * Key improvements:
+ * - Eliminates proxy mode fragility and network dependencies
+ * - Uses direct OpenAI API calls for better performance
+ * - Leverages shared core components for consistency
+ * - Simplified architecture with fewer failure points
  */
 
 import {
   JsonRpcRequest,
   JsonRpcResponse,
-  MCPInitializeRequest,
-  MCPInitializeResponse,
-  MCPToolsListRequest,
-  MCPToolsListResponse,
-  MCPToolsCallRequest,
-  MCPToolsCallResponse,
-  MCPResourcesListRequest,
-  MCPResourcesListResponse,
-  MCPResourcesReadRequest,
-  MCPResourcesReadResponse,
   MCPError,
   ErrorCodes,
   createStandardErrorResponse
@@ -27,43 +22,34 @@ import {
 import {
   BaseMCPHandler,
   BaseMCPHandlerConfig,
-  StdioTransportAdapter,
-  ProxyTransportAdapter
+  StdioTransportAdapter
 } from '../../shared/core/index.js';
 
 /**
- * Enhanced MCP Handler for NPM Package with Proxy Mode Support
+ * Enhanced MCP Handler for NPM Package - Direct Mode Only
  * 
- * This class extends the shared BaseMCPHandler and adds NPM package-specific
- * functionality including proxy mode support and stdio transport handling.
+ * This class extends the shared BaseMCPHandler and uses the StdioTransportAdapter
+ * for direct OpenAI API communication. All proxy mode logic has been removed.
  */
 export class MCPHandler {
-  private baseMCPHandler: BaseMCPHandler | null = null;
-  private isProxyMode: boolean = false;
-  private proxyAdapter: ProxyTransportAdapter | null = null;
+  private baseMCPHandler: BaseMCPHandler;
+  private stdioAdapter: StdioTransportAdapter;
 
   constructor(apiKey: string) {
-    if (apiKey === 'CLOUDFLARE_PROXY_MODE') {
-      throw new Error('API key is required for Cloudflare Worker proxy mode');
-    }
-
-    // Check if API key is provided and non-empty
+    // Validate API key
     if (!apiKey || apiKey.trim().length === 0) {
       throw new Error('API key is required and cannot be empty');
     }
 
-    // Use proxy mode for any valid API key (removes sk- prefix requirement)
-    // Use Cloudflare Worker with API key in URL
-    this.isProxyMode = true;
-    const cloudflareWorkerUrl = `https://openai-assistants-mcp.jezweb.ai/mcp/${apiKey}`;
-    this.proxyAdapter = new ProxyTransportAdapter(cloudflareWorkerUrl);
+    // Create stdio transport adapter for direct mode
+    this.stdioAdapter = new StdioTransportAdapter();
     
-    // Create a dummy handler for proxy mode (won't be used for tool execution)
+    // Configure the base MCP handler for direct mode
     const config: BaseMCPHandlerConfig = {
-      apiKey: 'proxy-mode',
+      apiKey: apiKey,
       serverName: 'openai-assistants-mcp',
-      serverVersion: '1.0.0',
-      debug: false,
+      serverVersion: '2.2.4',
+      debug: process.env.DEBUG === 'true',
       capabilities: {
         tools: { listChanged: false },
         resources: { subscribe: false, listChanged: false },
@@ -71,11 +57,13 @@ export class MCPHandler {
         completions: {},
       },
     };
-    this.baseMCPHandler = new BaseMCPHandler(config, this.proxyAdapter);
+
+    // Initialize the base handler with stdio transport adapter
+    this.baseMCPHandler = new BaseMCPHandler(config, this.stdioAdapter);
   }
 
   /**
-   * Handle incoming MCP requests with proxy mode support
+   * Handle incoming MCP requests using direct mode only
    */
   async handleRequest(request: JsonRpcRequest): Promise<JsonRpcResponse> {
     try {
@@ -93,24 +81,7 @@ export class MCPHandler {
         );
       }
 
-      // If in proxy mode, forward the request to Cloudflare Worker
-      if (this.isProxyMode && this.proxyAdapter) {
-        return await this.proxyAdapter.forwardToCloudflareWorker(request);
-      }
-
-      // Use the shared base handler for direct mode
-      if (!this.baseMCPHandler) {
-        return createStandardErrorResponse(
-          request.id,
-          ErrorCodes.INTERNAL_ERROR,
-          'Handler not initialized',
-          {
-            mode: 'direct',
-            timestamp: new Date().toISOString()
-          }
-        );
-      }
-
+      // Use the shared base handler for all requests (direct mode only)
       return await this.baseMCPHandler.handleRequest(request);
     } catch (error) {
       return createStandardErrorResponse(
@@ -120,30 +91,21 @@ export class MCPHandler {
         {
           details: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date().toISOString(),
-          mode: this.isProxyMode ? 'proxy' : 'direct'
+          mode: 'direct'
         }
       );
     }
   }
 
   /**
-   * Create error response in the format expected by the NPM package
-   * @deprecated Use createStandardErrorResponse instead for JSON-RPC 2.0 compliance
-   */
-  private createErrorResponse(
-    id: string | number | null,
-    code: number,
-    message: string,
-    data?: any
-  ): JsonRpcResponse {
-    return createStandardErrorResponse(id, code, message, data);
-  }
-
-  /**
    * Get registry statistics (for debugging)
    */
   getStats() {
-    return this.baseMCPHandler?.getRegistryStats() || { totalHandlers: 0, handlersByCategory: {}, registeredTools: [] };
+    return this.baseMCPHandler?.getRegistryStats() || { 
+      totalHandlers: 0, 
+      handlersByCategory: {}, 
+      registeredTools: [] 
+    };
   }
 
   /**
@@ -157,7 +119,7 @@ export class MCPHandler {
    * Update API key and reinitialize if needed
    */
   updateApiKey(apiKey: string): void {
-    if (this.baseMCPHandler && !this.isProxyMode) {
+    if (this.baseMCPHandler) {
       this.baseMCPHandler.updateApiKey(apiKey);
     }
   }

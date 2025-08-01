@@ -1,0 +1,160 @@
+{
+  "server": {
+    "name": "openai-assistants-mcp",
+    "version": "2.2.4",
+    "description": "Staging OpenAI Assistants MCP Server",
+    "environment": "staging"
+  },
+  "api": {
+    "openai": {
+      "baseUrl": "https://api.openai.com/v1",
+      "timeout": 30000,
+      "retries": 3,
+      "maxTokens": 4096,
+      "model": "gpt-4"
+    }
+  },
+  "features": {
+    "tools": {
+      "enabled": true,
+      "listChanged": false,
+      "categories": ["assistant", "thread", "message", "run", "run-step"],
+      "rateLimit": 75,
+      "maxConcurrent": 15
+    },
+    "resources": {
+      "enabled": true,
+      "subscribe": false,
+      "listChanged": false,
+      "maxSize": 1048576,
+      "caching": true
+    },
+    "prompts": {
+      "enabled": true,
+      "listChanged": false,
+      "caching": true,
+      "maxTemplates": 75
+    },
+    "completions": {
+      "enabled": true,
+      "streaming": false,
+      "maxLength": 4096
+    },
+    "validation": {
+      "enabled": true,
+      "strict": true,
+      "schemas": true,
+      "sanitization": true
+    },
+    "monitoring": {
+      "enabled": true,
+      "metrics": true,
+      "logging": true,
+      "tracing": true,
+      "analytics": true
+    }
+  },
+  "performance": {
+    "pagination": {
+      "defaultLimit": 20,
+      "maxLimit": 75,
+      "allowUnlimited": false
+    },
+    "caching": {
+      "enabled": true,
+      "ttl": 180000,
+      "maxSize": 150,
+      "strategy": "lru"
+    },
+    "concurrency": {
+      "maxConcurrentRequests": 75,
+      "requestTimeout": 30000,
+      "queueSize": 150
+    },
+    "memory": {
+      "maxHeapSize": 402653184,
+      "gcThreshold": 0.75,
+      "monitoring": true
+    }
+  },
+  "security": {
+    "cors": {
+      "enabled": true,
+      "origins": ["https://staging.example.com", "https://api.openai.com"],
+      "methods": ["POST", "OPTIONS"],
+      "headers": ["Content-Type", "Authorization"],
+      "credentials": false
+    },
+    "rateLimit": {
+      "enabled": true,
+      "requests": 75,
+      "window": 60000,
+      "skipSuccessfulRequests": false,
+      "skipFailedRequests": false
+    },
+    "validation": {
+      "strictMode": true,
+      "sanitizeInputs": true,
+      "maxInputSize": 1048576,
+      "allowedMimeTypes": ["application/json", "text/plain"]
+    },
+    "authentication": {
+      "required": true,
+      "methods": ["bearer"],
+      "tokenExpiry": 3600000
+    }
+  },
+  "deployment": {
+    "type": "cloudflare",
+    "transport": "http",
+    "debug": false,
+    "logLevel": "info",
+    "region": "auto",
+    "timezone": "UTC"
+  },
+  "runtime": {
+    "hotReload": false,
+    "configRefreshInterval": 120000,
+    "gracefulShutdown": true,
+    "healthCheck": {
+      "enabled": true,
+      "interval": 30000,
+      "timeout": 5000
+    },
+    "metrics": {
+      "enabled": true,
+      "interval": 60000,
+      "retention": 43200000
+    }
+  },
+  "featureFlags": {
+    "enhanced-logging": {
+      "enabled": true,
+      "description": "Enhanced logging for staging debugging"
+    },
+    "debug-mode": {
+      "enabled": false,
+      "description": "Debug mode disabled in staging"
+    },
+    "enhanced-error-reporting": {
+      "enabled": true,
+      "description": "Detailed error reporting for staging validation"
+    },
+    "enhanced-formatting": {
+      "enabled": false,
+      "description": "Compact JSON responses for staging performance testing"
+    },
+    "performance-monitoring": {
+      "enabled": true,
+      "description": "Performance monitoring for staging validation"
+    },
+    "feature-testing": {
+      "enabled": true,
+      "description": "Feature testing flags for staging validation"
+    },
+    "canary-features": {
+      "enabled": true,
+      "description": "Canary feature rollouts in staging"
+    }
+  }
+}

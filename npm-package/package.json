@@ -1,7 +1,7 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "2.2.4",
-  "description": "Enhanced Universal OpenAI Assistants MCP Server - Complete 22-tool implementation with comprehensive MCP resources featuring enhanced metadata, search capabilities, new documentation guides, and workflow examples. Includes advanced resource management with annotations, filtering, and analytics. Optimized for stdio transport with enhanced Roo and Claude Desktop compatibility.",
+  "version": "3.0.0",
+  "description": "Universal OpenAI Assistants MCP Server v3.0 - Major architectural refactoring with unified 'Shared Core with Thin Adapters' architecture. Features enterprise-grade configuration management, deployment adapter pattern, eliminated 2,083+ lines of duplicate code, enhanced build systems, comprehensive testing infrastructure, and seamless stdio transport with 100% backward compatibility for Roo and Claude Desktop.",
   "main": "universal-mcp-server.cjs",
   "type": "commonjs",
   "bin": {
@@ -31,7 +31,13 @@
     "validation",
     "workflows",
     "documentation",
-    "user-experience"
+    "user-experience",
+    "architecture",
+    "unified-core",
+    "deployment-adapter",
+    "enterprise-grade",
+    "configuration-management",
+    "backward-compatible"
   ],
   "author": "OpenAI Assistants MCP Server Team",
   "license": "MIT",

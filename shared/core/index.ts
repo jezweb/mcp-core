@@ -30,12 +30,13 @@ export type { ToolHandlerContext } from './handlers/base-tool-handler.js';
 export { ToolRegistry } from './tool-registry.js';
 export type { ToolRegistryStats } from './tool-registry.js';
 export { BaseMCPHandler } from './base-mcp-handler.js';
-export type { BaseMCPHandlerConfig, TransportAdapter } from './base-mcp-handler.js';
-
-// Transport adapters exports
+export type { BaseMCPHandlerConfig } from './base-mcp-handler.js';
+export type { TransportAdapter } from './transport-adapters.js';
 export {
-  CloudflareWorkerTransportAdapter,
+  HTTPTransportAdapter,
   StdioTransportAdapter,
+  CloudflareWorkerTransportAdapter,
+  RequestRouter,
   ProxyTransportAdapter,
   LocalDevTransportAdapter
 } from './transport-adapters.js';

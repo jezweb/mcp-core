@@ -1,7 +1,7 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "2.2.4",
-  "description": "Enhanced Universal OpenAI Assistants MCP Server - Complete 22-tool implementation with 9 MCP resources, enhanced tool descriptions, improved validation, and comprehensive user guidance. Deploy via Cloudflare Workers, NPM package, or local development with identical functionality.",
+  "version": "3.0.0",
+  "description": "Universal OpenAI Assistants MCP Server v3.0 - Major architectural refactoring with unified 'Shared Core with Thin Adapters' architecture. Features enterprise-grade configuration management, eliminated 2,083+ lines of duplicate code, enhanced build systems, comprehensive testing infrastructure, and seamless deployment across Cloudflare Workers and NPM with 100% backward compatibility.",
   "main": "dist/worker.js",
   "type": "module",
   "scripts": {
@@ -34,7 +34,17 @@
     "definitions:migrate": "node definitions/scripts/migrate.js",
     "definitions:tools": "node definitions/scripts/build.js --type=tools",
     "definitions:prompts": "node definitions/scripts/build.js --type=prompts",
-    "definitions:resources": "node definitions/scripts/build.js --type=resources"
+    "definitions:resources": "node definitions/scripts/build.js --type=resources",
+    "validate:enhanced": "node definitions/scripts/enhanced-validate.js",
+    "validate:fix": "node definitions/scripts/enhanced-validate.js --fix",
+    "validate:report": "node definitions/scripts/enhanced-validate.js --report",
+    "build:enhanced": "node definitions/scripts/enhanced-build.js",
+    "build:docs": "node definitions/scripts/enhanced-build.js --docs-only",
+    "build:incremental": "node definitions/scripts/enhanced-build.js --incremental",
+    "quality:check": "node definitions/scripts/enhanced-validate.js --quality",
+    "quality:dashboard": "node definitions/scripts/enhanced-build.js --dashboard",
+    "dev:validate": "npm run validate:enhanced && npm run build:enhanced",
+    "dev:watch": "nodemon --watch definitions/ --exec \"npm run dev:validate\""
   },
   "keywords": [
     "mcp",

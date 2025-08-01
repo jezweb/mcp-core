@@ -1,0 +1,37 @@
+{
+  "summary": {
+    "totalTests": 8,
+    "passed": 6,
+    "failed": 2,
+    "skipped": 0,
+    "successRate": "75.00%",
+    "duration": "25.66ms",
+    "timestamp": "2025-08-01T05:38:59.554Z"
+  },
+  "configuration": {
+    "testMode": "comparison",
+    "target": "both",
+    "phase": "preparation",
+    "checkpoint": null,
+    "verbose": true,
+    "reportPath": "/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/reports"
+  },
+  "errors": [
+    {
+      "type": "test",
+      "suite": "Assistant API Behavioral Consistency",
+      "test": "should maintain identical assistant creation behavior",
+      "message": "Assistant creation behavior should be consistent: [{\"type\":\"content\",\"differences\":[{\"type\":\"content_mismatch\",\"before\":{\"status\":200,\"headers\":{\"Content-Type\":\"application/json\"},\"body\":{\"id\":\"asst_before_123\",\"object\":\"assistant\",\"name\":\"Test Assistant\",\"description\":\"A test assistant for unification testing\",\"model\":\"gpt-4\",\"instructions\":\"You are a helpful test assistant.\",\"tools\":[{\"type\":\"code_interpreter\"}],\"metadata\":{\"test\":\"true\",\"environment\":\"unification\"}}},\"after\":{\"status\":200,\"headers\":{\"Content-Type\":\"application/json\"},\"body\":{\"id\":\"asst_after_123\",\"object\":\"assistant\",\"name\":\"Test Assistant\",\"description\":\"A test assistant for unification testing\",\"model\":\"gpt-4\",\"instructions\":\"You are a helpful test assistant.\",\"tools\":[{\"type\":\"code_interpreter\"}],\"metadata\":{\"test\":\"true\",\"environment\":\"unification\"}}}}]}]",
+      "stack": "Error: Assistant creation behavior should be consistent: [{\"type\":\"content\",\"differences\":[{\"type\":\"content_mismatch\",\"before\":{\"status\":200,\"headers\":{\"Content-Type\":\"application/json\"},\"body\":{\"id\":\"asst_before_123\",\"object\":\"assistant\",\"name\":\"Test Assistant\",\"description\":\"A test assistant for unification testing\",\"model\":\"gpt-4\",\"instructions\":\"You are a helpful test assistant.\",\"tools\":[{\"type\":\"code_interpreter\"}],\"metadata\":{\"test\":\"true\",\"environment\":\"unification\"}}},\"after\":{\"status\":200,\"headers\":{\"Content-Type\":\"application/json\"},\"body\":{\"id\":\"asst_after_123\",\"object\":\"assistant\",\"name\":\"Test Assistant\",\"description\":\"A test assistant for unification testing\",\"model\":\"gpt-4\",\"instructions\":\"You are a helpful test assistant.\",\"tools\":[{\"type\":\"code_interpreter\"}],\"metadata\":{\"test\":\"true\",\"environment\":\"unification\"}}}}]}]\n    at Object.ok (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/framework/unification-test-framework.cjs:263:27)\n    at Object.function (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/before-after/behavioral-consistency.test.cjs:90:41)\n    at async UnificationTestFramework.runTest (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/framework/unification-test-framework.cjs:194:13)\n    at async UnificationTestFramework.runTestSuite (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/framework/unification-test-framework.cjs:167:17)\n    at async UnificationTestFramework.run (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/framework/unification-test-framework.cjs:136:17)"
+    },
+    {
+      "type": "test",
+      "suite": "Performance Consistency",
+      "test": "should maintain acceptable performance after unification",
+      "message": "Performance should not regress significantly: [{\"metric\":\"responseTime\",\"before\":150,\"after\":155,\"difference\":5,\"percentChange\":\"3.33%\"},{\"metric\":\"cpuUsage\",\"before\":15,\"after\":16,\"difference\":1,\"percentChange\":\"6.67%\"}]",
+      "stack": "Error: Performance should not regress significantly: [{\"metric\":\"responseTime\",\"before\":150,\"after\":155,\"difference\":5,\"percentChange\":\"3.33%\"},{\"metric\":\"cpuUsage\",\"before\":15,\"after\":16,\"difference\":1,\"percentChange\":\"6.67%\"}]\n    at Object.ok (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/framework/unification-test-framework.cjs:263:27)\n    at Object.function (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/before-after/behavioral-consistency.test.cjs:197:41)\n    at async UnificationTestFramework.runTest (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/framework/unification-test-framework.cjs:194:13)\n    at async UnificationTestFramework.runTestSuite (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/framework/unification-test-framework.cjs:167:17)\n    at async UnificationTestFramework.run (/home/jez/Documents/cloudflare-remote-mcp-server/openai-assistants-mcp/test/unification/framework/unification-test-framework.cjs:136:17)"
+    }
+  ],
+  "warnings": [],
+  "performance": {}
+}
