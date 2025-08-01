@@ -1,15 +1,15 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Universal OpenAI Assistants MCP Server v3.0 - Major architectural refactoring with unified 'Shared Core with Thin Adapters' architecture. Features enterprise-grade configuration management, deployment adapter pattern, eliminated 2,083+ lines of duplicate code, enhanced build systems, comprehensive testing infrastructure, and seamless stdio transport with 100% backward compatibility for Roo and Claude Desktop.",
-  "main": "universal-mcp-server.cjs",
+  "main": "universal-mcp-server-old.cjs",
   "type": "commonjs",
   "bin": {
-    "openai-assistants-mcp": "./universal-mcp-server.cjs"
+    "openai-assistants-mcp": "./universal-mcp-server-old.cjs"
   },
   "scripts": {
-    "start": "node universal-mcp-server.cjs",
-    "test": "node test/test-stdio.js"
+    "start": "node universal-mcp-server-old.cjs",
+    "test": "node test/test-stdio.cjs"
   },
   "keywords": [
     "mcp",
@@ -54,7 +54,7 @@
     "node": ">=18.0.0"
   },
   "files": [
-    "universal-mcp-server.cjs",
+    "universal-mcp-server.js",
     "openai-service.cjs",
     "src/",
     "shared/",

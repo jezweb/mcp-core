@@ -7,13 +7,8 @@
  * and verifying the responses.
  */
 
-import { spawn } from 'child_process';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const { spawn } = require('child_process');
+const { join } = require('path');
 
 class MCPStdioTester {
   constructor() {
@@ -177,7 +172,7 @@ class MCPStdioTester {
       // Set a dummy API key for testing (won't be used for these tests)
       const env = { ...process.env, OPENAI_API_KEY: 'test-key' };
       
-      const serverPath = join(__dirname, '../universal-mcp-server.js');
+      const serverPath = join(__dirname, '../universal-mcp-server-old.cjs');
       const child = spawn('node', [serverPath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         env

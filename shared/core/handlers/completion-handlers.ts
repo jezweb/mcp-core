@@ -18,7 +18,7 @@ import {
   MCPError,
   ErrorCodes,
 } from '../../types/index.js';
-import { getResources } from '../../resources/index.js';
+import { getAllResources } from '../../resources/index.js';
 import { generateToolDefinitions } from '../tool-definitions.js';
 
 /**
@@ -123,7 +123,7 @@ export class CompletionHandler {
     const completions: string[] = [];
 
     // Get all available resource URIs
-    const resources = getResources();
+    const resources = getAllResources();
     const resourceUris = resources.map(r => r.uri);
 
     // Add resource URIs as completions

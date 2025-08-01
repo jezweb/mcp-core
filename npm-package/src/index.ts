@@ -13,6 +13,8 @@ import {
   CallToolRequestSchema,
   ErrorCode,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { MCPHandler } from './mcp-handler.js';
@@ -44,11 +46,13 @@ class OpenAIVectorStoreMCPServer {
       {
         capabilities: {
           tools: {},
+          resources: {},
         },
       }
     );
 
     this.setupToolHandlers();
+    this.setupResourceHandlers();
     this.setupErrorHandling();
   }
 
@@ -96,6 +100,48 @@ class OpenAIVectorStoreMCPServer {
             text: 'No content returned'
           }
         ]
+      };
+    });
+  }
+
+  private setupResourceHandlers(): void {
+    // Handle resource listing
+    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+      const response = await this.mcpHandler.handleRequest({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'resources/list',
+        params: {}
+      });
+
+      if (response.error) {
+        throw new McpError(ErrorCode.InternalError, response.error.message);
+      }
+
+      return {
+        resources: response.result?.resources || []
+      };
+    });
+
+    // Handle resource reading
+    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      const { uri } = request.params;
+
+      const response = await this.mcpHandler.handleRequest({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'resources/read',
+        params: {
+          uri
+        }
+      });
+
+      if (response.error) {
+        throw new McpError(ErrorCode.InternalError, response.error.message);
+      }
+
+      return {
+        contents: response.result?.contents || []
       };
     });
   }

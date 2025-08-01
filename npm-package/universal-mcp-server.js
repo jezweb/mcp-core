@@ -13,9 +13,9 @@
  * All business logic is delegated to the shared BaseMCPHandler.
  */
 
-const { BaseMCPHandler } = require('../shared/core/base-mcp-handler.ts');
-const { StdioTransportAdapter, RequestRouter } = require('../shared/core/transport-adapters.ts');
-const { initializeGlobalConfig, ConfigUtils } = require('../shared/config/index.ts');
+import { BaseMCPHandler } from '../shared/core/base-mcp-handler.js';
+import { StdioTransportAdapter, RequestRouter } from '../shared/core/transport-adapters.js';
+import { initializeGlobalConfig, ConfigUtils } from './config-utils.js';
 
 /**
  * Thin MCP Server using shared core components
@@ -210,7 +210,10 @@ class ThinMCPServer {
 }
 
 // Start the server
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+
+if (process.argv[1] === __filename) {
   console.error('[INFO] Starting Thin OpenAI Assistants MCP Server with shared core...');
   console.error('[INFO] API key will be validated when tools are called');
   console.error('[INFO] Using shared BaseMCPHandler for all business logic');
@@ -218,4 +221,4 @@ if (require.main === module) {
   new ThinMCPServer();
 }
 
-module.exports = { ThinMCPServer };
+export { ThinMCPServer };

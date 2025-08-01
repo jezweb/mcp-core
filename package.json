@@ -1,6 +1,6 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Universal OpenAI Assistants MCP Server v3.0 - Major architectural refactoring with unified 'Shared Core with Thin Adapters' architecture. Features enterprise-grade configuration management, eliminated 2,083+ lines of duplicate code, enhanced build systems, comprehensive testing infrastructure, and seamless deployment across Cloudflare Workers and NPM with 100% backward compatibility.",
   "main": "dist/worker.js",
   "type": "module",
