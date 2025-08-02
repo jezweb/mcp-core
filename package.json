@@ -1,6 +1,6 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Jezweb MCP Core v3.0 - Adaptable, provider-agnostic MCP server with unified 'Shared Core with Thin Adapters' architecture. Features multi-provider support (OpenAI, Anthropic, Google), simple environment-first configuration, comprehensive testing infrastructure, and seamless deployment across Cloudflare Workers and NPM with 100% backward compatibility.",
   "main": "dist/worker.js",
   "type": "module",
