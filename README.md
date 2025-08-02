@@ -446,22 +446,43 @@ The system automatically detects the deployment environment and applies appropri
 
 ---
 
-## 🧪 Testing Infrastructure
+## 🧪 Testing Infrastructure - Modern Vitest Framework
 
 ### Comprehensive Test Suites
 
-Both deployment options include robust testing:
+The project uses **Vitest** as the modern testing framework with comprehensive test coverage:
 
-#### NPM Package Testing
+#### Available Test Commands
 ```bash
-cd npm-package
+# Run all tests
 npm test
+
+# Run specific test categories
+npm run test:unit              # Unit tests only
+npm run test:integration       # Integration tests
+npm run test:performance       # Performance tests
+npm run test:error-handling    # Error handling tests
+npm run test:edge-cases        # Edge case tests
+npm run test:deployment        # Deployment tests
+
+# Run specific deployment tests
+npm run test:cloudflare        # Cloudflare Workers tests
+npm run test:npm               # NPM package tests
+
+# Development and debugging
+npm run test:watch             # Watch mode for development
+npm run test:ui                # Interactive UI for test exploration
+npm run test:coverage          # Generate coverage reports
+npm run test:debug             # Debug mode with inspector
+npm run test:ci                # CI-optimized test run
 ```
 
-#### Cloudflare Workers Testing
-```bash
-node test-validation-only.js
-```
+#### Test Categories
+- **Integration Tests**: All 22 tools across both deployment options
+- **Performance Tests**: Response time and memory usage benchmarks
+- **Error Handling Tests**: Comprehensive error scenario coverage
+- **Edge Case Tests**: Boundary conditions and Unicode handling
+- **Deployment Tests**: Cloudflare Workers and NPM package specific tests
 
 ### Manual Testing
 

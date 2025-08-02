@@ -80,20 +80,27 @@ This directory contains comprehensive testing documentation for the OpenAI Assis
 - **Coverage**: Parameter validation, OpenAI ID validation, enhanced error messages
 - **Features**: MCP protocol compliance, user experience focus
 
-## 🛠️ Testing Infrastructure
+## 🛠️ Testing Infrastructure - Vitest Framework
 
-### Test Utilities and Helpers
-- **TestTracker Class**: Sophisticated test result tracking with timing and categorization
-- **MockOpenAIResponses Class**: Realistic mock data generators for all OpenAI resource types
-- **TestDataGenerator Class**: Comprehensive test data including edge cases and performance scenarios
+### Modern Testing Framework
+- **Vitest**: Modern, fast testing framework with TypeScript support
+- **ES Modules**: Native ES module support with modern import/export syntax
+- **Built-in Mocking**: Vitest's powerful mocking system for API responses
+- **Test Isolation**: Proper test isolation with beforeEach/afterEach hooks
+- **Parallel Execution**: Fast parallel test execution with intelligent scheduling
+
+### Test Utilities and Validation
 - **MCPValidator Class**: Protocol-level validation for MCP requests/responses
-- **PerformanceTracker Class**: Advanced performance measurement with statistical analysis
+- **Mock Data Generators**: Realistic test data for all OpenAI resource types
+- **Test Isolation**: Proper setup and teardown for each test
+- **Performance Tracking**: Built-in performance measurement and benchmarking
+- **Error Simulation**: Comprehensive error scenario testing
 
 ### Quality Indicators
-- **Comprehensive Mock Data**: Authentic-looking OpenAI API responses
-- **Flexible Configuration**: Support for both real API testing and mock-only testing
-- **Resource Lifecycle**: Proper mock resource creation and cleanup
-- **Cross-Platform Support**: Environment detection for different deployment targets
+- **Modern Test Syntax**: Clean, readable test syntax with describe/it blocks
+- **Type Safety**: Full TypeScript support with proper type checking
+- **Comprehensive Coverage**: All test categories migrated to Vitest format
+- **Fast Execution**: Optimized test execution with intelligent caching
 
 ## 📈 Quality Metrics
 
@@ -114,25 +121,52 @@ This directory contains comprehensive testing documentation for the OpenAI Assis
 - ⚠️ **Concurrency Testing**: Limited concurrent operation testing
 - ⚠️ **Resource Cleanup**: Cleanup depends on successful test execution
 
-## 🚀 Testing Best Practices
+## 🚀 Modern Testing Workflow - Vitest Commands
+
+### Available Test Commands
+```bash
+# Run all tests
+npm test
+
+# Run specific test categories
+npm run test:unit              # Unit tests only
+npm run test:integration       # Integration tests
+npm run test:performance       # Performance tests
+npm run test:error-handling    # Error handling tests
+npm run test:edge-cases        # Edge case tests
+npm run test:deployment        # Deployment tests
+
+# Run specific deployment tests
+npm run test:cloudflare        # Cloudflare Workers tests
+npm run test:npm               # NPM package tests
+
+# Development and debugging
+npm run test:watch             # Watch mode for development
+npm run test:ui                # Interactive UI for test exploration
+npm run test:coverage          # Generate coverage reports
+npm run test:debug             # Debug mode with inspector
+npm run test:ci                # CI-optimized test run
+```
+
+### Testing Best Practices
 
 ### Test Organization
-1. **Clear Separation**: Distinct test categories with focused responsibilities
-2. **Logical Structure**: Descriptive naming and organized file structure
-3. **Master Orchestration**: Coordinated test execution with configurable suites
-4. **Cross-Deployment**: Systematic parity validation between environments
+1. **Vitest Framework**: Modern testing with describe/it blocks and ES modules
+2. **Test Isolation**: Proper beforeEach/afterEach hooks for clean test state
+3. **Category Separation**: Distinct test files for different test categories
+4. **Type Safety**: Full TypeScript support with proper type checking
 
 ### Quality Assurance
-1. **Comprehensive Coverage**: All tools and scenarios thoroughly tested
-2. **Meaningful Assertions**: Specific validation of functionality and behavior
-3. **Performance Monitoring**: Threshold-based performance validation
-4. **Error Validation**: Detailed error message and code verification
+1. **Comprehensive Coverage**: All tools and scenarios tested with Vitest
+2. **Modern Assertions**: Vitest's expect API for clear, readable assertions
+3. **Performance Monitoring**: Built-in performance testing with benchmarks
+4. **Error Validation**: Detailed error testing with proper mocking
 
 ### Development Integration
-1. **Continuous Testing**: Automated test execution in development workflow
-2. **Quality Gates**: Test results inform development decisions
-3. **Regression Prevention**: Comprehensive test suite prevents regressions
-4. **Documentation**: Test documentation supports development understanding
+1. **Fast Feedback**: Vitest's fast execution and watch mode
+2. **Interactive Testing**: UI mode for test exploration and debugging
+3. **Parallel Execution**: Intelligent test parallelization for speed
+4. **Coverage Reports**: Built-in coverage reporting and analysis
 
 ## 🎯 Testing Benefits
 

@@ -22,7 +22,12 @@ export default defineConfig({
     // Test patterns
     include: [
       'test/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-      'test/unit/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
+      'test/unit/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+      'test/integration/**/*.js',
+      'test/performance/**/*.js',
+      'test/error-handling/**/*.js',
+      'test/edge-cases/**/*.js',
+      'test/deployment/**/*.js'
     ],
     exclude: [
       'node_modules',
