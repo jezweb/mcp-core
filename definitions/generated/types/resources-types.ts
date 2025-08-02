@@ -4,7 +4,7 @@
  * This file is auto-generated from JSON resources definitions.
  * Do not edit manually - changes will be overwritten.
  * 
- * Generated at: 2025-08-02T08:29:03.293Z
+ * Generated at: 2025-08-02T08:39:28.638Z
  */
 
 export interface Coding Assistant TemplateResource {

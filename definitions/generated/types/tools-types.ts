@@ -4,7 +4,7 @@
  * This file is auto-generated from JSON tools definitions.
  * Do not edit manually - changes will be overwritten.
  * 
- * Generated at: 2025-08-02T08:29:03.277Z
+ * Generated at: 2025-08-02T08:39:28.590Z
  */
 
 export interface AssistantCreateParams {

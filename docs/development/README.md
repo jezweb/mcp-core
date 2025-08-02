@@ -47,9 +47,49 @@ This directory contains development process documentation for the OpenAI Assista
 - **v1.0.0**: Initial MCP server implementation
 - **v2.0.0**: Complete tool coverage and enhanced features
 - **v3.0.0**: Phase 1 architectural refactoring with modular handler system
-- **Current**: Production-ready deployment with comprehensive documentation
+- **v3.4.0**: Complete JSON-based definition system with data-driven architecture
+- **Current**: Fully data-driven system with JSON as single source of truth
 
 ## 🛠️ Development Process
+
+### Data-Driven Development Workflow
+
+**IMPORTANT**: The system is now fully data-driven. All tool, prompt, and resource definitions are stored in JSON files, not TypeScript files.
+
+#### 1. JSON-First Development
+- **Edit JSON Files**: All changes must be made to JSON files in `definitions/`
+- **Never Edit Generated Files**: TypeScript files in `shared/` are auto-generated
+- **Build System**: Use `npm run definitions:build` to generate TypeScript from JSON
+
+#### 2. Definition Management
+```bash
+# Validate all definitions
+npm run definitions:validate
+
+# Build all definitions (generates TypeScript)
+npm run definitions:build
+
+# Watch for changes and auto-rebuild
+npm run definitions:watch
+
+# Build specific types
+npm run definitions:tools
+npm run definitions:prompts
+npm run definitions:resources
+```
+
+#### 3. Adding New Definitions
+1. **Create JSON File**: Add new `.json` file in appropriate `definitions/` subdirectory
+2. **Follow Schema**: Ensure JSON follows the schema in `definitions/schemas/`
+3. **Validate**: Run `npm run definitions:validate` to check schema compliance
+4. **Build**: Run `npm run definitions:build` to generate TypeScript
+5. **Test**: Run tests to ensure functionality works correctly
+
+#### 4. Modifying Existing Definitions
+1. **Edit JSON**: Modify the JSON file in `definitions/` (never the generated TypeScript)
+2. **Validate**: Run validation to ensure schema compliance
+3. **Rebuild**: Run build to regenerate TypeScript files
+4. **Test**: Verify changes work as expected
 
 ### Version Management
 1. **Semantic Versioning**: Following semver principles for version numbering
@@ -58,16 +98,18 @@ This directory contains development process documentation for the OpenAI Assista
 4. **Milestone Planning**: Clear milestone definition and progress tracking
 
 ### Quality Assurance
-1. **Code Review**: Systematic code review process for all changes
-2. **Testing Requirements**: Comprehensive testing for all new features
-3. **Documentation Standards**: Consistent documentation for all changes
-4. **Performance Monitoring**: Performance impact assessment for changes
+1. **Schema Validation**: All JSON definitions must pass schema validation
+2. **Code Review**: Systematic code review process for all changes
+3. **Testing Requirements**: Comprehensive testing for all new features
+4. **Documentation Standards**: Consistent documentation for all changes
+5. **Performance Monitoring**: Performance impact assessment for changes
 
 ### Development Workflow
-1. **Feature Planning**: Structured approach to feature development
-2. **Implementation Guidelines**: Consistent patterns and practices
-3. **Review Process**: Multi-stage review and validation
-4. **Deployment Process**: Controlled deployment with validation
+1. **JSON-First Planning**: Plan changes in terms of JSON definitions
+2. **Schema Compliance**: Ensure all definitions follow established schemas
+3. **Build Validation**: Verify build process generates correct TypeScript
+4. **Review Process**: Multi-stage review including JSON and generated code validation
+5. **Deployment Process**: Controlled deployment with validation
 
 ## 📈 Development Metrics
 
@@ -105,6 +147,18 @@ This directory contains development process documentation for the OpenAI Assista
 
 ## 🔧 Development Guidelines
 
+### Data-Driven Development Standards
+1. **JSON-First Approach**: All definitions must be created as JSON files first
+2. **Schema Compliance**: All JSON files must validate against their schemas
+3. **No Manual TypeScript Editing**: Never manually edit generated TypeScript files
+4. **Build Validation**: Always run build after JSON changes to verify generation
+
+### JSON Definition Standards
+1. **Schema Validation**: All definitions must pass `npm run definitions:validate`
+2. **Consistent Structure**: Follow established patterns in existing definitions
+3. **Complete Metadata**: Include all required fields and meaningful descriptions
+4. **Category Organization**: Place files in correct category subdirectories
+
 ### Code Standards
 1. **Single Responsibility**: Each component has one clear purpose
 2. **Consistent Patterns**: Follow established patterns for new development
@@ -112,16 +166,19 @@ This directory contains development process documentation for the OpenAI Assista
 4. **Documentation Requirements**: All changes must include documentation updates
 
 ### Process Standards
-1. **Change Documentation**: All changes must be documented in changelog
-2. **Review Requirements**: All changes must go through review process
-3. **Testing Validation**: All changes must pass comprehensive test suite
-4. **Performance Assessment**: Performance impact must be evaluated
+1. **JSON-First Development**: Always edit JSON definitions, never generated TypeScript
+2. **Build Process**: Run `npm run definitions:build` after any JSON changes
+3. **Change Documentation**: All changes must be documented in changelog
+4. **Review Requirements**: All changes must go through review process
+5. **Testing Validation**: All changes must pass comprehensive test suite
+6. **Performance Assessment**: Performance impact must be evaluated
 
 ### Quality Standards
-1. **Error Handling**: Comprehensive error handling for all scenarios
-2. **Validation**: Input validation with detailed error messages
-3. **Security**: Security considerations for all new features
-4. **Compatibility**: Backward compatibility maintenance
+1. **Schema Validation**: All JSON must pass schema validation
+2. **Error Handling**: Comprehensive error handling for all scenarios
+3. **Input Validation**: Input validation with detailed error messages
+4. **Security**: Security considerations for all new features
+5. **Compatibility**: Backward compatibility maintenance
 
 ## 📚 Development Resources
 
