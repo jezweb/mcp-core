@@ -2,10 +2,14 @@
 import 'dotenv/config'; // Automatically loads .env
 import { MCPHandler } from './mcp-handler.js';
 import * as readline from 'readline';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../../../package.json');
 
 function showHelp() {
   console.log(`
-OpenAI Assistants MCP Server v3.0.8
+OpenAI Assistants MCP Server v${pkg.version}
 
 USAGE:
   npx openai-assistants-mcp [OPTIONS]
@@ -50,7 +54,7 @@ For more information, visit: https://github.com/jezweb/openai-assistants-mcp
 }
 
 function showVersion() {
-  console.log('3.0.8');
+  console.log(pkg.version);
 }
 
 async function runMCPServer() {

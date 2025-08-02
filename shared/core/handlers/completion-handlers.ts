@@ -124,7 +124,7 @@ export class CompletionHandler {
 
     // Get all available resource URIs
     const resources = getAllResources();
-    const resourceUris = resources.map(r => r.uri);
+    const resourceUris = resources.map((r: any) => r.uri);
 
     // Add resource URIs as completions
     completions.push(...resourceUris);

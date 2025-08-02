@@ -25,7 +25,8 @@
       "@shared/validation": ["../shared/validation"],
       "@shared/resources": ["../shared/resources"],
       "@shared/services": ["../shared/services"],
-      "@shared/core": ["../shared/core"]
+      "@shared/core": ["../shared/core"],
+      "@definitions/*": ["../definitions/*"]
     },
     "types": [
       "node"

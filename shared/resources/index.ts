@@ -6,37 +6,40 @@
  * to import resources using @shared/resources.
  */
 
-// Import from TypeScript module (basic resources)
+// Import from TypeScript module
 import {
-  getResources as getResourcesBasic,
-  getResource as getResourceBasic,
-  getResourceContent as getResourceContentBasic,
-  getResourcesByCategory as getResourcesByCategoryBasic,
+  getResources,
+  getResource,
+  getResourceContent,
+  getResourcesByCategory,
   RESOURCE_URIS
 } from './resources.js';
 
-// Import from CommonJS module (enhanced resources with more functionality)
-import {
-  getAllResources as getAllResourcesEnhanced,
-  getResource as getResourceEnhanced,
-  getResourceContent as getResourceContentEnhanced,
-  getResourcesByCategory as getResourcesByCategoryEnhanced,
-  searchResources,
-  getResourceStats
-} from './resources.cjs';
-
-// Export enhanced versions as primary exports
-export const getAllResources = getAllResourcesEnhanced;
-export const getResource = getResourceEnhanced;
-export const getResourceContent = getResourceContentEnhanced;
-export const getResourcesByCategory = getResourcesByCategoryEnhanced;
-
-// Export additional enhanced functionality
+// Export all functions
+export const getAllResources = getResources;
 export {
-  searchResources,
-  getResourceStats,
+  getResource,
+  getResourceContent,
+  getResourcesByCategory,
   RESOURCE_URIS
 };
 
+// Add placeholder functions for enhanced functionality that was in .cjs
+export function searchResources(query: string) {
+  const allResources = getResources();
+  return allResources.filter((resource: any) =>
+    resource.name?.toLowerCase().includes(query.toLowerCase()) ||
+    resource.description?.toLowerCase().includes(query.toLowerCase())
+  );
+}
+
+export function getResourceStats() {
+  const allResources = getResources();
+  return {
+    total: allResources.length,
+    categories: [...new Set(allResources.map((r: any) => r.category))].length
+  };
+}
+
 // Legacy exports for backward compatibility
-export const getResources = getAllResourcesEnhanced;
+export { getResources };
