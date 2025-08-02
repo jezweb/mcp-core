@@ -1,486 +1,269 @@
 /**
- * Simplified Cloudflare Workers HTTP Adapter
- *
- * This is a standalone worker that provides all MCP functionality
- * without complex configuration dependencies for reliable deployment.
+ * Cloudflare Worker with Hono Framework - Phase 5: Modernization
+ * 
+ * This is the modernized Cloudflare Worker implementation using Hono framework
+ * with integration to the new provider system and simplified configuration.
+ * 
+ * Key Features:
+ * - Hono framework for routing and middleware
+ * - Integration with new provider system
+ * - Simplified configuration system
+ * - Proper error handling with JSON-RPC 2.0 compliance
+ * - Health check endpoints
+ * - CORS support
+ * - Request logging middleware
  */
 
-import { Env } from '../shared/types';
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
+import { CloudflareMCPHandler } from './mcp-handler.js';
+import { Env } from '../shared/types/cloudflare-types.js';
+import { MCPRequest, MCPResponse } from '../shared/types/index.js';
 
-// Inline resource definitions to avoid complex imports in Workers environment
-const WORKER_RESOURCES = [
-  {
-    uri: 'assistant://templates/coding-assistant',
-    name: 'Coding Assistant Template',
-    description: 'Pre-configured template for a coding assistant with code review and debugging capabilities',
-    mimeType: 'application/json'
-  },
-  {
-    uri: 'assistant://templates/data-analyst',
-    name: 'Data Analyst Template',
-    description: 'Template for a data analysis assistant with statistical and visualization capabilities',
-    mimeType: 'application/json'
-  },
-  {
-    uri: 'assistant://templates/customer-support',
-    name: 'Customer Support Template',
-    description: 'Template for a customer support assistant with friendly and helpful responses',
-    mimeType: 'application/json'
-  },
-  {
-    uri: 'docs://openai-assistants-api',
-    name: 'OpenAI Assistants API Reference',
-    description: 'Comprehensive API reference with ID formats, parameters, and examples',
-    mimeType: 'text/markdown'
-  },
-  {
-    uri: 'docs://best-practices',
-    name: 'Best Practices Guide',
-    description: 'Guidelines for optimal usage, performance, security, and cost optimization',
-    mimeType: 'text/markdown'
-  },
-  {
-    uri: 'docs://troubleshooting/common-issues',
-    name: 'Troubleshooting Guide',
-    description: 'Common issues and solutions when working with OpenAI Assistants API',
-    mimeType: 'text/markdown'
-  },
-  {
-    uri: 'examples://workflows/batch-processing',
-    name: 'Batch Processing Workflow',
-    description: 'Example of processing multiple tasks efficiently with concurrent operations',
-    mimeType: 'text/markdown'
-  },
-  {
-    uri: 'examples://workflows/create-and-run',
-    name: 'Complete Create and Run Workflow',
-    description: 'Step-by-step example of creating an assistant, thread, and running a conversation',
-    mimeType: 'text/markdown'
-  },
-  {
-    uri: 'examples://workflows/file-search',
-    name: 'File Search Workflow',
-    description: 'Example of using file search capabilities with assistants',
-    mimeType: 'text/markdown'
+// Create Hono app with Cloudflare Worker bindings and context variables
+const app = new Hono<{
+  Bindings: Env;
+  Variables: {
+    mcpHandler: CloudflareMCPHandler;
+  };
+}>();
+
+// Global middleware
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Conditional logging middleware (only in debug mode)
+app.use('*', async (c, next) => {
+  // Check if debug is enabled via environment
+  const debugEnabled = c.env.DEBUG === 'true' || c.env.NODE_ENV === 'development';
+  
+  if (debugEnabled) {
+    return logger()(c, next);
   }
-];
+  
+  await next();
+});
 
-// Resource content templates for demonstration
-const RESOURCE_CONTENT: Record<string, any> = {
-  'assistant://templates/coding-assistant': {
-    model: 'gpt-4',
-    name: 'Coding Assistant',
-    description: 'A helpful coding assistant that can review code, debug issues, and provide programming guidance.',
-    instructions: 'You are an expert coding assistant. Help users with code review, debugging, best practices, and programming questions. Always provide clear explanations and suggest improvements.',
-    tools: [{ type: 'code_interpreter' }],
-    metadata: {
-      category: 'development',
-      tags: ['coding', 'debugging', 'review']
-    }
-  },
-  'assistant://templates/data-analyst': {
-    model: 'gpt-4',
-    name: 'Data Analyst',
-    description: 'A data analysis assistant specialized in statistical analysis and data visualization.',
-    instructions: 'You are a data analysis expert. Help users analyze data, create visualizations, and interpret statistical results. Use code interpreter for calculations and charts.',
-    tools: [{ type: 'code_interpreter' }],
-    metadata: {
-      category: 'analytics',
-      tags: ['data', 'statistics', 'visualization']
-    }
-  },
-  'assistant://templates/customer-support': {
-    model: 'gpt-3.5-turbo',
-    name: 'Customer Support',
-    description: 'A friendly customer support assistant for handling inquiries and providing help.',
-    instructions: 'You are a helpful customer support representative. Be friendly, professional, and solution-oriented. Always try to resolve customer issues efficiently.',
-    metadata: {
-      category: 'support',
-      tags: ['customer-service', 'support', 'help']
-    }
-  }
-};
+// Health check endpoint
+app.get('/', (c) => {
+  return c.json({
+    name: c.env.SERVER_NAME || 'openai-assistants-mcp',
+    version: c.env.SERVER_VERSION || '3.0.1',
+    status: 'running',
+    framework: 'Hono',
+    deployment: 'cloudflare-workers',
+    debug: c.env.DEBUG === 'true',
+    environment: c.env.ENVIRONMENT || 'unknown',
+    timestamp: new Date().toISOString(),
+  });
+});
 
-// Simple HTTP utilities
-class HTTPUtils {
-  static createCORSHeaders() {
-    return {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Content-Type': 'application/json',
-    };
-  }
-
-  static createResponse(data: any, status: number = 200) {
-    return new Response(JSON.stringify(data), {
-      status,
-      headers: this.createCORSHeaders(),
-    });
-  }
-
-  static extractApiKeyFromPath(pathname: string): { apiKey?: string; error?: any } {
-    const match = pathname.match(/^\/([a-zA-Z0-9_-]+)$/);
-    if (!match) {
-      return {
-        error: {
-          jsonrpc: '2.0',
-          id: null,
-          error: {
-            code: -32600,
-            message: 'Invalid URL format. Expected: /{api_key}',
-          },
-        },
-      };
-    }
-    return { apiKey: match[1] };
-  }
-
-  static async parseRequest(request: Request): Promise<{ mcpRequest?: any; error?: any }> {
-    try {
-      const body = await request.text();
-      if (!body) {
-        return {
-          error: {
-            jsonrpc: '2.0',
-            id: null,
-            error: { code: -32600, message: 'Empty request body' },
-          },
-        };
-      }
-
-      const mcpRequest = JSON.parse(body);
-      if (!mcpRequest.jsonrpc || !mcpRequest.method) {
-        return {
-          error: {
-            jsonrpc: '2.0',
-            id: mcpRequest.id || null,
-            error: { code: -32600, message: 'Invalid JSON-RPC request' },
-          },
-        };
-      }
-
-      return { mcpRequest };
-    } catch (error) {
-      return {
-        error: {
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32700, message: 'Parse error' },
-        },
-      };
-    }
-  }
-}
-
-// Simple OpenAI API client
-class OpenAIClient {
-  constructor(private apiKey: string) {}
-
-  async makeRequest(endpoint: string, data: any) {
-    const response = await fetch(`https://api.openai.com/v1${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2',
+// Detailed health check endpoint
+app.get('/health', async (c) => {
+  try {
+    const handler = new CloudflareMCPHandler(c.env);
+    const healthStatus = handler.getHealthStatus();
+    
+    return c.json({
+      ...healthStatus,
+      name: c.env.SERVER_NAME || 'openai-assistants-mcp',
+      framework: 'Hono',
+      deployment: 'cloudflare-workers',
+      debug: c.env.DEBUG === 'true',
+      environment: c.env.ENVIRONMENT || 'unknown',
+      capabilities: {
+        tools: true,
+        resources: true,
+        prompts: true,
+        completions: true,
       },
-      body: JSON.stringify(data),
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} ${error}`);
-    }
-
-    return response.json();
+  } catch (error) {
+    return c.json({
+      status: 'unhealthy',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+    }, 500);
   }
-}
+});
 
-// MCP Tools implementation
-class MCPTools {
-  constructor(private openai: OpenAIClient) {}
-
-  async handleToolCall(method: string, params: any) {
-    switch (method) {
-      case 'assistant-create':
-        return this.openai.makeRequest('/assistants', params);
-      case 'assistant-list':
-        return this.openai.makeRequest('/assistants', { method: 'GET' });
-      case 'assistant-get':
-        return this.openai.makeRequest(`/assistants/${params.assistant_id}`, { method: 'GET' });
-      case 'assistant-update':
-        const { assistant_id, ...updateData } = params;
-        return this.openai.makeRequest(`/assistants/${assistant_id}`, updateData);
-      case 'assistant-delete':
-        return this.openai.makeRequest(`/assistants/${params.assistant_id}`, { method: 'DELETE' });
-      
-      case 'thread-create':
-        return this.openai.makeRequest('/threads', params);
-      case 'thread-get':
-        return this.openai.makeRequest(`/threads/${params.thread_id}`, { method: 'GET' });
-      case 'thread-update':
-        const { thread_id, ...threadUpdateData } = params;
-        return this.openai.makeRequest(`/threads/${thread_id}`, threadUpdateData);
-      case 'thread-delete':
-        return this.openai.makeRequest(`/threads/${params.thread_id}`, { method: 'DELETE' });
-
-      case 'message-create':
-        const { thread_id: msgThreadId, ...messageData } = params;
-        return this.openai.makeRequest(`/threads/${msgThreadId}/messages`, messageData);
-      case 'message-list':
-        return this.openai.makeRequest(`/threads/${params.thread_id}/messages`, { method: 'GET' });
-      case 'message-get':
-        return this.openai.makeRequest(`/threads/${params.thread_id}/messages/${params.message_id}`, { method: 'GET' });
-      case 'message-update':
-        const { thread_id: msgUpdateThreadId, message_id, ...msgUpdateData } = params;
-        return this.openai.makeRequest(`/threads/${msgUpdateThreadId}/messages/${message_id}`, msgUpdateData);
-      case 'message-delete':
-        return this.openai.makeRequest(`/threads/${params.thread_id}/messages/${params.message_id}`, { method: 'DELETE' });
-
-      case 'run-create':
-        const { thread_id: runThreadId, ...runData } = params;
-        return this.openai.makeRequest(`/threads/${runThreadId}/runs`, runData);
-      case 'run-list':
-        return this.openai.makeRequest(`/threads/${params.thread_id}/runs`, { method: 'GET' });
-      case 'run-get':
-        return this.openai.makeRequest(`/threads/${params.thread_id}/runs/${params.run_id}`, { method: 'GET' });
-      case 'run-update':
-        const { thread_id: runUpdateThreadId, run_id, ...runUpdateData } = params;
-        return this.openai.makeRequest(`/threads/${runUpdateThreadId}/runs/${run_id}`, runUpdateData);
-      case 'run-cancel':
-        return this.openai.makeRequest(`/threads/${params.thread_id}/runs/${params.run_id}/cancel`, {});
-      case 'run-submit-tool-outputs':
-        const { thread_id: submitThreadId, run_id: submitRunId, ...submitData } = params;
-        return this.openai.makeRequest(`/threads/${submitThreadId}/runs/${submitRunId}/submit_tool_outputs`, submitData);
-
-      case 'run-step-list':
-        return this.openai.makeRequest(`/threads/${params.thread_id}/runs/${params.run_id}/steps`, { method: 'GET' });
-      case 'run-step-get':
-        return this.openai.makeRequest(`/threads/${params.thread_id}/runs/${params.run_id}/steps/${params.step_id}`, { method: 'GET' });
-
-      default:
-        throw new Error(`Unknown tool: ${method}`);
-    }
-  }
-}
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    try {
-      // Handle CORS preflight requests
-      if (request.method === 'OPTIONS') {
-        return new Response(null, {
-          status: 204,
-          headers: HTTPUtils.createCORSHeaders(),
-        });
-      }
-
-      // Only allow POST requests for MCP
-      if (request.method !== 'POST') {
-        return HTTPUtils.createResponse(
-          {
-            jsonrpc: '2.0',
-            id: null,
-            error: { code: -32601, message: 'Method not allowed. Use POST.' },
-          },
-          405
-        );
-      }
-
-      // Extract API key from URL path
-      const url = new URL(request.url);
-      const { apiKey, error: apiKeyError } = HTTPUtils.extractApiKeyFromPath(url.pathname);
-      
-      if (apiKeyError) {
-        return HTTPUtils.createResponse(apiKeyError, 400);
-      }
-
-      // Parse and validate JSON-RPC request
-      const { mcpRequest, error: parseError } = await HTTPUtils.parseRequest(request);
-      
-      if (parseError) {
-        return HTTPUtils.createResponse(parseError, 400);
-      }
-
-      // Handle MCP protocol methods
-      if (mcpRequest.method === 'initialize') {
-        return HTTPUtils.createResponse({
-          jsonrpc: '2.0',
-          id: mcpRequest.id,
-          result: {
-            protocolVersion: '2024-11-05',
-            capabilities: {
-              tools: { listChanged: false },
-              resources: { subscribe: false, listChanged: false },
-              prompts: { listChanged: false },
-            },
-            serverInfo: {
-              name: 'openai-assistants-mcp',
-              version: '3.0.0',
-            },
-          },
-        });
-      }
-
-      if (mcpRequest.method === 'tools/list') {
-        const tools = [
-          'assistant-create', 'assistant-list', 'assistant-get', 'assistant-update', 'assistant-delete',
-          'thread-create', 'thread-get', 'thread-update', 'thread-delete',
-          'message-create', 'message-list', 'message-get', 'message-update', 'message-delete',
-          'run-create', 'run-list', 'run-get', 'run-update', 'run-cancel', 'run-submit-tool-outputs',
-          'run-step-list', 'run-step-get'
-        ].map(name => ({
-          name,
-          description: `OpenAI Assistants API: ${name}`,
-          inputSchema: {
-            type: 'object',
-            properties: {},
-            additionalProperties: true,
-          },
-        }));
-
-        return HTTPUtils.createResponse({
-          jsonrpc: '2.0',
-          id: mcpRequest.id,
-          result: { tools },
-        });
-      }
-
-      if (mcpRequest.method === 'tools/call') {
-        const openai = new OpenAIClient(apiKey!);
-        const mcpTools = new MCPTools(openai);
-        
-        try {
-          const result = await mcpTools.handleToolCall(
-            mcpRequest.params.name,
-            mcpRequest.params.arguments || {}
-          );
-          
-          return HTTPUtils.createResponse({
-            jsonrpc: '2.0',
-            id: mcpRequest.id,
-            result: {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(result, null, 2),
-                },
-              ],
-            },
-          });
-        } catch (error) {
-          return HTTPUtils.createResponse({
-            jsonrpc: '2.0',
-            id: mcpRequest.id,
-            error: {
-              code: -32603,
-              message: `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          });
-        }
-      }
-
-      if (mcpRequest.method === 'resources/list') {
-        return HTTPUtils.createResponse({
-          jsonrpc: '2.0',
-          id: mcpRequest.id,
-          result: {
-            resources: WORKER_RESOURCES,
-          },
-        });
-      }
-
-      if (mcpRequest.method === 'resources/read') {
-        const { uri } = mcpRequest.params || {};
-        
-        if (!uri) {
-          return HTTPUtils.createResponse({
-            jsonrpc: '2.0',
-            id: mcpRequest.id,
-            error: {
-              code: -32602,
-              message: 'Invalid params: uri is required',
-            },
-          });
-        }
-
-        // Check if resource exists
-        const resource = WORKER_RESOURCES.find(r => r.uri === uri);
-        if (!resource) {
-          return HTTPUtils.createResponse({
-            jsonrpc: '2.0',
-            id: mcpRequest.id,
-            error: {
-              code: -32602,
-              message: `Resource not found: ${uri}`,
-            },
-          });
-        }
-
-        // Get resource content
-        const content = RESOURCE_CONTENT[uri as keyof typeof RESOURCE_CONTENT];
-        if (content) {
-          return HTTPUtils.createResponse({
-            jsonrpc: '2.0',
-            id: mcpRequest.id,
-            result: {
-              contents: [
-                {
-                  uri: uri,
-                  mimeType: resource.mimeType,
-                  text: JSON.stringify(content, null, 2),
-                },
-              ],
-            },
-          });
-        } else {
-          // Return a placeholder for resources without specific content
-          const placeholderContent = {
-            name: resource.name,
-            description: resource.description,
-            uri: resource.uri,
-            mimeType: resource.mimeType,
-            placeholder: true,
-            message: 'This resource contains comprehensive documentation and examples. In a full implementation, this would load the actual content from the file system.'
-          };
-
-          return HTTPUtils.createResponse({
-            jsonrpc: '2.0',
-            id: mcpRequest.id,
-            result: {
-              contents: [
-                {
-                  uri: uri,
-                  mimeType: resource.mimeType,
-                  text: JSON.stringify(placeholderContent, null, 2),
-                },
-              ],
-            },
-          });
-        }
-      }
-
-      // Handle other MCP methods
-      return HTTPUtils.createResponse({
-        jsonrpc: '2.0',
-        id: mcpRequest.id,
-        error: {
-          code: -32601,
-          message: `Method not found: ${mcpRequest.method}`,
+// MCP request validation middleware
+app.use('/mcp/*', async (c, next) => {
+  // Validate API key
+  if (!c.env.OPENAI_API_KEY) {
+    return c.json({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32001,
+        message: 'API key not configured',
+        data: {
+          timestamp: new Date().toISOString(),
+          environment: 'cloudflare',
         },
-      });
+      },
+    }, 500);
+  }
 
-    } catch (error) {
-      console.error('Worker error:', error);
-      return HTTPUtils.createResponse({
+  // Only allow POST requests for MCP
+  if (c.req.method !== 'POST') {
+    return c.json({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32601,
+        message: 'Method not allowed. Use POST for MCP requests.',
+        data: {
+          method: c.req.method,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    }, 405);
+  }
+
+  // Create and attach MCP handler to context
+  try {
+    const mcpHandler = new CloudflareMCPHandler(c.env);
+    c.set('mcpHandler', mcpHandler);
+  } catch (error) {
+    // Provide specific error messages for configuration issues
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isConfigError = errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('configuration');
+    
+    return c.json({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: isConfigError ? -32001 : -32603,
+        message: isConfigError ? 'Configuration error' : 'Failed to initialize MCP handler',
+        data: {
+          error: errorMessage,
+          timestamp: new Date().toISOString(),
+          environment: c.env.ENVIRONMENT || 'unknown',
+          debug: c.env.DEBUG === 'true',
+        },
+      },
+    }, 500);
+  }
+
+  await next();
+});
+
+// Main MCP endpoint
+app.post('/mcp/*', async (c) => {
+  const mcpHandler = c.get('mcpHandler');
+  
+  try {
+    // Parse JSON-RPC request
+    const requestBody = await c.req.text();
+    
+    if (!requestBody) {
+      return c.json({
         jsonrpc: '2.0',
         id: null,
         error: {
-          code: -32603,
-          message: 'Internal server error',
+          code: -32600,
+          message: 'Empty request body',
+          data: {
+            timestamp: new Date().toISOString(),
+          },
         },
-      }, 500);
+      }, 400);
     }
-  },
-};
+
+    let mcpRequest: MCPRequest;
+    try {
+      mcpRequest = JSON.parse(requestBody);
+    } catch (parseError) {
+      return c.json({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32700,
+          message: 'Parse error',
+          data: {
+            error: parseError instanceof Error ? parseError.message : 'Invalid JSON',
+            timestamp: new Date().toISOString(),
+          },
+        },
+      }, 400);
+    }
+
+    // Validate JSON-RPC structure
+    if (!mcpRequest.jsonrpc || !mcpRequest.method) {
+      return c.json({
+        jsonrpc: '2.0',
+        id: mcpRequest.id || null,
+        error: {
+          code: -32600,
+          message: 'Invalid JSON-RPC request',
+          data: {
+            missing: !mcpRequest.jsonrpc ? 'jsonrpc' : 'method',
+            timestamp: new Date().toISOString(),
+          },
+        },
+      }, 400);
+    }
+
+    // Process MCP request
+    const response = await mcpHandler.handleMCPRequest(mcpRequest);
+    
+    // Return JSON-RPC response
+    return c.json(response);
+
+  } catch (error) {
+    console.error('MCP request processing failed:', error);
+    
+    return c.json({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32603,
+        message: 'Internal server error',
+        data: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString(),
+        },
+      },
+    }, 500);
+  }
+});
+
+// Catch-all for unsupported routes
+app.all('*', (c) => {
+  return c.json({
+    error: 'Not Found',
+    message: `Route ${c.req.method} ${c.req.path} not found`,
+    availableEndpoints: {
+      'GET /': 'Basic health check',
+      'GET /health': 'Detailed health status',
+      'POST /mcp/*': 'MCP JSON-RPC requests',
+    },
+    timestamp: new Date().toISOString(),
+  }, 404);
+});
+
+// Error handling middleware
+app.onError((err, c) => {
+  console.error('Unhandled error:', err);
+  
+  return c.json({
+    jsonrpc: '2.0',
+    id: null,
+    error: {
+      code: -32603,
+      message: 'Internal server error',
+      data: {
+        error: err.message,
+        timestamp: new Date().toISOString(),
+      },
+    },
+  }, 500);
+});
+
+// Export the Hono app as the default export for Cloudflare Workers
+export default app;

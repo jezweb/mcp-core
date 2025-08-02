@@ -9,7 +9,7 @@
     "properties": {
       "model": {
         "type": "string",
-        "description": "The OpenAI model to use for the assistant (e.g., \"gpt-4\", \"gpt-3.5-turbo\", \"gpt-4-turbo\"). Choose gpt-4 for complex reasoning, gpt-3.5-turbo for faster responses, or gpt-4-turbo for balanced performance."
+        "description": "The AI model to use for the assistant (e.g., \"gpt-4\", \"gpt-3.5-turbo\", \"claude-3-sonnet\"). Choose based on your provider's available models and performance requirements."
       },
       "name": {
         "type": "string",
@@ -61,7 +61,7 @@
   ],
   "metadata": {
     "version": "1.0.0",
-    "author": "OpenAI Assistants MCP Team",
+    "author": "Jezweb MCP Core Team",
     "lastModified": "2025-01-31T02:21:00.000Z",
     "tags": ["assistant", "create", "management"]
   }

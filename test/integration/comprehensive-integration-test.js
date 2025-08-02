@@ -14,7 +14,7 @@ class ComprehensiveIntegrationTester {
     this.tracker = new TestTracker('Comprehensive Integration Test');
     this.performanceTracker = new PerformanceTracker();
     this.cloudflareWorkerUrl = 'https://vectorstore.jezweb.com/mcp';
-    this.npmPackagePath = './npm-package/universal-mcp-server.cjs';
+    this.npmPackagePath = './npm-package/dist/npm-package/src/index.js';
     this.testApiKey = process.env.OPENAI_API_KEY || 'test-api-key-for-validation';
     this.realApiKey = process.env.OPENAI_API_KEY;
     

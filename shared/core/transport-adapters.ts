@@ -106,7 +106,7 @@ export class HTTPTransportAdapter {
     // Parse request body
     let mcpRequest: MCPRequest;
     try {
-      mcpRequest = await request.json();
+      mcpRequest = await request.json() as MCPRequest;
     } catch (error) {
       const errorResponse = createStandardErrorResponse(
         null,

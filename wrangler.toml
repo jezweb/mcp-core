@@ -1,4 +1,4 @@
-name = "openai-assistants-mcp"
+name = "jezweb-mcp-core"
 main = "src/worker.ts"
 compatibility_date = "2024-12-06"
 compatibility_flags = ["nodejs_compat"]
@@ -7,25 +7,30 @@ account_id = "0460574641fdbb98159c98ebf593e2bd"
 # Memory and CPU limits
 limits = { cpu_ms = 50 }
 
-# Environment variables (add your OpenAI API key here)
+# Environment variables (add your LLM provider API keys here)
 # For production, use: wrangler secret put OPENAI_API_KEY
+# For production, use: wrangler secret put ANTHROPIC_API_KEY
 [vars]
+SERVER_NAME = "openai-assistants-mcp"
+SERVER_VERSION = "3.0.1"
+DEBUG = "false"
 # OPENAI_API_KEY = "your-openai-api-key-here"
+# ANTHROPIC_API_KEY = "your-anthropic-api-key-here"
 
 # Development environment
 [env.development]
-name = "openai-assistants-mcp-dev"
-vars = { ENVIRONMENT = "development" }
+name = "jezweb-mcp-core-dev"
+vars = { DEBUG = "true", ENVIRONMENT = "development" }
 
 # Staging environment
 [env.staging]
-name = "openai-assistants-mcp-staging"
-vars = { ENVIRONMENT = "staging" }
+name = "jezweb-mcp-core-staging"
+vars = { DEBUG = "false", ENVIRONMENT = "staging" }
 
 # Production environment
 [env.production]
-name = "openai-assistants-mcp-prod"
-vars = { ENVIRONMENT = "production" }
+name = "jezweb-mcp-core-prod"
+vars = { DEBUG = "false", ENVIRONMENT = "production" }
 
 # Build configuration
 [build]

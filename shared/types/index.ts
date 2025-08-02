@@ -13,3 +13,6 @@ export * from './cloudflare-types.js';
 
 // Export prompt-related types (150+ lines)
 export * from './prompt-types.js';
+
+// Export generic LLM provider types (new provider system)
+export * from './generic-types.js';

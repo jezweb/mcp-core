@@ -66,11 +66,11 @@ async function testNPMPackageResources() {
 
     it('should load MCP handler successfully', () => {
       try {
-        // Try to load the CommonJS version first
-        MCPHandler = require('../npm-package/src/mcp-handler.cjs').MCPHandler;
+        // Try to load the TypeScript version
+        MCPHandler = require('../npm-package/src/mcp-handler.ts').MCPHandler;
       } catch (error) {
-        console.log('   Note: CommonJS handler not found, trying TypeScript version...');
-        // If that fails, we'll test the shared resources directly
+        console.log('   Note: TypeScript handler not found, testing shared resources directly...');
+        // Test the shared resources directly
         MCPHandler = null;
       }
       

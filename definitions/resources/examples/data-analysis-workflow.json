@@ -1,7 +1,7 @@
 {
   "uri": "examples://workflows/data-analysis",
   "name": "Data Analysis Workflow",
-  "description": "Complete workflow for automated data analysis using OpenAI Assistants with code interpreter, file search, and statistical analysis capabilities",
+  "description": "Complete workflow for automated data analysis using AI Provider Assistants with code interpreter, file search, and statistical analysis capabilities",
   "mimeType": "application/json",
   "annotations": {
     "audience": ["data-scientists", "analysts", "researchers", "developers"],
@@ -20,7 +20,7 @@
   "content": {
     "workflow": {
       "title": "Comprehensive Data Analysis Workflow",
-      "description": "End-to-end workflow for performing statistical analysis, data visualization, and generating insights using OpenAI Assistants",
+      "description": "End-to-end workflow for performing statistical analysis, data visualization, and generating insights using AI Provider Assistants",
       "version": "2.0.0",
       "lastUpdated": "2025-01-31"
     },

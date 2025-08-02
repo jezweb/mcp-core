@@ -54,9 +54,9 @@ export interface PaginationResult<T> {
  */
 export const PAGINATION_DEFAULTS = {
   /** Default page size */
-  DEFAULT_LIMIT: 10,
+  DEFAULT_LIMIT: 1000,
   /** Maximum page size */
-  MAX_LIMIT: 50,
+  MAX_LIMIT: 1000,
   /** Minimum page size */
   MIN_LIMIT: 1,
   /** Cursor expiration time (1 hour) */

@@ -127,7 +127,7 @@ export type ToolCategory =
 - [ ] Create migration scripts for extracting definitions
 
 #### Week 2: Build System
-- [ ] Implement configuration-driven build system
+- [ ] Implement environment-driven build system
 - [ ] Create environment-specific generation
 - [ ] Set up automated index file generation
 - [ ] Integrate with existing build pipeline

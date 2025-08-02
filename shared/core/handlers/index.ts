@@ -121,11 +121,15 @@ export const HANDLER_CATEGORIES = {
 
 /**
  * Total number of tools handled by the system
+ * Note: This is calculated dynamically based on registered handlers
+ * rather than being hardcoded to maintain provider-agnostic flexibility
  */
-export const TOTAL_TOOL_COUNT = Object.values(HANDLER_CATEGORIES).reduce(
-  (total, tools) => total + tools.length, 
-  0
-);
+export function getTotalToolCount(): number {
+  return Object.values(HANDLER_CATEGORIES).reduce(
+    (total, tools) => total + tools.length,
+    0
+  );
+}
 
 /**
  * Validate that all expected tools have handlers

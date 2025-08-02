@@ -15,6 +15,9 @@ import {
   validateOpenAIId,
   validatePaginationParams
 } from '../../validation/index.js';
+import {
+  GenericListRequest
+} from '../../services/llm-service.js';
 
 /**
  * Handler for listing run steps
@@ -55,7 +58,14 @@ export class RunStepListHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, run_id, ...listData } = args;
-      return await this.context.openaiService.listRunSteps(thread_id, run_id, listData);
+      // Use generic request type
+      const genericRequest: GenericListRequest = {
+        limit: listData.limit,
+        order: listData.order,
+        after: listData.after,
+        before: listData.before
+      };
+      return await this.context.provider.listRunSteps(thread_id, run_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to list run steps: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -101,7 +111,7 @@ export class RunStepGetHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.getRunStep(args.thread_id, args.run_id, args.step_id);
+      return await this.context.provider.getRunStep(args.thread_id, args.run_id, args.step_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to get run step: ${error instanceof Error ? error.message : 'Unknown error'}`,

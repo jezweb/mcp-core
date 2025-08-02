@@ -316,7 +316,7 @@ exports:
 ### Configuration Loader Implementation
 
 ```typescript
-// shared/config/config-loader.ts
+// Simple environment-based configuration
 import { readFileSync } from 'fs';
 import { parse } from 'yaml';
 import { toolDefinitions, toolCategories } from '../definitions/tools/index.js';
@@ -439,7 +439,7 @@ export function createEnvironmentSpecificRegistry(environment: string) {
 // scripts/generate-definitions.ts
 import { readdirSync, readFileSync, writeFileSync, statSync } from 'fs';
 import { join, extname, basename } from 'path';
-import { ConfigLoader } from '../shared/config/config-loader.js';
+// Configuration now handled via environment variables
 
 interface GenerationOptions {
   environment?: string;

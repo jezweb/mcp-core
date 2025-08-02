@@ -21,6 +21,11 @@ import {
   validateModel,
   validateMetadata
 } from '../../validation/index.js';
+import {
+  GenericCreateAssistantRequest,
+  GenericUpdateAssistantRequest,
+  GenericListRequest
+} from '../../services/llm-service.js';
 
 /**
  * Handler for creating new assistants
@@ -40,7 +45,17 @@ export class AssistantCreateHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.createAssistant(args);
+      // Use generic request type
+      const genericRequest: GenericCreateAssistantRequest = {
+        model: args.model,
+        name: args.name,
+        description: args.description,
+        instructions: args.instructions,
+        tools: args.tools,
+        metadata: args.metadata,
+        providerOptions: args.providerOptions
+      };
+      return await this.context.provider.createAssistant(genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to create assistant: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -68,7 +83,14 @@ export class AssistantListHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.listAssistants(args || {});
+      // Use generic request type
+      const genericRequest: GenericListRequest = {
+        limit: args?.limit,
+        order: args?.order,
+        after: args?.after,
+        before: args?.before
+      };
+      return await this.context.provider.listAssistants(genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to list assistants: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -96,7 +118,7 @@ export class AssistantGetHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.getAssistant(args.assistant_id);
+      return await this.context.provider.getAssistant(args.assistant_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to get assistant: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -149,7 +171,17 @@ export class AssistantUpdateHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { assistant_id, ...updateData } = args;
-      return await this.context.openaiService.updateAssistant(assistant_id, updateData);
+      // Use generic request type
+      const genericRequest: GenericUpdateAssistantRequest = {
+        model: updateData.model,
+        name: updateData.name,
+        description: updateData.description,
+        instructions: updateData.instructions,
+        tools: updateData.tools,
+        metadata: updateData.metadata,
+        providerOptions: updateData.providerOptions
+      };
+      return await this.context.provider.updateAssistant(assistant_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to update assistant: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -177,7 +209,7 @@ export class AssistantDeleteHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.deleteAssistant(args.assistant_id);
+      return await this.context.provider.deleteAssistant(args.assistant_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to delete assistant: ${error instanceof Error ? error.message : 'Unknown error'}`,

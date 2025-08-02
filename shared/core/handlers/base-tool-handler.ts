@@ -11,15 +11,14 @@
  * - execute(): Performs the actual tool operation
  */
 
-import { MCPError, ErrorCodes } from '../../types/index.js';
+import { MCPError, ErrorCodes, LLMProvider } from '../../types/index.js';
 import { ValidationResult } from '../../validation/index.js';
-import { OpenAIService } from '../../services/index.js';
 
 /**
  * Interface for tool handler execution context
  */
 export interface ToolHandlerContext {
-  openaiService: OpenAIService;
+  provider: LLMProvider;
   toolName: string;
   requestId: string | number | null;
 }

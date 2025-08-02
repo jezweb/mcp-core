@@ -1,15 +1,17 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "3.0.1",
-  "description": "Universal OpenAI Assistants MCP Server v3.0 - Major architectural refactoring with unified 'Shared Core with Thin Adapters' architecture. Features enterprise-grade configuration management, eliminated 2,083+ lines of duplicate code, enhanced build systems, comprehensive testing infrastructure, and seamless deployment across Cloudflare Workers and NPM with 100% backward compatibility.",
+  "version": "3.0.2",
+  "description": "Jezweb MCP Core v3.0 - Adaptable, provider-agnostic MCP server with unified 'Shared Core with Thin Adapters' architecture. Features multi-provider support (OpenAI, Anthropic, Google), simple environment-first configuration, comprehensive testing infrastructure, and seamless deployment across Cloudflare Workers and NPM with 100% backward compatibility.",
   "main": "dist/worker.js",
   "type": "module",
   "scripts": {
-    "build": "wrangler deploy --dry-run",
+    "build": "tsc && wrangler deploy --dry-run",
+    "build:ts": "tsc",
+    "build:worker": "tsc && wrangler deploy --dry-run",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "deploy:staging": "wrangler deploy --env staging",
-    "deploy:production": "wrangler deploy --env production",
+    "deploy": "tsc && wrangler deploy",
+    "deploy:staging": "tsc && wrangler deploy --env staging",
+    "deploy:production": "tsc && wrangler deploy --env production",
     "type-check": "tsc --noEmit",
     "test": "node test/run-all-tests.js",
     "test:all": "node test/run-all-tests.js",
@@ -44,12 +46,21 @@
     "quality:check": "node definitions/scripts/enhanced-validate.js --quality",
     "quality:dashboard": "node definitions/scripts/enhanced-build.js --dashboard",
     "dev:validate": "npm run validate:enhanced && npm run build:enhanced",
-    "dev:watch": "nodemon --watch definitions/ --exec \"npm run dev:validate\""
+    "dev:watch": "nodemon --watch definitions/ --exec \"npm run dev:validate\"",
+    "context:generate": "node scripts/generate-context.js",
+    "context:clean": "rm -f openai-assistants-mcp-context.txt"
   },
   "keywords": [
     "mcp",
     "model-context-protocol",
+    "jezweb",
+    "adaptable",
+    "multi-provider",
     "openai",
+    "anthropic",
+    "claude",
+    "google",
+    "gemini",
     "assistants",
     "assistants-api",
     "threads",
@@ -62,14 +73,16 @@
     "claude-desktop",
     "stdio",
     "typescript",
-    "enhanced",
+    "provider-agnostic",
+    "simple-config",
+    "environment-first",
     "resources",
     "templates",
     "validation",
     "workflows",
     "documentation"
   ],
-  "author": "OpenAI Assistants MCP Server Team",
+  "author": "Jezweb MCP Core Team",
   "license": "MIT",
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",
@@ -81,6 +94,6 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.0"
+    "hono": "^4.8.10"
   }
 }

@@ -23,6 +23,12 @@ import {
   validatePaginationParams,
   validateArray
 } from '../../validation/index.js';
+import {
+  GenericCreateRunRequest,
+  GenericUpdateRunRequest,
+  GenericListRequest,
+  GenericSubmitToolOutputsRequest
+} from '../../services/llm-service.js';
 
 /**
  * Handler for creating new runs
@@ -71,7 +77,17 @@ export class RunCreateHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, ...runData } = args;
-      return await this.context.openaiService.createRun(thread_id, runData);
+      // Use generic request type
+      const genericRequest: GenericCreateRunRequest = {
+        assistantId: runData.assistant_id,
+        model: runData.model,
+        instructions: runData.instructions,
+        additionalInstructions: runData.additional_instructions,
+        tools: runData.tools,
+        metadata: runData.metadata,
+        providerOptions: runData.providerOptions
+      };
+      return await this.context.provider.createRun(thread_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to create run: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -114,7 +130,14 @@ export class RunListHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, ...listData } = args;
-      return await this.context.openaiService.listRuns(thread_id, listData);
+      // Use generic request type
+      const genericRequest: GenericListRequest = {
+        limit: listData.limit,
+        order: listData.order,
+        after: listData.after,
+        before: listData.before
+      };
+      return await this.context.provider.listRuns(thread_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to list runs: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -154,7 +177,7 @@ export class RunGetHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.getRun(args.thread_id, args.run_id);
+      return await this.context.provider.getRun(args.thread_id, args.run_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to get run: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -205,7 +228,12 @@ export class RunUpdateHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, run_id, ...updateData } = args;
-      return await this.context.openaiService.updateRun(thread_id, run_id, updateData);
+      // Use generic request type
+      const genericRequest: GenericUpdateRunRequest = {
+        metadata: updateData.metadata,
+        providerOptions: updateData.providerOptions
+      };
+      return await this.context.provider.updateRun(thread_id, run_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to update run: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -245,7 +273,7 @@ export class RunCancelHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.cancelRun(args.thread_id, args.run_id);
+      return await this.context.provider.cancelRun(args.thread_id, args.run_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to cancel run: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -324,7 +352,15 @@ export class RunSubmitToolOutputsHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, run_id, ...submitData } = args;
-      return await this.context.openaiService.submitToolOutputs(thread_id, run_id, submitData);
+      // Use generic request type
+      const genericRequest: GenericSubmitToolOutputsRequest = {
+        toolOutputs: submitData.tool_outputs?.map((output: any) => ({
+          toolCallId: output.tool_call_id,
+          output: output.output
+        })) || [],
+        providerOptions: submitData.providerOptions
+      };
+      return await this.context.provider.submitToolOutputs(thread_id, run_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to submit tool outputs: ${error instanceof Error ? error.message : 'Unknown error'}`,

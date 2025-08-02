@@ -14,9 +14,9 @@
     "tags": ["coding", "development", "code-review", "debugging", "programming", "best-practices"],
     "category": "assistant-templates",
     "version": "2.0.0",
-    "author": "OpenAI Assistants MCP Team",
+    "author": "Jezweb MCP Core Team",
     "usageContext": "Use this template when creating assistants for software development tasks, code reviews, debugging sessions, or programming education. Ideal for development teams, code mentoring, and technical documentation.",
-    "prerequisites": ["Basic understanding of programming concepts", "Familiarity with OpenAI Assistants API"],
+    "prerequisites": ["Basic understanding of programming concepts", "Familiarity with AI Provider Assistants API"],
     "relatedResources": ["docs://best-practices", "examples://workflows/code-review", "assistant://templates/data-analyst"]
   },
   "content": {
@@ -46,7 +46,7 @@
   },
   "metadata": {
     "version": "2.0.0",
-    "author": "OpenAI Assistants MCP Team",
+    "author": "Jezweb MCP Core Team",
     "lastModified": "2025-01-31T12:34:00.000Z",
     "usage": "assistant-template",
     "size": 2048,

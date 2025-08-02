@@ -30,7 +30,7 @@ export type { ToolHandlerContext } from './handlers/base-tool-handler.js';
 export { ToolRegistry } from './tool-registry.js';
 export type { ToolRegistryStats } from './tool-registry.js';
 export { BaseMCPHandler } from './base-mcp-handler.js';
-export type { BaseMCPHandlerConfig } from './base-mcp-handler.js';
+export type { SimpleMCPHandlerConfig } from './base-mcp-handler.js';
 export type { TransportAdapter } from './transport-adapters.js';
 export {
   HTTPTransportAdapter,
@@ -51,7 +51,7 @@ export {
   createRunHandlers,
   createRunStepHandlers,
   HANDLER_CATEGORIES,
-  TOTAL_TOOL_COUNT,
+  getTotalToolCount,
   validateHandlerCompleteness
 } from './handlers/index.js';
 
@@ -70,7 +70,7 @@ import { ToolRegistry } from './tool-registry.js';
 import {
   createFlatHandlerMap,
   validateHandlerCompleteness,
-  TOTAL_TOOL_COUNT,
+  getTotalToolCount,
   HANDLER_CATEGORIES
 } from './handlers/index.js';
 
@@ -153,7 +153,7 @@ export const HANDLER_SYSTEM_VERSION = '1.0.0-phase1';
  */
 export const SYSTEM_INFO = {
   version: HANDLER_SYSTEM_VERSION,
-  totalHandlers: TOTAL_TOOL_COUNT,
+  totalHandlers: getTotalToolCount(),
   categories: Object.keys(HANDLER_CATEGORIES),
   description: 'Modular tool handler system using Strategy pattern',
   phase: 'Phase 1 - Foundational Architecture'

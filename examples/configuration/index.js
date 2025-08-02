@@ -1,277 +1,280 @@
 /**
- * Configuration System Examples Index
+ * Configuration Examples Index - Jezweb MCP Core v3.0
  * 
- * This file provides easy access to all configuration system examples
- * and demonstrates the comprehensive capabilities of the OpenAI Assistants
- * MCP Server configuration management system.
+ * This file provides easy access to all configuration examples and serves as
+ * a reference for the unified provider-agnostic architecture patterns.
  */
 
-// Import all examples
-import { basicSetupExample } from './basic-setup.js';
-import { advancedFeatureFlagsExample } from './advanced-feature-flags.js';
-import { runtimeUpdatesExample } from './runtime-updates.js';
-import { multiEnvironmentExample } from './multi-environment.js';
-import { customSourceExample } from './custom-source.js';
+import examples from './simple-config-examples.js';
 
-/**
- * Available Configuration Examples
- */
-export const examples = {
-  'basic-setup': {
-    name: 'Basic Setup',
-    description: 'Fundamental configuration system setup and basic operations',
-    function: basicSetupExample,
-    difficulty: 'beginner',
-    topics: ['initialization', 'basic-config', 'validation']
-  },
-  
-  'advanced-feature-flags': {
-    name: 'Advanced Feature Flags',
-    description: 'Complex feature flag scenarios with rules, variants, and targeting',
-    function: advancedFeatureFlagsExample,
-    difficulty: 'intermediate',
-    topics: ['feature-flags', 'rules', 'variants', 'targeting', 'analytics']
-  },
-  
-  'runtime-updates': {
-    name: 'Runtime Updates',
-    description: 'Hot reloading, real-time updates, and configuration synchronization',
-    function: runtimeUpdatesExample,
-    difficulty: 'intermediate',
-    topics: ['hot-reload', 'real-time', 'synchronization', 'caching']
-  },
-  
-  'multi-environment': {
-    name: 'Multi-Environment Deployment',
-    description: 'Configuration management across development, staging, and production',
-    function: multiEnvironmentExample,
-    difficulty: 'advanced',
-    topics: ['environments', 'deployment', 'pipeline', 'validation']
-  },
-  
-  'custom-source': {
-    name: 'Custom Configuration Sources',
-    description: 'Creating and integrating custom configuration sources (API, Database, YAML)',
-    function: customSourceExample,
-    difficulty: 'advanced',
-    topics: ['custom-sources', 'api', 'database', 'yaml', 'fallback']
-  }
-};
+// Re-export all examples for easy access
+export const {
+  cloudflare,
+  npm,
+  validation,
+  testing
+} = examples;
+
+// Export default for convenience
+export default examples;
 
 /**
- * Run a specific example by name
+ * Quick Start Guide
+ * 
+ * Choose the appropriate example based on your deployment target:
+ * 
+ * 1. Cloudflare Workers:
+ *    - Basic: examples.cloudflare.basic
+ *    - Advanced: examples.cloudflare.advanced
+ * 
+ * 2. NPM Package:
+ *    - Basic: examples.npm.basic
+ *    - Advanced: examples.npm.advanced
+ * 
+ * 3. Configuration Validation:
+ *    - Utilities: examples.validation
+ *    - Testing: examples.testing
  */
-export async function runExample(exampleName) {
-  const example = examples[exampleName];
-  
-  if (!example) {
-    console.error(`❌ Example '${exampleName}' not found`);
-    console.log('Available examples:', Object.keys(examples).join(', '));
-    return false;
-  }
-  
-  console.log(`🚀 Running example: ${example.name}`);
-  console.log(`📝 Description: ${example.description}`);
-  console.log(`📊 Difficulty: ${example.difficulty}`);
-  console.log(`🏷️ Topics: ${example.topics.join(', ')}`);
-  console.log('─'.repeat(60));
-  
-  try {
-    await example.function();
-    console.log('─'.repeat(60));
-    console.log(`✅ Example '${example.name}' completed successfully!`);
+
+/**
+ * Example Usage:
+ * 
+ * ```javascript
+ * import { cloudflare, npm, validation } from './examples/configuration/index.js';
+ * 
+ * // Get Cloudflare Workers example
+ * const workerCode = cloudflare.basic.workerCode;
+ * 
+ * // Get NPM package example
+ * const serverCode = npm.advanced.serverCode;
+ * 
+ * // Validate configuration
+ * const config = validation.validateEnvironment();
+ * ```
+ */
+
+// Helper functions for common tasks
+export const helpers = {
+  /**
+   * Get the appropriate example based on deployment target
+   */
+  getExample(target, complexity = 'basic') {
+    if (target === 'cloudflare' || target === 'workers') {
+      return examples.cloudflare[complexity];
+    } else if (target === 'npm' || target === 'node') {
+      return examples.npm[complexity];
+    } else {
+      throw new Error(`Unknown target: ${target}. Use 'cloudflare' or 'npm'`);
+    }
+  },
+
+  /**
+   * Get environment variables template for a target
+   */
+  getEnvTemplate(target) {
+    if (target === 'cloudflare' || target === 'workers') {
+      return `# Cloudflare Workers Environment Variables
+# Set via Cloudflare Dashboard or wrangler secret put
+
+# Required
+OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# Optional
+SERVER_NAME=openai-assistants-mcp
+SERVER_VERSION=3.0.1
+DEBUG=false`;
+    } else if (target === 'npm' || target === 'node') {
+      return `# NPM Package Environment Variables
+# Create .env file in your project root
+
+# Required
+OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# Optional
+MCP_SERVER_NAME=jezweb-mcp-core
+MCP_SERVER_VERSION=3.0.1
+DEBUG=true
+MCP_DEBUG=true
+HTTP_PORT=3000`;
+    } else {
+      throw new Error(`Unknown target: ${target}. Use 'cloudflare' or 'npm'`);
+    }
+  },
+
+  /**
+   * Get package.json template for NPM projects
+   */
+  getPackageJsonTemplate() {
+    return {
+      name: "my-mcp-server",
+      version: "1.0.0",
+      type: "module",
+      description: "MCP Server using Jezweb MCP Core",
+      main: "server.js",
+      scripts: {
+        start: "node server.js",
+        dev: "node --watch server.js",
+        test: "node test.js"
+      },
+      dependencies: {
+        "jezweb-mcp-core": "^3.0.0",
+        "dotenv": "^16.0.0"
+      },
+      devDependencies: {
+        "@types/node": "^20.0.0"
+      },
+      engines: {
+        node: ">=18.0.0"
+      }
+    };
+  },
+
+  /**
+   * Get wrangler.toml template for Cloudflare Workers
+   */
+  getWranglerTemplate() {
+    return `name = "openai-assistants-mcp"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+# Production environment
+[env.production]
+name = "openai-assistants-mcp-prod"
+
+[env.production.vars]
+SERVER_NAME = "openai-assistants-mcp"
+SERVER_VERSION = "3.0.1"
+DEBUG = "false"
+
+# Development environment
+[env.development]
+name = "openai-assistants-mcp-dev"
+
+[env.development.vars]
+SERVER_NAME = "openai-assistants-mcp-dev"
+SERVER_VERSION = "3.0.1"
+DEBUG = "true"
+
+# Secrets (set via wrangler secret put)
+# wrangler secret put OPENAI_API_KEY --env production
+# wrangler secret put OPENAI_API_KEY --env development`;
+  },
+
+  /**
+   * Validate configuration object
+   */
+  validateConfig(config) {
+    const required = ['apiKey'];
+    const missing = required.filter(key => !config[key]);
+    
+    if (missing.length > 0) {
+      throw new Error(`Missing required configuration: ${missing.join(', ')}`);
+    }
+    
+    if (!config.apiKey.startsWith('sk-')) {
+      throw new Error('OpenAI API key must start with "sk-"');
+    }
+    
     return true;
-  } catch (error) {
-    console.log('─'.repeat(60));
-    console.error(`❌ Example '${example.name}' failed:`, error.message);
-    return false;
-  }
-}
+  },
 
-/**
- * Run all examples in sequence
- */
-export async function runAllExamples() {
-  console.log('🎯 Running all configuration system examples...\n');
-  
-  const results = {};
-  let totalSuccess = 0;
-  
-  for (const [name, example] of Object.entries(examples)) {
-    console.log(`\n${'='.repeat(80)}`);
-    console.log(`📚 EXAMPLE ${Object.keys(results).length + 1}/${Object.keys(examples).length}: ${example.name.toUpperCase()}`);
-    console.log(`${'='.repeat(80)}`);
+  /**
+   * Get deployment-specific initialization code
+   */
+  getInitCode(target, options = {}) {
+    const { async = false, errorHandling = true } = options;
     
-    const success = await runExample(name);
-    results[name] = success;
-    
-    if (success) {
-      totalSuccess++;
+    if (target === 'cloudflare') {
+      return async ? 
+        `const handler = await CloudflareMCPHandler.create(env);` :
+        `const handler = new CloudflareMCPHandler(env);`;
+    } else if (target === 'npm') {
+      return async ?
+        `const handler = await MCPHandler.create(process.env.OPENAI_API_KEY);` :
+        `const handler = new MCPHandler(process.env.OPENAI_API_KEY);`;
     }
     
-    // Add delay between examples
-    if (Object.keys(results).length < Object.keys(examples).length) {
-      console.log('\n⏳ Waiting 2 seconds before next example...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
+    throw new Error(`Unknown target: ${target}`);
   }
-  
-  // Summary
-  console.log(`\n${'='.repeat(80)}`);
-  console.log('📊 EXAMPLES SUMMARY');
-  console.log(`${'='.repeat(80)}`);
-  
-  for (const [name, success] of Object.entries(results)) {
-    const status = success ? '✅ PASSED' : '❌ FAILED';
-    const example = examples[name];
-    console.log(`${status} ${example.name} (${example.difficulty})`);
-  }
-  
-  console.log(`\n🎯 Total: ${totalSuccess}/${Object.keys(examples).length} examples passed`);
-  
-  if (totalSuccess === Object.keys(examples).length) {
-    console.log('🎉 All examples completed successfully!');
-  } else {
-    console.log('⚠️ Some examples failed. Check the logs above for details.');
-  }
-  
-  return results;
-}
-
-/**
- * List all available examples
- */
-export function listExamples() {
-  console.log('📚 Available Configuration System Examples:\n');
-  
-  for (const [name, example] of Object.entries(examples)) {
-    console.log(`🔹 ${name}`);
-    console.log(`   Name: ${example.name}`);
-    console.log(`   Description: ${example.description}`);
-    console.log(`   Difficulty: ${example.difficulty}`);
-    console.log(`   Topics: ${example.topics.join(', ')}`);
-    console.log('');
-  }
-  
-  console.log('Usage:');
-  console.log('  import { runExample } from "./examples/configuration/index.js";');
-  console.log('  await runExample("basic-setup");');
-  console.log('');
-  console.log('Or run all examples:');
-  console.log('  import { runAllExamples } from "./examples/configuration/index.js";');
-  console.log('  await runAllExamples();');
-}
-
-/**
- * Get examples by difficulty level
- */
-export function getExamplesByDifficulty(difficulty) {
-  return Object.entries(examples)
-    .filter(([_, example]) => example.difficulty === difficulty)
-    .reduce((acc, [name, example]) => {
-      acc[name] = example;
-      return acc;
-    }, {});
-}
-
-/**
- * Get examples by topic
- */
-export function getExamplesByTopic(topic) {
-  return Object.entries(examples)
-    .filter(([_, example]) => example.topics.includes(topic))
-    .reduce((acc, [name, example]) => {
-      acc[name] = example;
-      return acc;
-    }, {});
-}
-
-/**
- * Interactive example runner
- */
-export async function interactiveRunner() {
-  console.log('🎮 Interactive Configuration Examples Runner\n');
-  
-  listExamples();
-  
-  // In a real implementation, this would use readline or similar
-  // For now, we'll just run all examples
-  console.log('🚀 Running all examples in interactive mode...\n');
-  
-  return await runAllExamples();
-}
-
-// CLI support
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const command = process.argv[2];
-  const argument = process.argv[3];
-  
-  switch (command) {
-    case 'list':
-      listExamples();
-      break;
-      
-    case 'run':
-      if (argument) {
-        runExample(argument).catch(console.error);
-      } else {
-        console.error('❌ Please specify an example name');
-        listExamples();
-      }
-      break;
-      
-    case 'all':
-      runAllExamples().catch(console.error);
-      break;
-      
-    case 'difficulty':
-      if (argument) {
-        const filtered = getExamplesByDifficulty(argument);
-        console.log(`📊 Examples with difficulty '${argument}':`);
-        for (const [name, example] of Object.entries(filtered)) {
-          console.log(`  - ${name}: ${example.name}`);
-        }
-      } else {
-        console.error('❌ Please specify a difficulty level (beginner, intermediate, advanced)');
-      }
-      break;
-      
-    case 'topic':
-      if (argument) {
-        const filtered = getExamplesByTopic(argument);
-        console.log(`🏷️ Examples with topic '${argument}':`);
-        for (const [name, example] of Object.entries(filtered)) {
-          console.log(`  - ${name}: ${example.name}`);
-        }
-      } else {
-        console.error('❌ Please specify a topic');
-      }
-      break;
-      
-    case 'interactive':
-      interactiveRunner().catch(console.error);
-      break;
-      
-    default:
-      console.log('📚 Configuration System Examples');
-      console.log('');
-      console.log('Usage:');
-      console.log('  node index.js list                    # List all examples');
-      console.log('  node index.js run <example-name>      # Run specific example');
-      console.log('  node index.js all                     # Run all examples');
-      console.log('  node index.js difficulty <level>      # Filter by difficulty');
-      console.log('  node index.js topic <topic>           # Filter by topic');
-      console.log('  node index.js interactive             # Interactive runner');
-      console.log('');
-      listExamples();
-  }
-}
-
-// Export everything
-export {
-  basicSetupExample,
-  advancedFeatureFlagsExample,
-  runtimeUpdatesExample,
-  multiEnvironmentExample,
-  customSourceExample
 };
+
+// Configuration constants
+export const CONFIG_CONSTANTS = {
+  // Default values
+  DEFAULTS: {
+    SERVER_NAME: 'openai-assistants-mcp',
+    SERVER_VERSION: '3.0.1',
+    DEBUG: false,
+    NPM_SERVER_NAME: 'jezweb-mcp-core'
+  },
+  
+  // Environment variable names
+  ENV_VARS: {
+    // Required
+    OPENAI_API_KEY: 'OPENAI_API_KEY',
+    
+    // Optional - Cloudflare
+    SERVER_NAME: 'SERVER_NAME',
+    SERVER_VERSION: 'SERVER_VERSION',
+    DEBUG: 'DEBUG',
+    
+    // Optional - NPM
+    MCP_SERVER_NAME: 'MCP_SERVER_NAME',
+    MCP_SERVER_VERSION: 'MCP_SERVER_VERSION',
+    MCP_DEBUG: 'MCP_DEBUG',
+    HTTP_PORT: 'HTTP_PORT'
+  },
+  
+  // Validation patterns
+  VALIDATION: {
+    API_KEY_PREFIX: 'sk-',
+    MIN_API_KEY_LENGTH: 20,
+    VERSION_PATTERN: /^\d+\.\d+\.\d+/
+  }
+};
+
+// Architecture information
+export const ARCHITECTURE_INFO = {
+  version: '3.0.1',
+  architecture: 'provider-agnostic',
+  migrationStatus: 'completed',
+  backwardCompatible: true,
+  
+  features: {
+    unifiedCore: true,
+    providerRegistry: true,
+    dynamicToolRegistration: true,
+    genericProviderInterface: true,
+    mvpImplementation: true
+  },
+  
+  deploymentTargets: [
+    'cloudflare-workers',
+    'npm-package'
+  ],
+  
+  supportedProviders: [
+    'openai' // MVP - more providers coming
+  ],
+  
+  futureProviders: [
+    'anthropic',
+    'google',
+    'custom'
+  ]
+};
+
+console.log(`
+🚀 Jezweb MCP Core Configuration Examples v${ARCHITECTURE_INFO.version}
+📋 Architecture: ${ARCHITECTURE_INFO.architecture}
+✅ Migration Status: ${ARCHITECTURE_INFO.migrationStatus}
+🔄 Backward Compatible: ${ARCHITECTURE_INFO.backwardCompatible}
+
+Available examples:
+- Cloudflare Workers (basic & advanced)
+- NPM Package (basic & advanced)  
+- Configuration validation
+- Testing utilities
+
+Use: import examples from './examples/configuration/index.js'
+`);

@@ -21,6 +21,11 @@ import {
   validateMetadata,
   validatePaginationParams
 } from '../../validation/index.js';
+import {
+  GenericCreateMessageRequest,
+  GenericUpdateMessageRequest,
+  GenericListRequest
+} from '../../services/llm-service.js';
 
 /**
  * Handler for creating new messages
@@ -71,7 +76,14 @@ export class MessageCreateHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, ...messageData } = args;
-      return await this.context.openaiService.createMessage(thread_id, messageData);
+      // Use generic request type
+      const genericRequest: GenericCreateMessageRequest = {
+        role: messageData.role,
+        content: messageData.content,
+        metadata: messageData.metadata,
+        providerOptions: messageData.providerOptions
+      };
+      return await this.context.provider.createMessage(thread_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to create message: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -122,7 +134,14 @@ export class MessageListHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, ...listData } = args;
-      return await this.context.openaiService.listMessages(thread_id, listData);
+      // Use generic request type
+      const genericRequest: GenericListRequest = {
+        limit: listData.limit,
+        order: listData.order,
+        after: listData.after,
+        before: listData.before
+      };
+      return await this.context.provider.listMessages(thread_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to list messages: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -162,7 +181,7 @@ export class MessageGetHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.getMessage(args.thread_id, args.message_id);
+      return await this.context.provider.getMessage(args.thread_id, args.message_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to get message: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -213,7 +232,12 @@ export class MessageUpdateHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, message_id, ...updateData } = args;
-      return await this.context.openaiService.updateMessage(thread_id, message_id, updateData);
+      // Use generic request type
+      const genericRequest: GenericUpdateMessageRequest = {
+        metadata: updateData.metadata,
+        providerOptions: updateData.providerOptions
+      };
+      return await this.context.provider.updateMessage(thread_id, message_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to update message: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -253,7 +277,7 @@ export class MessageDeleteHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.deleteMessage(args.thread_id, args.message_id);
+      return await this.context.provider.deleteMessage(args.thread_id, args.message_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to delete message: ${error instanceof Error ? error.message : 'Unknown error'}`,

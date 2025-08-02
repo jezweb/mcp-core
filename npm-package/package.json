@@ -1,20 +1,31 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "3.0.1",
-  "description": "Universal OpenAI Assistants MCP Server v3.0 - Major architectural refactoring with unified 'Shared Core with Thin Adapters' architecture. Features enterprise-grade configuration management, deployment adapter pattern, eliminated 2,083+ lines of duplicate code, enhanced build systems, comprehensive testing infrastructure, and seamless stdio transport with 100% backward compatibility for Roo and Claude Desktop.",
-  "main": "universal-mcp-server-old.cjs",
-  "type": "commonjs",
+  "version": "3.0.8",
+  "description": "OpenAI Assistants MCP Server - A Model Context Protocol server providing OpenAI Assistants API tools and resources. Features comprehensive assistant management, thread operations, message handling, and run execution with seamless stdio transport for Claude Desktop and other MCP clients.",
+  "main": "dist/npm-package/src/index.js",
+  "type": "module",
   "bin": {
-    "openai-assistants-mcp": "./universal-mcp-server-old.cjs"
+    "openai-assistants-mcp": "./dist/npm-package/src/index.js"
   },
   "scripts": {
-    "start": "node universal-mcp-server-old.cjs",
-    "test": "node test/test-stdio.cjs"
+    "start": "node dist/npm-package/src/index.js",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "test": "node test/test-stdio.js",
+    "clean": "rm -rf dist"
   },
   "keywords": [
     "mcp",
     "model-context-protocol",
+    "jezweb",
+    "adaptable",
+    "multi-provider",
     "openai",
+    "anthropic",
+    "claude",
+    "google",
+    "gemini",
     "assistants",
     "assistants-api",
     "threads",
@@ -25,7 +36,9 @@
     "roo",
     "universal",
     "typescript",
-    "enhanced",
+    "provider-agnostic",
+    "simple-config",
+    "environment-first",
     "resources",
     "templates",
     "validation",
@@ -35,11 +48,9 @@
     "architecture",
     "unified-core",
     "deployment-adapter",
-    "enterprise-grade",
-    "configuration-management",
     "backward-compatible"
   ],
-  "author": "OpenAI Assistants MCP Server Team",
+  "author": "OpenAI Assistants MCP Team",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -49,14 +60,14 @@
     "url": "https://github.com/jezweb/openai-assistants-mcp/issues"
   },
   "homepage": "https://github.com/jezweb/openai-assistants-mcp#readme",
-  "dependencies": {},
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
   "files": [
-    "universal-mcp-server.js",
-    "openai-service.cjs",
-    "src/",
+    "dist/",
     "shared/",
     "definitions/",
     "README.md"

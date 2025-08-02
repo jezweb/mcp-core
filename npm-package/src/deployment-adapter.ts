@@ -16,14 +16,14 @@ export interface TransportAdapter {
 // Simplified setup function that matches NPM package expectations
 export function setupHandlerSystem() {
   // Import the full system from shared/core but expose simplified interface
-  const { ToolRegistry, generateToolDefinitions, createFlatHandlerMap, validateHandlerCompleteness, TOTAL_TOOL_COUNT, HANDLER_CATEGORIES } = require('@shared/core/index.js');
+  const { ToolRegistry, generateToolDefinitions, createFlatHandlerMap, validateHandlerCompleteness, getTotalToolCount, HANDLER_CATEGORIES } = require('@shared/core/index.js');
   
   return {
     ToolRegistry,
     generateToolDefinitions,
     createFlatHandlerMap,
     validateHandlerCompleteness,
-    TOTAL_TOOL_COUNT,
+    getTotalToolCount,
     HANDLER_CATEGORIES
   };
 }

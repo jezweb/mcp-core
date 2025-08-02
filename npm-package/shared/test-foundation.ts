@@ -11,7 +11,7 @@
  */
 
 import { setupHandlerSystem, SYSTEM_INFO, validateHandlerCompleteness } from './core/index.js';
-import { OpenAIService } from './services/index.js';
+import { OpenAIService } from './services/openai-service.js';
 
 /**
  * Mock OpenAI service for testing

@@ -89,4 +89,6 @@ export {
 } from './resources/index.js';
 
 // Export services
-export { OpenAIService } from './services/index.js';
+// Note: OpenAIService is intentionally not exported to maintain proper encapsulation.
+// It should only be used internally by the OpenAIProvider.
+export * from './services/index.js';

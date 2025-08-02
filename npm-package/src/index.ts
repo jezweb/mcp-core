@@ -1,193 +1,105 @@
 #!/usr/bin/env node
-
-/**
- * OpenAI Vector Store MCP Server
- * 
- * This is the main entry point for the stdio-based MCP server that provides
- * OpenAI Vector Store operations through the Model Context Protocol.
- */
-
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ErrorCode,
-  ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-  McpError,
-} from '@modelcontextprotocol/sdk/types.js';
+import 'dotenv/config'; // Automatically loads .env
 import { MCPHandler } from './mcp-handler.js';
+import * as readline from 'readline';
 
-class OpenAIVectorStoreMCPServer {
-  private server: Server;
-  private mcpHandler: MCPHandler;
+function showHelp() {
+  console.log(`
+OpenAI Assistants MCP Server v3.0.8
 
-  constructor() {
-    // Get OpenAI API key from environment variable
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      console.error('Error: OPENAI_API_KEY environment variable is required');
-      console.error('');
-      console.error('Usage:');
-      console.error('  OPENAI_API_KEY=your-api-key npx openai-vector-store-mcp');
-      console.error('  or');
-      console.error('  export OPENAI_API_KEY=your-api-key');
-      console.error('  npx openai-vector-store-mcp');
-      process.exit(1);
+USAGE:
+  npx openai-assistants-mcp [OPTIONS]
+
+DESCRIPTION:
+  A Model Context Protocol (MCP) server that provides OpenAI Assistants API tools.
+  Runs in stdio mode for integration with MCP clients like Claude Desktop.
+
+OPTIONS:
+  --help, -h     Show this help message
+  --version, -v  Show version information
+
+ENVIRONMENT VARIABLES:
+  OPENAI_API_KEY    Required. Your OpenAI API key
+
+EXAMPLES:
+  # Run the MCP server (requires OPENAI_API_KEY)
+  OPENAI_API_KEY=sk-... npx openai-assistants-mcp
+
+  # Show help
+  npx openai-assistants-mcp --help
+
+  # Show version
+  npx openai-assistants-mcp --version
+
+MCP CLIENT CONFIGURATION:
+  Add this to your MCP client configuration:
+  {
+    "mcpServers": {
+      "openai-assistants": {
+        "command": "npx",
+        "args": ["openai-assistants-mcp"],
+        "env": {
+          "OPENAI_API_KEY": "your-api-key-here"
+        }
+      }
     }
-
-    this.mcpHandler = new MCPHandler(apiKey);
-    this.server = new Server(
-      {
-        name: 'openai-vector-store-mcp',
-        version: '1.0.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-          resources: {},
-        },
-      }
-    );
-
-    this.setupToolHandlers();
-    this.setupResourceHandlers();
-    this.setupErrorHandling();
   }
 
-  private setupToolHandlers(): void {
-    // Handle tool listing
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const response = await this.mcpHandler.handleRequest({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'tools/list',
-        params: {}
-      });
-
-      if (response.error) {
-        throw new McpError(ErrorCode.InternalError, response.error.message);
-      }
-
-      return {
-        tools: response.result?.tools || []
-      };
-    });
-
-    // Handle tool calls
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-
-      const response = await this.mcpHandler.handleRequest({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'tools/call',
-        params: {
-          name,
-          arguments: args || {}
-        }
-      });
-
-      if (response.error) {
-        throw new McpError(ErrorCode.InternalError, response.error.message);
-      }
-
-      return {
-        content: response.result?.content || [
-          {
-            type: 'text',
-            text: 'No content returned'
-          }
-        ]
-      };
-    });
-  }
-
-  private setupResourceHandlers(): void {
-    // Handle resource listing
-    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
-      const response = await this.mcpHandler.handleRequest({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'resources/list',
-        params: {}
-      });
-
-      if (response.error) {
-        throw new McpError(ErrorCode.InternalError, response.error.message);
-      }
-
-      return {
-        resources: response.result?.resources || []
-      };
-    });
-
-    // Handle resource reading
-    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-      const { uri } = request.params;
-
-      const response = await this.mcpHandler.handleRequest({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'resources/read',
-        params: {
-          uri
-        }
-      });
-
-      if (response.error) {
-        throw new McpError(ErrorCode.InternalError, response.error.message);
-      }
-
-      return {
-        contents: response.result?.contents || []
-      };
-    });
-  }
-
-  private setupErrorHandling(): void {
-    // Handle uncaught errors
-    process.on('uncaughtException', (error) => {
-      console.error('Uncaught Exception:', error);
-      process.exit(1);
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
-      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-      process.exit(1);
-    });
-  }
-
-  async run(): Promise<void> {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    
-    // Keep the process running
-    console.error('OpenAI Vector Store MCP Server running on stdio...');
-  }
+For more information, visit: https://github.com/jezweb/openai-assistants-mcp
+`);
 }
 
-// Start the server
-async function main() {
-  const server = new OpenAIVectorStoreMCPServer();
-  await server.run();
+function showVersion() {
+  console.log('3.0.8');
 }
 
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-  console.error('Received SIGINT, shutting down gracefully...');
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  console.error('Received SIGTERM, shutting down gracefully...');
-  process.exit(0);
-});
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    console.error('Failed to start server:', error);
+async function runMCPServer() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.error(JSON.stringify({
+      jsonrpc: '2.0', id: null, error: { code: -32000, message: 'OPENAI_API_KEY is not set in environment.' }
+    }));
     process.exit(1);
-  });
+  }
+
+  const mcpHandler = new MCPHandler(apiKey);
+  const rl = readline.createInterface({ input: process.stdin });
+
+  console.error('OpenAI Assistants MCP Server is running in stdio mode...');
+
+  for await (const line of rl) {
+    try {
+      const request = JSON.parse(line);
+      const response = await mcpHandler.handleRequest(request);
+      process.stdout.write(JSON.stringify(response) + '\n');
+    } catch (e) {
+      const errResponse = { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } };
+      process.stdout.write(JSON.stringify(errResponse) + '\n');
+    }
+  }
 }
+
+async function main() {
+  const args = process.argv.slice(2);
+  
+  // Handle command line arguments
+  if (args.includes('--help') || args.includes('-h')) {
+    showHelp();
+    process.exit(0);
+  }
+  
+  if (args.includes('--version') || args.includes('-v')) {
+    showVersion();
+    process.exit(0);
+  }
+  
+  // If no arguments or unrecognized arguments, run the MCP server
+  await runMCPServer();
+}
+
+main().catch(err => {
+  console.error(JSON.stringify({
+    jsonrpc: '2.0', id: null, error: { code: -32603, message: 'Internal Server Error', data: err.message }
+  }));
+  process.exit(1);
+});

@@ -689,7 +689,7 @@ export class PluginSandbox {
 ### Dynamic Configuration
 
 ```typescript
-// shared/config/plugin-config-manager.ts
+// Simple plugin configuration via environment variables
 export class PluginConfigManager {
   private configs: Map<string, PluginConfig> = new Map();
   private watchers: Map<string, FileWatcher> = new Map();

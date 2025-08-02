@@ -39,10 +39,17 @@ import {
   createEnhancedError,
   createStandardErrorResponse,
 } from '../types/index.js';
-import { OpenAIService } from '../services/index.js';
+import { OpenAIService } from '../services/openai-service.js';
+import {
+  LLMProvider,
+  ProviderRegistry,
+  getGlobalProviderRegistry,
+  initializeGlobalProviderRegistry,
+} from '../types/generic-types.js';
+import { openaiProviderFactory } from '../services/providers/openai.js';
 import { getAllResources, getResource, getResourceContent } from '../resources/index.js';
 import { ToolRegistry } from './tool-registry.js';
-import { createFlatHandlerMap, validateHandlerCompleteness, TOTAL_TOOL_COUNT, HANDLER_CATEGORIES } from './handlers/index.js';
+import { createFlatHandlerMap, validateHandlerCompleteness, HANDLER_CATEGORIES } from './handlers/index.js';
 import { generateToolDefinitions } from './tool-definitions.js';
 import { createPromptHandlers, PromptHandlerContext } from './handlers/prompt-handlers.js';
 import { createCompletionHandlers, CompletionHandlerContext } from './handlers/completion-handlers.js';
@@ -52,21 +59,13 @@ import {
   createPaginationMetadata,
   PAGINATION_DEFAULTS
 } from './pagination-utils.js';
-import {
-  ConfigurationSystem,
-  getGlobalConfigSystem,
-  isFeatureEnabled,
-  getConfig,
-  type MCPServerConfig,
-  type EvaluationContext
-} from '../config/index.js';
 
 /**
- * Configuration interface for the base MCP handler
+ * Simple configuration interface for the base MCP handler
  */
-export interface BaseMCPHandlerConfig {
-  /** OpenAI API key */
-  apiKey: string;
+export interface SimpleMCPHandlerConfig {
+  /** OpenAI API key (for backward compatibility) */
+  apiKey?: string;
   /** Server name for identification */
   serverName?: string;
   /** Server version */
@@ -80,12 +79,6 @@ export interface BaseMCPHandlerConfig {
     prompts?: { listChanged?: boolean };
     completions?: {};
   };
-  /** Configuration system instance (optional) */
-  configSystem?: ConfigurationSystem;
-  /** Environment for feature flag evaluation */
-  environment?: string;
-  /** Deployment type for feature flag evaluation */
-  deployment?: string;
 }
 
 // Import TransportAdapter from transport-adapters module
@@ -98,29 +91,25 @@ import { TransportAdapter } from './transport-adapters.js';
  * or adapted for different deployment environments through the adapter pattern.
  */
 export class BaseMCPHandler {
-  protected openaiService: OpenAIService;
+  protected providerRegistry: ProviderRegistry;
   protected toolRegistry!: ToolRegistry; // Definite assignment assertion - initialized in initializeHandlerSystem
   protected promptHandlers: Record<string, any> = {};
   protected completionHandlers: Record<string, any> = {};
-  protected config: BaseMCPHandlerConfig & {
+  protected config: SimpleMCPHandlerConfig & {
     serverName: string;
     serverVersion: string;
     debug: boolean;
-    capabilities: NonNullable<BaseMCPHandlerConfig['capabilities']>;
-    environment: string;
-    deployment: string;
+    capabilities: NonNullable<SimpleMCPHandlerConfig['capabilities']>;
   };
   protected transportAdapter?: TransportAdapter;
   protected isInitialized: boolean = false;
-  protected configSystem: ConfigurationSystem;
-  protected evaluationContext: EvaluationContext;
 
-  constructor(config: BaseMCPHandlerConfig, transportAdapter?: TransportAdapter) {
+  constructor(config: SimpleMCPHandlerConfig, providerRegistryOrTransportAdapter?: ProviderRegistry | TransportAdapter, transportAdapter?: TransportAdapter) {
     // Set default configuration
     this.config = {
       ...config,
       serverName: config.serverName || 'openai-assistants-mcp',
-      serverVersion: config.serverVersion || '2.2.4',
+      serverVersion: config.serverVersion || '3.0.0',
       debug: config.debug || false,
       capabilities: {
         tools: { listChanged: false },
@@ -129,26 +118,25 @@ export class BaseMCPHandler {
         completions: {},
         ...config.capabilities,
       },
-      environment: config.environment || 'development',
-      deployment: config.deployment || 'local',
     };
 
-    this.transportAdapter = transportAdapter;
-    this.openaiService = new OpenAIService(config.apiKey);
-    
-    // Initialize configuration system
-    this.configSystem = config.configSystem || getGlobalConfigSystem();
-    
-    // Create evaluation context for feature flags
-    this.evaluationContext = {
-      environment: this.config.environment,
-      deployment: this.config.deployment,
-      timestamp: new Date().toISOString(),
-      metadata: {
-        serverName: this.config.serverName,
-        serverVersion: this.config.serverVersion,
-      },
-    };
+    // Handle backward compatibility for constructor overloads
+    if (providerRegistryOrTransportAdapter) {
+      // Check if the second parameter is a ProviderRegistry or TransportAdapter
+      if ('getDefaultProvider' in providerRegistryOrTransportAdapter) {
+        // It's a ProviderRegistry
+        this.providerRegistry = providerRegistryOrTransportAdapter as ProviderRegistry;
+        this.transportAdapter = transportAdapter;
+      } else {
+        // It's a TransportAdapter (backward compatibility mode)
+        this.transportAdapter = providerRegistryOrTransportAdapter as TransportAdapter;
+        // Create a default provider registry for backward compatibility
+        this.providerRegistry = this.createBackwardCompatibilityRegistry(config);
+      }
+    } else {
+      // No second parameter provided (backward compatibility mode)
+      this.providerRegistry = this.createBackwardCompatibilityRegistry(config);
+    }
     
     // Initialize the handler system once (performance optimization)
     this.initializeHandlerSystem();
@@ -157,11 +145,62 @@ export class BaseMCPHandler {
   }
 
   /**
+   * Create a backward compatibility provider registry
+   * This is used when the old constructor signature is used
+   */
+  private createBackwardCompatibilityRegistry(config: SimpleMCPHandlerConfig): ProviderRegistry {
+    if (!config.apiKey) {
+      throw new MCPError(ErrorCodes.INVALID_PARAMS, 'API key is required for backward compatibility mode');
+    }
+
+    // Create a simple registry with just the OpenAI provider
+    const registryConfig = {
+      defaultProvider: 'openai',
+      providers: [
+        {
+          provider: 'openai',
+          enabled: true,
+          config: { apiKey: config.apiKey },
+        },
+      ],
+    };
+
+    const registry = new ProviderRegistry(registryConfig);
+    registry.registerFactory(openaiProviderFactory);
+    
+    // Initialize the registry synchronously for backward compatibility
+    // Note: This is not ideal but necessary for backward compatibility
+    registry.initialize().catch(error => {
+      console.error('[BaseMCPHandler] Failed to initialize backward compatibility registry:', error);
+    });
+
+    return registry;
+  }
+
+  /**
    * Initialize the handler system with performance optimizations
    */
   private initializeHandlerSystem(): void {
+    // Get the default provider from the registry
+    let provider = this.providerRegistry.getDefaultProvider();
+    let openaiService: OpenAIService;
+
+    if (!provider) {
+      // If no provider is available yet (registry not initialized), use fallback
+      console.warn('[BaseMCPHandler] No default provider available yet, using fallback OpenAI service');
+      if (this.config.apiKey) {
+        openaiService = new OpenAIService(this.config.apiKey);
+      } else {
+        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'No provider available and no API key for fallback');
+      }
+    } else {
+      // For backward compatibility, we need to extract the OpenAIService from the provider
+      // This assumes the provider is an OpenAI provider with access to the underlying service
+      openaiService = this.getOpenAIServiceFromProvider(provider);
+    }
+
     const context = {
-      openaiService: this.openaiService,
+      provider: provider || this.createFallbackProvider(openaiService),
       toolName: '',
       requestId: null
     };
@@ -186,31 +225,16 @@ export class BaseMCPHandler {
       this.toolRegistry.registerBatch(handlers);
       console.log('[BaseMCPHandler] DEBUG: Handler system setup completed');
       
-      // Validate tool count
+      // Log registered tools for debugging (dynamic count)
       const registeredTools = this.toolRegistry.getRegisteredTools();
       console.log(`[BaseMCPHandler] DEBUG: Registry returned ${registeredTools.length} tools`);
       this.log(`Registered ${registeredTools.length} tools:`, registeredTools);
       
-      if (registeredTools.length !== 22) {
-        console.error(`[BaseMCPHandler] ERROR: Expected 22 tools, got ${registeredTools.length}`);
-        console.error('[BaseMCPHandler] Registry stats:', this.toolRegistry.getStats());
-        console.error('[BaseMCPHandler] Missing tools analysis:');
-        
-        const expectedTools = [
-          'assistant-create', 'assistant-list', 'assistant-get', 'assistant-update', 'assistant-delete',
-          'thread-create', 'thread-get', 'thread-update', 'thread-delete',
-          'message-create', 'message-list', 'message-get', 'message-update', 'message-delete',
-          'run-create', 'run-list', 'run-get', 'run-update', 'run-cancel', 'run-submit-tool-outputs',
-          'run-step-list', 'run-step-get'
-        ];
-        
-        const missingTools = expectedTools.filter(tool => !registeredTools.includes(tool));
-        const extraTools = registeredTools.filter(tool => !expectedTools.includes(tool));
-        
-        console.error('[BaseMCPHandler] Missing tools:', missingTools);
-        console.error('[BaseMCPHandler] Extra tools:', extraTools);
+      // Dynamic validation - no hardcoded tool count assumption
+      if (registeredTools.length > 0) {
+        console.log(`[BaseMCPHandler] SUCCESS: ${registeredTools.length} tools registered successfully`);
       } else {
-        console.log('[BaseMCPHandler] SUCCESS: All 22 tools registered correctly');
+        console.warn('[BaseMCPHandler] WARNING: No tools were registered');
       }
     } catch (error) {
       console.error('[BaseMCPHandler] FATAL ERROR during handler system initialization:', error);
@@ -330,47 +354,23 @@ export class BaseMCPHandler {
   }
 
   /**
-   * Handle tools list requests with pagination support
+   * Handle tools list requests - returns all tools (no pagination needed)
    */
   protected async handleToolsList(request: MCPToolsListRequest): Promise<MCPToolsListResponse> {
-    this.log('Generating tool definitions with pagination...');
-    
-    // Check if tools feature is enabled
-    if (!this.isFeatureEnabled('tools')) {
-      throw new MCPError(
-        ErrorCodes.METHOD_NOT_FOUND,
-        'Tools functionality is disabled'
-      );
-    }
+    this.log('Generating tool definitions...');
     
     // Use the shared tool definition generator for consistency
     const allTools = generateToolDefinitions(this.toolRegistry);
     this.log(`Generated ${allTools.length} tool definitions`);
     
-    if (allTools.length !== 22) {
-      console.error(`[BaseMCPHandler] ERROR: Expected 22 tool definitions, got ${allTools.length}`);
-    }
-
-    // Apply pagination
-    const paginationParams = {
-      cursor: request.params?.cursor,
-      limit: PAGINATION_DEFAULTS.DEFAULT_LIMIT // Use default limit for tools
-    };
-
-    const paginationResult = paginateArray(allTools, paginationParams);
-    
-    // Log pagination metadata if enhanced logging is enabled
-    if (this.isFeatureEnabled('enhanced-logging')) {
-      const metadata = createPaginationMetadata(paginationParams, paginationResult);
-      this.log('Tools pagination:', metadata);
-    }
+    // Log tool count for debugging (no hardcoded validation)
+    this.log(`Tool definitions generated: ${allTools.length} tools available`);
 
     return {
       jsonrpc: '2.0',
       id: request.id,
       result: {
-        tools: paginationResult.items,
-        nextCursor: paginationResult.nextCursor,
+        tools: allTools,
       },
     };
   }
@@ -381,19 +381,11 @@ export class BaseMCPHandler {
   protected async handleToolsCall(request: MCPToolsCallRequest): Promise<MCPToolsCallResponse> {
     const { name, arguments: args } = request.params;
 
-    // Check if tools feature is enabled
-    if (!this.isFeatureEnabled('tools')) {
-      throw new MCPError(
-        ErrorCodes.METHOD_NOT_FOUND,
-        'Tools functionality is disabled'
-      );
-    }
-
     try {
       this.log(`Executing tool: ${name}`);
       
       // Enhanced logging for debugging if enabled
-      if (this.isFeatureEnabled('enhanced-logging')) {
+      if (this.config.debug) {
         this.log(`Tool execution details:`, {
           toolName: name,
           arguments: args,
@@ -402,9 +394,18 @@ export class BaseMCPHandler {
         });
       }
       
+      // Get the provider for this request (for now, use default provider)
+      const provider = this.providerRegistry.getDefaultProvider();
+      if (!provider) {
+        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'No default provider available');
+      }
+
+      // For backward compatibility, extract OpenAIService from provider
+      const openaiService = this.getOpenAIServiceFromProvider(provider);
+
       // Update context for this specific request (no registry recreation)
       const currentContext = {
-        openaiService: this.openaiService,
+        provider: provider,
         toolName: name,
         requestId: request.id
       };
@@ -415,8 +416,8 @@ export class BaseMCPHandler {
       // Execute the tool using the existing registry
       const result = await this.toolRegistry.execute(name, args);
 
-      // Enhanced result formatting if enabled
-      const responseText = this.isFeatureEnabled('enhanced-formatting')
+      // Enhanced result formatting if debug enabled
+      const responseText = this.config.debug
         ? JSON.stringify(result, null, 2)
         : JSON.stringify(result);
 
@@ -433,8 +434,8 @@ export class BaseMCPHandler {
         },
       };
     } catch (error) {
-      // Enhanced error reporting if enabled
-      const errorText = this.isFeatureEnabled('enhanced-error-reporting')
+      // Enhanced error reporting if debug enabled
+      const errorText = this.config.debug
         ? `Error in ${name}: ${error instanceof Error ? error.message : 'Unknown error'}\nStack: ${error instanceof Error ? error.stack : 'N/A'}`
         : `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 
@@ -460,14 +461,6 @@ export class BaseMCPHandler {
   protected async handleResourcesList(request: MCPResourcesListRequest): Promise<MCPResourcesListResponse> {
     this.log('Listing resources with pagination...');
     
-    // Check if resources feature is enabled
-    if (!this.isFeatureEnabled('resources')) {
-      throw new MCPError(
-        ErrorCodes.METHOD_NOT_FOUND,
-        'Resources functionality is disabled'
-      );
-    }
-    
     const allResources = getAllResources();
     this.log(`Found ${allResources.length} resources`);
 
@@ -479,8 +472,8 @@ export class BaseMCPHandler {
 
     const paginationResult = paginateArray(allResources, paginationParams);
     
-    // Log pagination metadata if enhanced logging is enabled
-    if (this.isFeatureEnabled('enhanced-logging')) {
+    // Log pagination metadata if debug is enabled
+    if (this.config.debug) {
       const metadata = createPaginationMetadata(paginationParams, paginationResult);
       this.log('Resources pagination:', metadata);
     }
@@ -680,18 +673,61 @@ export class BaseMCPHandler {
 
   /**
    * Update API key and reinitialize services
+   * Note: This method now works with the provider registry
    */
   updateApiKey(apiKey: string): void {
     this.config.apiKey = apiKey;
-    this.openaiService = new OpenAIService(apiKey);
+    
+    // For backward compatibility, we need to update the provider in the registry
+    // This is a simplified approach - in a full implementation, you might want to
+    // reinitialize the entire provider registry with new configuration
+    const provider = this.providerRegistry.getDefaultProvider();
+    if (provider) {
+      // Update the provider's configuration if it supports it
+      // This assumes the provider has an initialize method that can update the API key
+      provider.initialize({ apiKey }).catch(error => {
+        console.error('[BaseMCPHandler] Failed to update provider API key:', error);
+      });
+    }
+    
+    // For backward compatibility, extract OpenAIService from provider
+    const openaiService = this.getOpenAIServiceFromProvider(provider);
     
     // Update the context in the existing registry
     const context = {
-      openaiService: this.openaiService,
+      provider: provider || this.createFallbackProvider(openaiService),
       toolName: '',
       requestId: null
     };
     this.updateRegistryContext(context);
+  }
+
+  /**
+   * Helper method to extract OpenAIService from provider for backward compatibility
+   * This is a bridge method to maintain compatibility with existing tool handlers
+   */
+  private getOpenAIServiceFromProvider(provider: LLMProvider | undefined): OpenAIService {
+    if (!provider) {
+      throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'No provider available');
+    }
+
+    // For now, we assume the provider is an OpenAI provider
+    // In a full implementation, you might want to check the provider type
+    // and handle different provider types appropriately
+    
+    // Access the underlying OpenAI service from the provider
+    // This assumes the OpenAI provider exposes its internal service
+    if ((provider as any).openaiService) {
+      return (provider as any).openaiService;
+    }
+
+    // Fallback: create a new OpenAI service with the API key from config
+    // This maintains backward compatibility but doesn't fully utilize the provider system
+    if (this.config.apiKey) {
+      return new OpenAIService(this.config.apiKey);
+    }
+
+    throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'Unable to extract OpenAI service from provider');
   }
 
   /**
@@ -709,47 +745,145 @@ export class BaseMCPHandler {
   }
 
   /**
-   * Check if a feature is enabled using the feature flags system
+   * Create a fallback provider wrapper for backward compatibility
+   * This wraps an OpenAIService in a minimal LLMProvider interface
    */
-  protected isFeatureEnabled(flagName: string): boolean {
-    return this.configSystem.isFeatureEnabled(flagName, this.evaluationContext);
-  }
-
-  /**
-   * Get feature configuration
-   */
-  protected getFeatureConfig(flagName: string): any {
-    return this.configSystem.getFeatureConfig(flagName, this.evaluationContext);
-  }
-
-  /**
-   * Update evaluation context (e.g., when user context changes)
-   */
-  updateEvaluationContext(updates: Partial<EvaluationContext>): void {
-    this.evaluationContext = {
-      ...this.evaluationContext,
-      ...updates,
-      timestamp: new Date().toISOString(),
+  private createFallbackProvider(openaiService: OpenAIService): LLMProvider {
+    // Create a minimal provider wrapper that delegates to the OpenAI service
+    // This maintains backward compatibility while using the new interface
+    return {
+      metadata: {
+        name: 'openai-fallback',
+        displayName: 'OpenAI (Fallback)',
+        version: '1.0.0',
+        description: 'Fallback OpenAI provider for backward compatibility',
+        capabilities: {
+          assistants: true,
+          threads: true,
+          messages: true,
+          runs: true,
+          runSteps: true,
+          fileAttachments: true,
+          functionCalling: true,
+          codeInterpreter: true,
+          fileSearch: true,
+          streaming: false,
+        }
+      },
+      
+      async initialize(config: Record<string, any>): Promise<void> {
+        // OpenAIService is already initialized
+      },
+      
+      async validateConnection(): Promise<boolean> {
+        // For backward compatibility, assume connection is valid
+        return true;
+      },
+      
+      // Delegate all methods to the OpenAI service
+      // Note: This is a simplified implementation for backward compatibility
+      // In a full implementation, you would properly map all methods
+      
+      async createAssistant(request: any): Promise<any> {
+        return openaiService.createAssistant(request);
+      },
+      
+      async listAssistants(request?: any): Promise<any> {
+        return openaiService.listAssistants(request);
+      },
+      
+      async getAssistant(assistantId: string): Promise<any> {
+        return openaiService.getAssistant(assistantId);
+      },
+      
+      async updateAssistant(assistantId: string, request: any): Promise<any> {
+        return openaiService.updateAssistant(assistantId, request);
+      },
+      
+      async deleteAssistant(assistantId: string): Promise<any> {
+        return openaiService.deleteAssistant(assistantId);
+      },
+      
+      async createThread(request?: any): Promise<any> {
+        return openaiService.createThread(request);
+      },
+      
+      async getThread(threadId: string): Promise<any> {
+        return openaiService.getThread(threadId);
+      },
+      
+      async updateThread(threadId: string, request: any): Promise<any> {
+        return openaiService.updateThread(threadId, request);
+      },
+      
+      async deleteThread(threadId: string): Promise<any> {
+        return openaiService.deleteThread(threadId);
+      },
+      
+      async createMessage(threadId: string, request: any): Promise<any> {
+        return openaiService.createMessage(threadId, request);
+      },
+      
+      async listMessages(threadId: string, request?: any): Promise<any> {
+        return openaiService.listMessages(threadId, request);
+      },
+      
+      async getMessage(threadId: string, messageId: string): Promise<any> {
+        return openaiService.getMessage(threadId, messageId);
+      },
+      
+      async updateMessage(threadId: string, messageId: string, request: any): Promise<any> {
+        return openaiService.updateMessage(threadId, messageId, request);
+      },
+      
+      async deleteMessage(threadId: string, messageId: string): Promise<any> {
+        return openaiService.deleteMessage(threadId, messageId);
+      },
+      
+      async createRun(threadId: string, request: any): Promise<any> {
+        return openaiService.createRun(threadId, request);
+      },
+      
+      async listRuns(threadId: string, request?: any): Promise<any> {
+        return openaiService.listRuns(threadId, request);
+      },
+      
+      async getRun(threadId: string, runId: string): Promise<any> {
+        return openaiService.getRun(threadId, runId);
+      },
+      
+      async updateRun(threadId: string, runId: string, request: any): Promise<any> {
+        return openaiService.updateRun(threadId, runId, request);
+      },
+      
+      async cancelRun(threadId: string, runId: string): Promise<any> {
+        return openaiService.cancelRun(threadId, runId);
+      },
+      
+      async submitToolOutputs(threadId: string, runId: string, request: any): Promise<any> {
+        return openaiService.submitToolOutputs(threadId, runId, request);
+      },
+      
+      async listRunSteps(threadId: string, runId: string, request?: any): Promise<any> {
+        return openaiService.listRunSteps(threadId, runId, request);
+      },
+      
+      async getRunStep(threadId: string, runId: string, stepId: string): Promise<any> {
+        return openaiService.getRunStep(threadId, runId, stepId);
+      },
+      
+      async handleUnsupportedOperation(operation: string, ...args: any[]): Promise<any> {
+        throw new Error(`Unsupported operation: ${operation}`);
+      }
     };
-  }
-
-  /**
-   * Get current configuration from the configuration system
-   */
-  getCurrentConfig(): MCPServerConfig {
-    return this.configSystem.getConfiguration();
   }
 
   /**
    * Debug logging with feature flag support
    */
   protected log(message: string, ...args: any[]): void {
-    const shouldLog = this.config.debug || this.isFeatureEnabled('debug-logging');
-    if (shouldLog) {
-      const timestamp = this.isFeatureEnabled('enhanced-logging')
-        ? `[${new Date().toISOString()}] `
-        : '';
-      console.log(`${timestamp}[BaseMCPHandler] ${message}`, ...args);
+    if (this.config.debug) {
+      console.log(`[BaseMCPHandler] ${message}`, ...args);
     }
   }
 }

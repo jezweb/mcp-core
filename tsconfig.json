@@ -24,7 +24,8 @@
       "@shared/types": ["./shared/types"],
       "@shared/validation": ["./shared/validation"],
       "@shared/resources": ["./shared/resources"],
-      "@shared/services": ["./shared/services"]
+      "@shared/services": ["./shared/services"],
+      "@shared/core": ["./shared/core"]
     },
     "types": [
       "@cloudflare/workers-types",

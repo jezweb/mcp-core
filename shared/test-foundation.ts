@@ -11,41 +11,282 @@
  */
 
 import { setupHandlerSystem, SYSTEM_INFO, validateHandlerCompleteness } from './core/index.js';
-import { OpenAIService } from './services/index.js';
+import { OpenAIService } from './services/openai-service.js';
+import { LLMProvider } from './services/llm-service.js';
 
 /**
- * Mock OpenAI service for testing
+ * Mock LLM Provider for testing
  */
-class MockOpenAIService extends OpenAIService {
-  constructor() {
-    super('test-api-key');
+class MockLLMProvider implements LLMProvider {
+  readonly metadata = {
+    name: 'mock-provider',
+    displayName: 'Mock Provider',
+    version: '1.0.0',
+    description: 'Mock provider for testing',
+    capabilities: {
+      assistants: true,
+      threads: true,
+      messages: true,
+      runs: true,
+      runSteps: true,
+    }
+  };
+
+  async initialize(config: Record<string, any>): Promise<void> {
+    // Mock initialization
   }
 
-  // Override methods to return mock data instead of making real API calls
+  async validateConnection(): Promise<boolean> {
+    return true;
+  }
+
   async createAssistant(request: any): Promise<any> {
     return {
       id: 'asst_test123',
-      object: 'assistant',
-      created_at: Date.now(),
       name: request.name || 'Test Assistant',
+      description: request.description || null,
       model: request.model,
       instructions: request.instructions || null,
       tools: request.tools || [],
-      metadata: request.metadata || {}
+      metadata: request.metadata || {},
+      createdAt: new Date(),
+      providerData: {}
     };
   }
 
   async listAssistants(request: any = {}): Promise<any> {
     return {
-      object: 'list',
       data: [],
-      first_id: null,
-      last_id: null,
-      has_more: false
+      hasMore: false
     };
   }
 
-  // Add other mock methods as needed for testing
+  async getAssistant(assistantId: string): Promise<any> {
+    return {
+      id: assistantId,
+      name: 'Test Assistant',
+      description: null,
+      model: 'gpt-4',
+      instructions: null,
+      tools: [],
+      metadata: {},
+      createdAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async updateAssistant(assistantId: string, request: any): Promise<any> {
+    return {
+      id: assistantId,
+      name: request.name || 'Updated Assistant',
+      description: request.description || null,
+      model: request.model || 'gpt-4',
+      instructions: request.instructions || null,
+      tools: request.tools || [],
+      metadata: request.metadata || {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async deleteAssistant(assistantId: string): Promise<any> {
+    return { id: assistantId, deleted: true };
+  }
+
+  async createThread(request: any = {}): Promise<any> {
+    return {
+      id: 'thread_test123',
+      metadata: request.metadata || {},
+      createdAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async getThread(threadId: string): Promise<any> {
+    return {
+      id: threadId,
+      metadata: {},
+      createdAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async updateThread(threadId: string, request: any): Promise<any> {
+    return {
+      id: threadId,
+      metadata: request.metadata || {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async deleteThread(threadId: string): Promise<any> {
+    return { id: threadId, deleted: true };
+  }
+
+  async createMessage(threadId: string, request: any): Promise<any> {
+    return {
+      id: 'msg_test123',
+      threadId,
+      role: request.role,
+      content: Array.isArray(request.content) ? request.content : [{ type: 'text', text: request.content }],
+      metadata: request.metadata || {},
+      createdAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async listMessages(threadId: string, request: any = {}): Promise<any> {
+    return {
+      data: [],
+      hasMore: false
+    };
+  }
+
+  async getMessage(threadId: string, messageId: string): Promise<any> {
+    return {
+      id: messageId,
+      threadId,
+      role: 'user',
+      content: [{ type: 'text', text: 'Test message' }],
+      metadata: {},
+      createdAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async updateMessage(threadId: string, messageId: string, request: any): Promise<any> {
+    return {
+      id: messageId,
+      threadId,
+      role: 'user',
+      content: [{ type: 'text', text: 'Updated message' }],
+      metadata: request.metadata || {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async deleteMessage(threadId: string, messageId: string): Promise<any> {
+    return { id: messageId, deleted: true };
+  }
+
+  async createRun(threadId: string, request: any): Promise<any> {
+    return {
+      id: 'run_test123',
+      threadId,
+      assistantId: request.assistantId,
+      status: 'completed',
+      model: request.model || 'gpt-4',
+      instructions: request.instructions || '',
+      tools: request.tools || [],
+      metadata: request.metadata || {},
+      createdAt: new Date(),
+      completedAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async listRuns(threadId: string, request: any = {}): Promise<any> {
+    return {
+      data: [],
+      hasMore: false
+    };
+  }
+
+  async getRun(threadId: string, runId: string): Promise<any> {
+    return {
+      id: runId,
+      threadId,
+      assistantId: 'asst_test123',
+      status: 'completed',
+      model: 'gpt-4',
+      instructions: '',
+      tools: [],
+      metadata: {},
+      createdAt: new Date(),
+      completedAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async updateRun(threadId: string, runId: string, request: any): Promise<any> {
+    return {
+      id: runId,
+      threadId,
+      assistantId: 'asst_test123',
+      status: 'completed',
+      model: 'gpt-4',
+      instructions: '',
+      tools: [],
+      metadata: request.metadata || {},
+      createdAt: new Date(),
+      completedAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async cancelRun(threadId: string, runId: string): Promise<any> {
+    return {
+      id: runId,
+      threadId,
+      assistantId: 'asst_test123',
+      status: 'cancelled',
+      model: 'gpt-4',
+      instructions: '',
+      tools: [],
+      metadata: {},
+      createdAt: new Date(),
+      cancelledAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async submitToolOutputs(threadId: string, runId: string, request: any): Promise<any> {
+    return {
+      id: runId,
+      threadId,
+      assistantId: 'asst_test123',
+      status: 'completed',
+      model: 'gpt-4',
+      instructions: '',
+      tools: [],
+      metadata: {},
+      createdAt: new Date(),
+      completedAt: new Date(),
+      providerData: {}
+    };
+  }
+
+  async listRunSteps(threadId: string, runId: string, request: any = {}): Promise<any> {
+    return {
+      data: [],
+      hasMore: false
+    };
+  }
+
+  async getRunStep(threadId: string, runId: string, stepId: string): Promise<any> {
+    return {
+      id: stepId,
+      runId,
+      threadId,
+      assistantId: 'asst_test123',
+      type: 'message_creation',
+      status: 'completed',
+      stepDetails: {},
+      createdAt: new Date(),
+      completedAt: new Date(),
+      metadata: {},
+      providerData: {}
+    };
+  }
+
+  async handleUnsupportedOperation(operation: string, ...args: any[]): Promise<any> {
+    throw new Error(`Unsupported operation: ${operation}`);
+  }
 }
 
 /**
@@ -57,9 +298,9 @@ async function testFoundation(): Promise<void> {
 
   try {
     // Step 1: Create mock context
-    const mockOpenAIService = new MockOpenAIService();
+    const mockProvider = new MockLLMProvider();
     const context = {
-      openaiService: mockOpenAIService,
+      provider: mockProvider,
       toolName: 'test',
       requestId: 'test-123'
     };

@@ -17,6 +17,10 @@ import {
   validateOpenAIId,
   validateMetadata
 } from '../../validation/index.js';
+import {
+  GenericCreateThreadRequest,
+  GenericUpdateThreadRequest
+} from '../../services/llm-service.js';
 
 /**
  * Handler for creating new threads
@@ -44,7 +48,13 @@ export class ThreadCreateHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.createThread(args || {});
+      // Use generic request type
+      const genericRequest: GenericCreateThreadRequest = {
+        messages: args?.messages,
+        metadata: args?.metadata,
+        providerOptions: args?.providerOptions
+      };
+      return await this.context.provider.createThread(genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to create thread: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -72,7 +82,7 @@ export class ThreadGetHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.getThread(args.thread_id);
+      return await this.context.provider.getThread(args.thread_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to get thread: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -117,7 +127,12 @@ export class ThreadUpdateHandler extends BaseToolHandler {
   async execute(args: any): Promise<any> {
     try {
       const { thread_id, ...updateData } = args;
-      return await this.context.openaiService.updateThread(thread_id, updateData);
+      // Use generic request type
+      const genericRequest: GenericUpdateThreadRequest = {
+        metadata: updateData.metadata,
+        providerOptions: updateData.providerOptions
+      };
+      return await this.context.provider.updateThread(thread_id, genericRequest);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to update thread: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -145,7 +160,7 @@ export class ThreadDeleteHandler extends BaseToolHandler {
 
   async execute(args: any): Promise<any> {
     try {
-      return await this.context.openaiService.deleteThread(args.thread_id);
+      return await this.context.provider.deleteThread(args.thread_id);
     } catch (error) {
       throw this.createExecutionError(
         `Failed to delete thread: ${error instanceof Error ? error.message : 'Unknown error'}`,

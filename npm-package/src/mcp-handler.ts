@@ -1,15 +1,17 @@
 /**
- * NPM Package MCP Handler - Direct Mode Only
- * 
- * This handler uses the shared BaseMCPHandler architecture with direct OpenAI API calls
- * via the StdioTransportAdapter. The previous proxy mode has been eliminated to improve
- * reliability, performance, and maintainability.
- * 
- * Key improvements:
- * - Eliminates proxy mode fragility and network dependencies
- * - Uses direct OpenAI API calls for better performance
- * - Leverages shared core components for consistency
- * - Simplified architecture with fewer failure points
+ * NPM Package MCP Handler - Modern ESM Implementation
+ *
+ * This handler uses the shared BaseMCPHandler architecture with the SimpleMCPHandlerConfig
+ * interface for streamlined configuration. It loads configuration from environment variables
+ * using dotenv and provides a clean, modern interface for MCP protocol handling.
+ *
+ * Key features:
+ * - Uses SimpleMCPHandlerConfig for simplified configuration
+ * - Automatic .env file loading via dotenv
+ * - Direct OpenAI API integration via BaseMCPHandler
+ * - Modern ESM module structure
+ * - Simplified error handling and JSON-RPC compliance
+ * - Integrated provider registry system
  */
 
 import {
@@ -18,22 +20,23 @@ import {
   MCPError,
   ErrorCodes,
   createStandardErrorResponse
-} from '@shared/types';
+} from '../../shared/types/index.js';
 import {
   BaseMCPHandler,
-  BaseMCPHandlerConfig,
-  StdioTransportAdapter
-} from '../../shared/core/index.js';
+  SimpleMCPHandlerConfig
+} from '../../shared/core/base-mcp-handler.js';
+import { ProviderRegistry, ProviderRegistryConfig } from '../../shared/services/provider-registry.js';
+import { openaiProviderFactory } from '../../shared/services/providers/openai.js';
 
 /**
- * Enhanced MCP Handler for NPM Package - Direct Mode Only
- * 
- * This class extends the shared BaseMCPHandler and uses the StdioTransportAdapter
- * for direct OpenAI API communication. All proxy mode logic has been removed.
+ * Modern MCP Handler for NPM Package
+ *
+ * This class provides a simplified interface to the BaseMCPHandler using
+ * the SimpleMCPHandlerConfig interface and environment-based configuration.
  */
 export class MCPHandler {
   private baseMCPHandler: BaseMCPHandler;
-  private stdioAdapter: StdioTransportAdapter;
+  private config: SimpleMCPHandlerConfig;
 
   constructor(apiKey: string) {
     // Validate API key
@@ -41,15 +44,12 @@ export class MCPHandler {
       throw new Error('API key is required and cannot be empty');
     }
 
-    // Create stdio transport adapter for direct mode
-    this.stdioAdapter = new StdioTransportAdapter();
-    
-    // Configure the base MCP handler for direct mode
-    const config: BaseMCPHandlerConfig = {
+    // Create simplified configuration using environment variables
+    this.config = {
       apiKey: apiKey,
-      serverName: 'openai-assistants-mcp',
-      serverVersion: '2.2.4',
-      debug: process.env.DEBUG === 'true',
+      serverName: process.env.MCP_SERVER_NAME || 'openai-assistants-mcp',
+      serverVersion: process.env.MCP_SERVER_VERSION || '3.0.1',
+      debug: process.env.DEBUG === 'true' || process.env.MCP_DEBUG === 'true',
       capabilities: {
         tools: { listChanged: false },
         resources: { subscribe: false, listChanged: false },
@@ -58,12 +58,110 @@ export class MCPHandler {
       },
     };
 
-    // Initialize the base handler with stdio transport adapter
-    this.baseMCPHandler = new BaseMCPHandler(config, this.stdioAdapter);
+    // Create and initialize provider registry
+    const providerRegistry = MCPHandler.createProviderRegistry(apiKey);
+
+    // Initialize the base handler with provider registry
+    this.baseMCPHandler = new BaseMCPHandler(this.config, providerRegistry);
   }
 
   /**
-   * Handle incoming MCP requests using direct mode only
+   * Create and initialize the provider registry synchronously
+   * This creates the registry and registers the factory, but doesn't initialize providers yet
+   */
+  private static createProviderRegistry(apiKey: string): ProviderRegistry {
+    // Create Provider Registry Config (MVP)
+    const registryConfig: ProviderRegistryConfig = {
+      defaultProvider: 'openai',
+      providers: [
+        {
+          provider: 'openai',
+          enabled: true,
+          config: { apiKey: apiKey },
+        },
+      ],
+      // MVP: Advanced features removed - implement later
+      // // Use environment variables for optional settings with defaults
+      // enableHealthChecks: process.env.ENABLE_HEALTH_CHECKS !== 'false', // Default to true
+      // healthCheckInterval: parseInt(process.env.HEALTH_CHECK_INTERVAL || '60000'), // Default 1 minute
+      // maxRetryAttempts: parseInt(process.env.MAX_RETRY_ATTEMPTS || '3'),
+      // retryDelay: parseInt(process.env.RETRY_DELAY || '5000'), // Default 5 seconds
+    };
+
+    // Initialize the registry
+    const providerRegistry = new ProviderRegistry(registryConfig);
+    providerRegistry.registerFactory(openaiProviderFactory);
+    
+    // Initialize the registry asynchronously in the background
+    // This is a fire-and-forget operation for backward compatibility
+    setTimeout(async () => {
+      try {
+        await providerRegistry.initialize();
+        console.log('[MCPHandler] Provider registry initialized successfully');
+      } catch (error) {
+        console.error('[MCPHandler] Failed to initialize provider registry:', error);
+      }
+    }, 0);
+
+    return providerRegistry;
+  }
+
+  /**
+   * Static factory method for proper async initialization
+   * Use this method instead of the constructor when you need to ensure
+   * the provider registry is fully initialized before use
+   */
+  static async create(apiKey: string): Promise<MCPHandler> {
+    // Validate API key
+    if (!apiKey || apiKey.trim().length === 0) {
+      throw new Error('API key is required and cannot be empty');
+    }
+
+    // Create simplified configuration using environment variables
+    const config: SimpleMCPHandlerConfig = {
+      apiKey: apiKey,
+      serverName: process.env.MCP_SERVER_NAME || 'jezweb-mcp-core',
+      serverVersion: process.env.MCP_SERVER_VERSION || '3.0.1',
+      debug: process.env.DEBUG === 'true' || process.env.MCP_DEBUG === 'true',
+      capabilities: {
+        tools: { listChanged: false },
+        resources: { subscribe: false, listChanged: false },
+        prompts: { listChanged: false },
+        completions: {},
+      },
+    };
+
+    // Create Provider Registry Config (MVP)
+    const registryConfig: ProviderRegistryConfig = {
+      defaultProvider: 'openai',
+      providers: [
+        {
+          provider: 'openai',
+          enabled: true,
+          config: { apiKey: apiKey },
+        },
+      ],
+      // MVP: Advanced features removed - implement later
+      // enableHealthChecks: process.env.ENABLE_HEALTH_CHECKS !== 'false', // Default to true
+      // healthCheckInterval: parseInt(process.env.HEALTH_CHECK_INTERVAL || '60000'), // Default 1 minute
+      // maxRetryAttempts: parseInt(process.env.MAX_RETRY_ATTEMPTS || '3'),
+      // retryDelay: parseInt(process.env.RETRY_DELAY || '5000'), // Default 5 seconds
+    };
+
+    // Initialize the registry
+    const providerRegistry = new ProviderRegistry(registryConfig);
+    providerRegistry.registerFactory(openaiProviderFactory);
+    await providerRegistry.initialize(); // Properly await initialization
+
+    // Create handler instance with initialized registry
+    const handler = Object.create(MCPHandler.prototype);
+    handler.config = config;
+    handler.baseMCPHandler = new BaseMCPHandler(config, providerRegistry);
+    return handler;
+  }
+
+  /**
+   * Handle incoming MCP requests using the shared BaseMCPHandler
    */
   async handleRequest(request: JsonRpcRequest): Promise<JsonRpcResponse> {
     try {
@@ -81,7 +179,7 @@ export class MCPHandler {
         );
       }
 
-      // Use the shared base handler for all requests (direct mode only)
+      // Delegate to the shared base handler
       return await this.baseMCPHandler.handleRequest(request);
     } catch (error) {
       return createStandardErrorResponse(
@@ -121,6 +219,14 @@ export class MCPHandler {
   updateApiKey(apiKey: string): void {
     if (this.baseMCPHandler) {
       this.baseMCPHandler.updateApiKey(apiKey);
+      this.config.apiKey = apiKey;
     }
+  }
+
+  /**
+   * Get current configuration (for debugging)
+   */
+  getConfig(): SimpleMCPHandlerConfig {
+    return { ...this.config };
   }
 }

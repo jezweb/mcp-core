@@ -9,7 +9,6 @@
 import {
   MCPError,
   ErrorCodes,
-  OpenAIService,
   validateModel,
   getAllResources,
   Assistant,
@@ -17,6 +16,9 @@ import {
   Message,
   Run
 } from './index.js';
+
+// Import OpenAIService directly for testing (not part of public API)
+import { OpenAIService } from './services/openai-service.js';
 
 // Test importing from specific modules
 import type { ValidationResult } from './validation/index.js';
@@ -46,9 +48,9 @@ function testSharedLibraries(): void {
   const templateContent = getResourceContent('assistant://templates/coding-assistant');
   console.log('Template content available:', !!templateContent);
   
-  // Test service instantiation
+  // Test service instantiation (internal testing only)
   const service = new OpenAIService('test-key');
-  console.log('OpenAI service created:', !!service);
+  console.log('OpenAI service created (internal test):', !!service);
   
   console.log('✅ All shared library imports working correctly!');
 }
