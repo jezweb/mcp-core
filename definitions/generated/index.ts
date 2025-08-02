@@ -4,7 +4,7 @@
  * This file is auto-generated from JSON definitions (tools, prompts, resources).
  * Do not edit manually - changes will be overwritten.
  * 
- * Generated at: 2025-08-02T08:39:28.659Z
+ * Generated at: 2025-08-02T09:09:17.230Z
  */
 
 // Re-export backward compatibility layers
@@ -34,5 +34,5 @@ export const DEFINITIONS_METADATA = {
     categories: ["templates","documentation","examples"],
     items: ["assistant://templates/coding-assistant","assistant://templates/data-analyst","assistant://templates/customer-support","docs://openai-assistants-api","docs://best-practices","docs://troubleshooting/common-issues","examples://workflows/basic-workflow","examples://workflows/advanced-workflow","examples://workflows/batch-processing"]
   },
-  generatedAt: '2025-08-02T08:39:28.659Z'
+  generatedAt: '2025-08-02T09:09:17.230Z'
 };

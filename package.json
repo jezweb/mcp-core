@@ -1,6 +1,6 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "description": "Jezweb MCP Core v3.0 - Adaptable, provider-agnostic MCP server with unified 'Shared Core with Thin Adapters' architecture. Features multi-provider support (OpenAI, Anthropic, Google), simple environment-first configuration, comprehensive testing infrastructure, and seamless deployment across Cloudflare Workers and NPM with 100% backward compatibility.",
   "main": "dist/worker.js",
   "type": "module",
@@ -13,7 +13,13 @@
     "deploy:staging": "tsc && wrangler deploy --env staging",
     "deploy:production": "tsc && wrangler deploy --env production",
     "type-check": "tsc --noEmit",
-    "test": "node test/run-all-tests.js",
+    "test": "vitest run",
+    "test:unit": "vitest run test/unit",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:debug": "vitest --inspect-brk",
+    "test:legacy": "node test/run-all-tests.js",
     "test:all": "node test/run-all-tests.js",
     "test:integration": "node test/integration/comprehensive-integration-test.js",
     "test:error-handling": "node test/error-handling/error-handling-tests.js",
@@ -26,9 +32,6 @@
     "test:core": "node test/run-all-tests.js --core-only",
     "test:quick": "node test/run-all-tests.js --integration-only",
     "test:ci": "node test/run-all-tests.js --skip-performance",
-    "test:watch": "nodemon --exec 'npm test' --watch test/ --watch src/",
-    "test:coverage": "c8 npm test",
-    "test:debug": "node --inspect-brk test/run-all-tests.js",
     "definitions:validate": "node definitions/scripts/validate.js",
     "definitions:build": "node definitions/scripts/build.js",
     "definitions:watch": "nodemon --exec \"npm run definitions:build\" --watch definitions/ --ext json",
@@ -87,8 +90,10 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",
     "@types/node": "^22.10.2",
+    "@vitest/ui": "^3.2.4",
     "typescript": "^5.7.2",
-    "wrangler": "^3.95.0"
+    "vitest": "^3.2.4",
+    "wrangler": "^4.27.0"
   },
   "engines": {
     "node": ">=18.0.0"

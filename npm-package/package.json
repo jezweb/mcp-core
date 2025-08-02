@@ -1,6 +1,6 @@
 {
   "name": "openai-assistants-mcp",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "description": "OpenAI Assistants MCP Server - A Model Context Protocol server providing OpenAI Assistants API tools and resources. Features comprehensive assistant management, thread operations, message handling, and run execution with seamless stdio transport for Claude Desktop and other MCP clients.",
   "main": "dist/npm-package/src/index.js",
   "type": "module",
