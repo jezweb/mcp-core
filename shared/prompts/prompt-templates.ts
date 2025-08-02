@@ -4,7 +4,7 @@
  * This file is auto-generated from the hybrid modular architecture.
  * Do not edit manually - changes will be overwritten.
  *
- * Generated at: 2025-07-31T05:43:46.950Z
+ * Generated at: 2025-08-02T08:29:03.289Z
  * Source: definitions/prompts/
  */
 

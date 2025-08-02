@@ -4,11 +4,11 @@
  * This file is auto-generated from JSON tools definitions.
  * Do not edit manually - changes will be overwritten.
  * 
- * Generated at: 2025-07-31T05:43:46.938Z
+ * Generated at: 2025-08-02T08:29:03.277Z
  */
 
 export interface AssistantCreateParams {
-  /** The OpenAI model to use for the assistant (e.g., "gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"). Choose gpt-4 for complex reasoning, gpt-3.5-turbo for faster responses, or gpt-4-turbo for balanced performance. */
+  /** The AI model to use for the assistant (e.g., "gpt-4", "gpt-3.5-turbo", "claude-3-sonnet"). Choose based on your provider's available models and performance requirements. */
   model: string;
   /** A descriptive name for the assistant (e.g., "Customer Support Bot", "Code Review Assistant", "Content Writer"). This helps identify the assistant's purpose. */
   name?: string;
@@ -18,6 +18,8 @@ export interface AssistantCreateParams {
   instructions?: string;
   /** Array of tools to enable for the assistant. Available tools: code_interpreter (for running Python code), file_search (for searching uploaded files), function (for custom API calls). */
   tools?: Record<string, any>[];
+  /** Resources for tools like file_search vector stores and code_interpreter files. Must match the tools specified in the tools array. */
+  tool_resources?: Record<string, any>;
   /** Custom key-value pairs for storing additional information about the assistant (e.g., {"department": "support", "version": "1.0", "created_by": "admin"}). */
   metadata?: Record<string, any>;
 }
@@ -41,7 +43,7 @@ export interface AssistantGetParams {
 export interface AssistantUpdateParams {
   /** The unique identifier of the assistant to update (format: "asst_abc123..."). */
   assistant_id: string;
-  /** The OpenAI model to use for the assistant (e.g., "gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"). Leave unchanged if not specified. */
+  /** The AI model to use for the assistant (e.g., "gpt-4", "gpt-3.5-turbo", "claude-3-sonnet"). Choose based on your provider's available models. Leave unchanged if not specified. */
   model?: string;
   /** New name for the assistant. Leave unchanged if not specified. */
   name?: string;
@@ -51,6 +53,8 @@ export interface AssistantUpdateParams {
   instructions?: string;
   /** New array of tools to enable for the assistant. Replaces existing tools if specified. */
   tools?: Record<string, any>[];
+  /** Resources for tools like file_search vector stores and code_interpreter files. Must match the tools specified in the tools array. */
+  tool_resources?: Record<string, any>;
   /** New metadata key-value pairs. Replaces existing metadata if specified. */
   metadata?: Record<string, any>;
 }

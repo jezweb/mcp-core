@@ -4,7 +4,7 @@
  * This file is auto-generated from JSON prompts definitions.
  * Do not edit manually - changes will be overwritten.
  * 
- * Generated at: 2025-07-31T05:43:46.948Z
+ * Generated at: 2025-08-02T08:29:03.287Z
  */
 
 export interface CreateCodingAssistantPrompt {

@@ -1,0 +1,20 @@
+{
+  "$schema": "../../schemas/resource-schema.json",
+  "uri": "examples://workflows/basic-workflow",
+  "name": "Basic Workflow Example",
+  "description": "Simple step-by-step workflow demonstrating basic assistant operations with thread creation, message handling, and run execution",
+  "mimeType": "text/markdown",
+  "category": "examples",
+  "tags": ["workflow", "basic", "tutorial", "getting-started", "assistant", "thread", "message", "run"],
+  "contentType": "markdown",
+  "content": "# Basic Workflow Example\n\nThis example demonstrates a simple workflow for getting started with AI Provider Assistants.\n\n## Step 1: Create an Assistant\n```json\n{\n  \"tool\": \"assistant-create\",\n  \"arguments\": {\n    \"model\": \"gpt-3.5-turbo\",\n    \"name\": \"My First Assistant\",\n    \"description\": \"A helpful assistant for general questions and tasks\",\n    \"instructions\": \"You are a helpful assistant. Provide clear, concise answers and be friendly in your responses.\"\n  }\n}\n```\n\n## Step 2: Create a Conversation Thread\n```json\n{\n  \"tool\": \"thread-create\",\n  \"arguments\": {\n    \"metadata\": {\n      \"user_id\": \"user_123\",\n      \"session_type\": \"general\",\n      \"created_at\": \"2025-01-31T12:00:00Z\"\n    }\n  }\n}\n```\n\n## Step 3: Add a Message\n```json\n{\n  \"tool\": \"message-create\",\n  \"arguments\": {\n    \"thread_id\": \"thread_abc123\",\n    \"role\": \"user\",\n    \"content\": \"Hello! Can you help me understand how AI assistants work?\"\n  }\n}\n```\n\n## Step 4: Run the Assistant\n```json\n{\n  \"tool\": \"run-create\",\n  \"arguments\": {\n    \"thread_id\": \"thread_abc123\",\n    \"assistant_id\": \"asst_def456\",\n    \"instructions\": \"Please provide a helpful and educational response.\"\n  }\n}\n```\n\n## Step 5: Check Run Status\n```json\n{\n  \"tool\": \"run-get\",\n  \"arguments\": {\n    \"thread_id\": \"thread_abc123\",\n    \"run_id\": \"run_ghi789\"\n  }\n}\n```\n\n## Step 6: Retrieve Messages\n```json\n{\n  \"tool\": \"message-list\",\n  \"arguments\": {\n    \"thread_id\": \"thread_abc123\",\n    \"order\": \"asc\"\n  }\n}\n```\n\n## Best Practices for Basic Workflows\n\n1. **Start Simple**: Begin with basic assistants using `gpt-3.5-turbo` for cost efficiency\n2. **Use Metadata**: Add meaningful metadata to threads for organization\n3. **Monitor Runs**: Always check run status before proceeding\n4. **Handle Errors**: Implement proper error handling for API calls\n5. **Clean Up**: Delete unused threads and assistants to manage resources\n\n## Common Use Cases\n\n- **Q&A Sessions**: Simple question-and-answer interactions\n- **Content Generation**: Basic content creation tasks\n- **Information Retrieval**: Answering questions about specific topics\n- **Learning**: Educational conversations and explanations",
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Jezweb MCP Core Team",
+    "lastModified": "2025-01-31T12:00:00.000Z",
+    "usage": "workflow-example",
+    "size": 2048,
+    "difficulty": "beginner",
+    "estimatedTime": "5-10 minutes"
+  }
+}

@@ -4,7 +4,7 @@
  * This file is auto-generated from the hybrid modular architecture.
  * Do not edit manually - changes will be overwritten.
  * 
- * Generated at: 2025-07-31T05:43:46.942Z
+ * Generated at: 2025-08-02T08:29:03.281Z
  * Source: definitions/tools/
  */
 
@@ -25,7 +25,7 @@ const TOOL_DEFINITIONS: Record<string, Omit<MCPTool, 'name'>> = {
       "properties": {
         "model": {
           "type": "string",
-          "description": "The OpenAI model to use for the assistant (e.g., \"gpt-4\", \"gpt-3.5-turbo\", \"gpt-4-turbo\"). Choose gpt-4 for complex reasoning, gpt-3.5-turbo for faster responses, or gpt-4-turbo for balanced performance."
+          "description": "The AI model to use for the assistant (e.g., \"gpt-4\", \"gpt-3.5-turbo\", \"claude-3-sonnet\"). Choose based on your provider's available models and performance requirements."
         },
         "name": {
           "type": "string",
@@ -53,6 +53,44 @@ const TOOL_DEFINITIONS: Record<string, Omit<MCPTool, 'name'>> = {
                   "function"
                 ]
               }
+            }
+          }
+        },
+        "tool_resources": {
+          "type": "object",
+          "description": "Resources for tools like file_search vector stores and code_interpreter files. Must match the tools specified in the tools array.",
+          "properties": {
+            "file_search": {
+              "type": "object",
+              "description": "Resources for file_search tool",
+              "properties": {
+                "vector_store_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of vector store IDs for file search (e.g., [\"vs_6885cd2c21e0819196770bf8eceddffc\"]). Vector stores must be created separately."
+                }
+              },
+              "required": [
+                "vector_store_ids"
+              ]
+            },
+            "code_interpreter": {
+              "type": "object",
+              "description": "Resources for code_interpreter tool",
+              "properties": {
+                "file_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of file IDs for code interpreter (e.g., [\"file-abc123def456ghi789jkl012\"]). Files must be uploaded separately."
+                }
+              },
+              "required": [
+                "file_ids"
+              ]
             }
           }
         },
@@ -125,7 +163,7 @@ const TOOL_DEFINITIONS: Record<string, Omit<MCPTool, 'name'>> = {
         },
         "model": {
           "type": "string",
-          "description": "The OpenAI model to use for the assistant (e.g., \"gpt-4\", \"gpt-3.5-turbo\", \"gpt-4-turbo\"). Leave unchanged if not specified."
+          "description": "The AI model to use for the assistant (e.g., \"gpt-4\", \"gpt-3.5-turbo\", \"claude-3-sonnet\"). Choose based on your provider's available models. Leave unchanged if not specified."
         },
         "name": {
           "type": "string",
@@ -153,6 +191,44 @@ const TOOL_DEFINITIONS: Record<string, Omit<MCPTool, 'name'>> = {
                   "function"
                 ]
               }
+            }
+          }
+        },
+        "tool_resources": {
+          "type": "object",
+          "description": "Resources for tools like file_search vector stores and code_interpreter files. Must match the tools specified in the tools array.",
+          "properties": {
+            "file_search": {
+              "type": "object",
+              "description": "Resources for file_search tool",
+              "properties": {
+                "vector_store_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of vector store IDs for file search (e.g., [\"vs_6885cd2c21e0819196770bf8eceddffc\"]). Vector stores must be created separately."
+                }
+              },
+              "required": [
+                "vector_store_ids"
+              ]
+            },
+            "code_interpreter": {
+              "type": "object",
+              "description": "Resources for code_interpreter tool",
+              "properties": {
+                "file_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of file IDs for code interpreter (e.g., [\"file-abc123def456ghi789jkl012\"]). Files must be uploaded separately."
+                }
+              },
+              "required": [
+                "file_ids"
+              ]
             }
           }
         },
