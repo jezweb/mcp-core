@@ -12,6 +12,16 @@ build/
 .vercel/
 .netlify/
 
+# Build artifacts
+*.js
+*.cjs
+!*.config.js
+!scripts/**/*.js
+!examples/**/*.js
+
+# NPM package build outputs
+npm-package/dist/
+
 # Cloudflare Workers
 .wrangler/
 wrangler.toml.bak

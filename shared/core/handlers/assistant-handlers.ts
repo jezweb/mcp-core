@@ -52,6 +52,7 @@ export class AssistantCreateHandler extends BaseToolHandler {
         description: args.description,
         instructions: args.instructions,
         tools: args.tools,
+        tool_resources: args.tool_resources,
         metadata: args.metadata,
         providerOptions: args.providerOptions
       };
@@ -178,6 +179,7 @@ export class AssistantUpdateHandler extends BaseToolHandler {
         description: updateData.description,
         instructions: updateData.instructions,
         tools: updateData.tools,
+        tool_resources: updateData.tool_resources,
         metadata: updateData.metadata,
         providerOptions: updateData.providerOptions
       };

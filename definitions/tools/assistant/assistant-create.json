@@ -36,6 +36,40 @@
           }
         }
       },
+      "tool_resources": {
+        "type": "object",
+        "description": "Resources for tools like file_search vector stores and code_interpreter files. Must match the tools specified in the tools array.",
+        "properties": {
+          "file_search": {
+            "type": "object",
+            "description": "Resources for file_search tool",
+            "properties": {
+              "vector_store_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Array of vector store IDs for file search (e.g., [\"vs_6885cd2c21e0819196770bf8eceddffc\"]). Vector stores must be created separately."
+              }
+            },
+            "required": ["vector_store_ids"]
+          },
+          "code_interpreter": {
+            "type": "object",
+            "description": "Resources for code_interpreter tool",
+            "properties": {
+              "file_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Array of file IDs for code interpreter (e.g., [\"file-abc123def456ghi789jkl012\"]). Files must be uploaded separately."
+              }
+            },
+            "required": ["file_ids"]
+          }
+        }
+      },
       "metadata": {
         "type": "object",
         "description": "Custom key-value pairs for storing additional information about the assistant (e.g., {\"department\": \"support\", \"version\": \"1.0\", \"created_by\": \"admin\"})."

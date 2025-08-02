@@ -109,6 +109,7 @@ export class OpenAIProvider implements LLMProvider {
       maxContextLength: 128000, // GPT-4 context length
       supportedModels: [
         'gpt-4',
+        'gpt-4o',
         'gpt-4-turbo',
         'gpt-4-turbo-preview',
         'gpt-3.5-turbo',
@@ -183,6 +184,10 @@ export class OpenAIProvider implements LLMProvider {
   async createAssistant(request: GenericCreateAssistantRequest): Promise<GenericAssistant> {
     try {
       const openaiRequest = mapGenericToOpenAICreateAssistantRequest(request);
+      // Ensure tool_resources is passed through
+      if (request.tool_resources) {
+        openaiRequest.tool_resources = request.tool_resources;
+      }
       const openaiAssistant = await this.openaiService.createAssistant(openaiRequest);
       return mapOpenAIToGenericAssistant(openaiAssistant);
     } catch (error) {
@@ -225,6 +230,7 @@ export class OpenAIProvider implements LLMProvider {
           type: tool.type as 'code_interpreter' | 'file_search' | 'function',
           function: tool.function,
         })),
+        tool_resources: request.tool_resources,
         metadata: request.metadata,
       };
       const openaiAssistant = await this.openaiService.updateAssistant(assistantId, openaiRequest);

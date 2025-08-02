@@ -219,6 +219,14 @@ export interface GenericCreateAssistantRequest {
   description?: string;
   instructions?: string;
   tools?: GenericTool[];
+  tool_resources?: {
+    file_search?: {
+      vector_store_ids: string[];
+    };
+    code_interpreter?: {
+      file_ids: string[];
+    };
+  };
   metadata?: Record<string, any>;
   /** Provider-specific options */
   providerOptions?: any;
@@ -230,6 +238,14 @@ export interface GenericUpdateAssistantRequest {
   description?: string;
   instructions?: string;
   tools?: GenericTool[];
+  tool_resources?: {
+    file_search?: {
+      vector_store_ids: string[];
+    };
+    code_interpreter?: {
+      file_ids: string[];
+    };
+  };
   metadata?: Record<string, any>;
   /** Provider-specific options */
   providerOptions?: any;

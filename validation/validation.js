@@ -11,6 +11,7 @@ import { MCPError, ErrorCodes } from '../types/index.js';
 // Supported OpenAI models
 export const SUPPORTED_MODELS = [
     'gpt-4',
+    'gpt-4o',
     'gpt-4-turbo',
     'gpt-4-turbo-preview',
     'gpt-4-0125-preview',
@@ -63,7 +64,7 @@ export function validateModel(model, paramName = 'model') {
     if (!model) {
         return {
             isValid: false,
-            error: new MCPError(ErrorCodes.INVALID_PARAMS, `Required parameter '${paramName}' is missing. Specify a supported model like 'gpt-4', 'gpt-4-turbo', or 'gpt-3.5-turbo'. See docs://openai-assistants-api for the complete list of supported models.`)
+            error: new MCPError(ErrorCodes.INVALID_PARAMS, `Required parameter '${paramName}' is missing. Specify a supported model like 'gpt-4', 'gpt-4o', 'gpt-4-turbo', or 'gpt-3.5-turbo'. See docs://openai-assistants-api for the complete list of supported models.`)
         };
     }
     if (typeof model !== 'string') {
