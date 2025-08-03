@@ -121,6 +121,17 @@ export class CloudflareMCPHandler extends BaseMCPHandler {
           enabled: true,
           config: { apiKey: env.OPENAI_API_KEY },
         },
+        // Register additional providers if their API keys are available
+        ...(env.ANTHROPIC_API_KEY ? [{
+          provider: 'anthropic',
+          enabled: true,
+          config: { apiKey: env.ANTHROPIC_API_KEY },
+        }] : []),
+        ...(env.GOOGLE_API_KEY ? [{
+          provider: 'gemini',
+          enabled: true,
+          config: { apiKey: env.GOOGLE_API_KEY },
+        }] : []),
       ],
       // MVP: Advanced features removed - implement later
       // enableHealthChecks: true,
@@ -132,6 +143,26 @@ export class CloudflareMCPHandler extends BaseMCPHandler {
     // Initialize the registry
     const providerRegistry = new ProviderRegistry(registryConfig);
     providerRegistry.registerFactory(openaiProviderFactory);
+    
+    // Dynamically import and register additional providers if they're available
+    try {
+      // Try to import Gemini provider
+      const geminiModule = await import('../shared/services/providers/gemini.js');
+      providerRegistry.registerFactory(geminiModule.geminiProviderFactory);
+    } catch (error) {
+      // Gemini provider not available, that's OK
+      console.warn('[CloudflareMCPHandler] Could not load Gemini provider:', (error as Error).message || String(error));
+    }
+    
+    try {
+      // Try to import Anthropic provider
+      const anthropicModule = await import('../shared/services/providers/anthropic.js');
+      providerRegistry.registerFactory(anthropicModule.anthropicProviderFactory);
+    } catch (error) {
+      // Anthropic provider not available, that's OK
+      console.warn('[CloudflareMCPHandler] Could not load Anthropic provider:', (error as Error).message || String(error));
+    }
+    
     await providerRegistry.initialize(); // Properly await initialization
 
     // Create handler instance with initialized registry
@@ -146,8 +177,13 @@ export class CloudflareMCPHandler extends BaseMCPHandler {
   /**
    * Handle MCP request with Cloudflare-specific optimizations
    */
-  async handleMCPRequest(request: MCPRequest): Promise<MCPResponse> {
+  async handleMCPRequest(request: MCPRequest, provider?: string): Promise<MCPResponse> {
     try {
+      // If a provider is specified, add it to the request context
+      if (provider) {
+        (request as any).provider = provider;
+      }
+      
       // Use the base handler's request processing
       return await this.handleRequest(request);
     } catch (error) {

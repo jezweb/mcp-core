@@ -20,6 +20,7 @@ import { logger } from 'hono/logger';
 import { CloudflareMCPHandler } from './mcp-handler.js';
 import { Env } from '../shared/types/cloudflare-types.js';
 import { MCPRequest, MCPResponse } from '../shared/types/index.js';
+import { parseProviderFromPath, isSupportedProvider, isValidProviderFormat } from '../shared/core/url-parser.js';
 
 // Create Hono app with Cloudflare Worker bindings and context variables
 const app = new Hono<{
@@ -153,11 +154,54 @@ app.use('/mcp/*', async (c, next) => {
   await next();
 });
 
-// Main MCP endpoint
+// Main MCP endpoint with multi-provider routing
 app.post('/mcp/*', async (c) => {
   const mcpHandler = c.get('mcpHandler');
   
   try {
+    // Parse the URL path to extract provider information
+    const urlPath = c.req.path;
+    const parseResult = parseProviderFromPath(urlPath);
+    
+    // If this is an MCP path with a provider, validate the provider
+    if (parseResult.isMcpPath && parseResult.provider) {
+      // First check if the provider name format is valid
+      if (!isValidProviderFormat(parseResult.provider)) {
+        return c.json({
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32600,
+            message: `Invalid provider name format: ${parseResult.provider}`,
+            data: {
+              expectedFormat: 'alphanumeric characters, hyphens, and underscores only',
+              timestamp: new Date().toISOString(),
+            },
+          },
+        }, 400);
+      }
+      
+      // Then check if the provider is supported
+      if (!isSupportedProvider(parseResult.provider)) {
+        return c.json({
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32601,
+            message: `Unsupported provider: ${parseResult.provider}`,
+            data: {
+              supportedProviders: ['openai', 'gemini', 'anthropic'],
+              timestamp: new Date().toISOString(),
+            },
+          },
+        }, 404);
+      }
+      
+      // Add provider information to the request context
+      // This will be used by the BaseMCPHandler to select the appropriate provider
+      (c as any).provider = parseResult.provider;
+    }
+    
     // Parse JSON-RPC request
     const requestBody = await c.req.text();
     
@@ -210,7 +254,7 @@ app.post('/mcp/*', async (c) => {
     }
 
     // Process MCP request
-    const response = await mcpHandler.handleMCPRequest(mcpRequest);
+    const response = await mcpHandler.handleMCPRequest(mcpRequest, (c as any).provider);
     
     // Return JSON-RPC response
     return c.json(response);

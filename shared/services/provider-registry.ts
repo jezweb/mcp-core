@@ -269,6 +269,13 @@ export class ProviderRegistry {
   }
 
   /**
+   * Get all available providers
+   */
+  getAvailableProviders(): LLMProvider[] {
+    return Array.from(this.providers.values());
+  }
+
+  /**
    * Get the default provider
    */
   getDefaultProvider(): LLMProvider | undefined {

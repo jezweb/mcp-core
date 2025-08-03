@@ -48,6 +48,7 @@ import {
 } from '../types/generic-types.js';
 import { openaiProviderFactory } from '../services/providers/openai.js';
 import { getAllResources, getResource, getResourceContent } from '../resources/index.js';
+import { parseProviderFromPath, isSupportedProvider } from './url-parser.js';
 import { ToolRegistry } from './tool-registry.js';
 import { createFlatHandlerMap, validateHandlerCompleteness, HANDLER_CATEGORIES } from './handlers/index.js';
 import { generateToolDefinitions } from './tool-definitions.js';
@@ -282,6 +283,42 @@ export class BaseMCPHandler {
         request = await this.transportAdapter.preprocessRequest(request);
       }
 
+      // Check if we have provider information in the request context
+      let provider: LLMProvider | undefined;
+      
+      // Check if we have provider information in the request context
+      if ((request as any).provider) {
+        const providerName = (request as any).provider;
+        
+        // Validate provider name format
+        if (typeof providerName === 'string' && providerName.trim().length > 0) {
+          // Get the provider from registry
+          provider = this.providerRegistry.getProvider(providerName);
+          
+          // If provider not found, throw appropriate error
+          if (!provider) {
+            const availableProviders = Array.from(this.providerRegistry['providers'].keys());
+            throw new MCPError(
+              ErrorCodes.METHOD_NOT_FOUND,
+              `Provider not found: ${providerName}`,
+              {
+                availableProviders: availableProviders,
+                requestedProvider: providerName
+              }
+            );
+          }
+        }
+      }
+      
+      // If no specific provider requested, use default provider
+      if (!provider) {
+        provider = this.providerRegistry.getDefaultProvider();
+      }
+      
+      if (!provider) {
+        throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'No default provider available');
+      }
+
       // Route to appropriate handler
       let response: MCPResponse;
       switch (request.method) {
@@ -394,8 +431,40 @@ export class BaseMCPHandler {
         });
       }
       
-      // Get the provider for this request (for now, use default provider)
-      const provider = this.providerRegistry.getDefaultProvider();
+      // Get the provider for this request based on context or default
+      let provider: LLMProvider | undefined;
+      
+      // Check if we have provider information in the request context
+      if ((request as any).provider) {
+        const providerName = (request as any).provider;
+        
+        // Validate provider name format
+        if (typeof providerName !== 'string' || providerName.trim().length === 0) {
+          throw new MCPError(ErrorCodes.INVALID_PARAMS, `Invalid provider name: ${providerName}`);
+        }
+        
+        // Get the provider from registry
+        provider = this.providerRegistry.getProvider(providerName);
+        
+        // If provider not found, throw appropriate error
+        if (!provider) {
+          const availableProviders = this.providerRegistry.getAvailableProviders();
+          throw new MCPError(
+            ErrorCodes.METHOD_NOT_FOUND,
+            `Provider not found: ${providerName}`,
+            {
+              availableProviders: availableProviders.map(p => p.metadata.name),
+              requestedProvider: providerName
+            }
+          );
+        }
+      }
+      
+      // If no specific provider requested, use default provider
+      if (!provider) {
+        provider = this.providerRegistry.getDefaultProvider();
+      }
+      
       if (!provider) {
         throw new MCPError(ErrorCodes.INTERNAL_ERROR, 'No default provider available');
       }

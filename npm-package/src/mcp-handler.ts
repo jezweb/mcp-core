@@ -27,6 +27,7 @@ import {
 } from '../../shared/core/base-mcp-handler.js';
 import { ProviderRegistry, ProviderRegistryConfig } from '../../shared/services/provider-registry.js';
 import { openaiProviderFactory } from '../../shared/services/providers/openai.js';
+import { parseProviderFromPath, isSupportedProvider } from '../../shared/core/url-parser.js';
 
 /**
  * Modern MCP Handler for NPM Package
@@ -79,6 +80,17 @@ export class MCPHandler {
           enabled: true,
           config: { apiKey: apiKey },
         },
+        // Register additional providers if their API keys are available
+        ...(process.env.ANTHROPIC_API_KEY ? [{
+          provider: 'anthropic',
+          enabled: true,
+          config: { apiKey: process.env.ANTHROPIC_API_KEY },
+        }] : []),
+        ...(process.env.GOOGLE_API_KEY ? [{
+          provider: 'gemini',
+          enabled: true,
+          config: { apiKey: process.env.GOOGLE_API_KEY },
+        }] : []),
       ],
       // MVP: Advanced features removed - implement later
       // // Use environment variables for optional settings with defaults
@@ -91,6 +103,26 @@ export class MCPHandler {
     // Initialize the registry
     const providerRegistry = new ProviderRegistry(registryConfig);
     providerRegistry.registerFactory(openaiProviderFactory);
+    
+    // Dynamically import and register additional providers if they're available
+    try {
+      // Try to import Gemini provider
+      import('../../shared/services/providers/gemini.js').then((geminiModule) => {
+        providerRegistry.registerFactory(geminiModule.geminiProviderFactory);
+      }).catch(() => {
+        // Gemini provider not available, that's OK
+      });
+      
+      // Try to import Anthropic provider
+      import('../../shared/services/providers/anthropic.js').then((anthropicModule) => {
+        providerRegistry.registerFactory(anthropicModule.anthropicProviderFactory);
+      }).catch(() => {
+        // Anthropic provider not available, that's OK
+      });
+    } catch (error) {
+      // Non-critical error - continue with available providers
+      console.warn('[MCPHandler] Could not dynamically import additional providers:', error);
+    }
     
     // Initialize the registry asynchronously in the background
     // This is a fire-and-forget operation for backward compatibility
@@ -140,6 +172,17 @@ export class MCPHandler {
           enabled: true,
           config: { apiKey: apiKey },
         },
+        // Register additional providers if their API keys are available
+        ...(process.env.ANTHROPIC_API_KEY ? [{
+          provider: 'anthropic',
+          enabled: true,
+          config: { apiKey: process.env.ANTHROPIC_API_KEY },
+        }] : []),
+        ...(process.env.GOOGLE_API_KEY ? [{
+          provider: 'gemini',
+          enabled: true,
+          config: { apiKey: process.env.GOOGLE_API_KEY },
+        }] : []),
       ],
       // MVP: Advanced features removed - implement later
       // enableHealthChecks: process.env.ENABLE_HEALTH_CHECKS !== 'false', // Default to true
@@ -163,8 +206,46 @@ export class MCPHandler {
   /**
    * Handle incoming MCP requests using the shared BaseMCPHandler
    */
-  async handleRequest(request: JsonRpcRequest): Promise<JsonRpcResponse> {
+  async handleRequest(request: JsonRpcRequest, urlPath?: string): Promise<JsonRpcResponse> {
     try {
+      // If a URL path is provided, parse it for provider information
+      if (urlPath) {
+        const parseResult = parseProviderFromPath(urlPath);
+        
+        // If this is an MCP path with a provider, validate the provider
+        if (parseResult.isMcpPath && parseResult.provider) {
+          // First check if the provider name format is valid
+          if (!isValidProviderFormat(parseResult.provider)) {
+            return createStandardErrorResponse(
+              request.id,
+              ErrorCodes.INVALID_REQUEST,
+              `Invalid provider name format: ${parseResult.provider}`,
+              {
+                expectedFormat: 'alphanumeric characters, hyphens, and underscores only',
+                timestamp: new Date().toISOString(),
+              }
+            );
+          }
+          
+          // Then check if the provider is supported
+          if (!isSupportedProvider(parseResult.provider)) {
+            return createStandardErrorResponse(
+              request.id,
+              ErrorCodes.METHOD_NOT_FOUND,
+              `Unsupported provider: ${parseResult.provider}`,
+              {
+                supportedProviders: ['openai', 'gemini', 'anthropic'],
+                timestamp: new Date().toISOString(),
+              }
+            );
+          }
+          
+          // Add provider information to the request context
+          // This will be used by the BaseMCPHandler to select the appropriate provider
+          (request as any).provider = parseResult.provider;
+        }
+      }
+
       // Validate JSON-RPC 2.0 format
       if (request.jsonrpc !== '2.0') {
         return createStandardErrorResponse(
@@ -190,6 +271,142 @@ export class MCPHandler {
           details: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date().toISOString(),
           mode: 'direct'
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle incoming MCP requests with provider routing support
+   *
+   * @param request - The JSON-RPC request
+   * @param urlPath - The URL path (e.g., '/mcp/openai/tools/list')
+   * @returns The JSON-RPC response
+   */
+  async handleRoutedRequest(request: JsonRpcRequest, urlPath: string): Promise<JsonRpcResponse> {
+    try {
+      // Parse the URL path to extract provider information
+      const parseResult = parseProviderFromPath(urlPath);
+      
+      // If this is an MCP path with a provider, validate the provider
+      if (parseResult.isMcpPath && parseResult.provider) {
+        // First check if the provider name format is valid
+        if (!isValidProviderFormat(parseResult.provider)) {
+          return createStandardErrorResponse(
+            request.id,
+            ErrorCodes.INVALID_REQUEST,
+            `Invalid provider name format: ${parseResult.provider}`,
+            {
+              expectedFormat: 'alphanumeric characters, hyphens, and underscores only',
+              timestamp: new Date().toISOString(),
+            }
+          );
+        }
+        
+        // Then check if the provider is supported
+        if (!isSupportedProvider(parseResult.provider)) {
+          return createStandardErrorResponse(
+            request.id,
+            ErrorCodes.METHOD_NOT_FOUND,
+            `Unsupported provider: ${parseResult.provider}`,
+            {
+              supportedProviders: ['openai', 'gemini', 'anthropic'],
+              timestamp: new Date().toISOString(),
+            }
+          );
+        }
+        
+        // Add provider information to the request context
+        // This will be used by the BaseMCPHandler to select the appropriate provider
+        (request as any).provider = parseResult.provider;
+      }
+
+      // Validate JSON-RPC 2.0 format
+      if (request.jsonrpc !== '2.0') {
+        return createStandardErrorResponse(
+          request.id,
+          ErrorCodes.INVALID_REQUEST,
+          'Invalid JSON-RPC version',
+          {
+            expected: '2.0',
+            received: request.jsonrpc,
+            documentation: 'https://www.jsonrpc.org/specification'
+          }
+        );
+      }
+
+      // Delegate to the shared base handler
+      return await this.baseMCPHandler.handleRequest(request);
+    } catch (error) {
+      return createStandardErrorResponse(
+        request.id,
+        ErrorCodes.INTERNAL_ERROR,
+        'Internal error',
+        {
+          details: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString(),
+          mode: 'routed'
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle incoming MCP requests with provider routing support
+   *
+   * @param request - The JSON-RPC request
+   * @param urlPath - The URL path (e.g., '/mcp/openai/tools/list')
+   * @returns The JSON-RPC response
+   */
+  async handleRoutedRequest(request: JsonRpcRequest, urlPath: string): Promise<JsonRpcResponse> {
+    try {
+      // Parse the URL path to extract provider information
+      const parseResult = parseProviderFromPath(urlPath);
+      
+      // If this is an MCP path with a provider, validate the provider
+      if (parseResult.isMcpPath && parseResult.provider) {
+        if (!isSupportedProvider(parseResult.provider)) {
+          return createStandardErrorResponse(
+            request.id,
+            ErrorCodes.METHOD_NOT_FOUND,
+            `Unsupported provider: ${parseResult.provider}`,
+            {
+              supportedProviders: ['openai', 'gemini', 'anthropic'],
+              timestamp: new Date().toISOString(),
+            }
+          );
+        }
+        
+        // Add provider information to the request context
+        // This will be used by the BaseMCPHandler to select the appropriate provider
+        (request as any).provider = parseResult.provider;
+      }
+
+      // Validate JSON-RPC 2.0 format
+      if (request.jsonrpc !== '2.0') {
+        return createStandardErrorResponse(
+          request.id,
+          ErrorCodes.INVALID_REQUEST,
+          'Invalid JSON-RPC version',
+          {
+            expected: '2.0',
+            received: request.jsonrpc,
+            documentation: 'https://www.jsonrpc.org/specification'
+          }
+        );
+      }
+
+      // Delegate to the shared base handler
+      return await this.baseMCPHandler.handleRequest(request);
+    } catch (error) {
+      return createStandardErrorResponse(
+        request.id,
+        ErrorCodes.INTERNAL_ERROR,
+        'Internal error',
+        {
+          details: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString(),
+          mode: 'routed'
         }
       );
     }
