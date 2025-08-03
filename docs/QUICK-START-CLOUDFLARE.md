@@ -26,7 +26,7 @@ Deploy Jezweb MCP Core to Cloudflare Workers for zero-setup, global edge distrib
 
 The service is already deployed and ready to use at:
 ```
-https://openai-assistants-mcp.jezweb.ai/mcp/{your-api-key}
+https://jezweb-mcp-core.jezweb.ai/mcp/{your-api-key}
 ```
 
 ### Option A: Direct URL Usage (Simple)
@@ -58,7 +58,7 @@ Add to your `claude_desktop_config.json`:
       "command": "npx",
       "args": [
         "mcp-proxy",
-        "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY_HERE"
+        "https://jezweb-mcp-core.jezweb.ai/mcp/YOUR_API_KEY_HERE"
       ]
     }
   }
@@ -78,7 +78,7 @@ Add to your Roo configuration:
       "command": "npx",
       "args": [
         "mcp-proxy",
-        "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY_HERE"
+        "https://jezweb-mcp-core.jezweb.ai/mcp/YOUR_API_KEY_HERE"
       ]
     }
   }
@@ -93,7 +93,7 @@ Test that the service is working:
 
 ```bash
 # List available tools
-curl -X POST "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY" \
+curl -X POST "https://jezweb-mcp-core.jezweb.ai/mcp/YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
@@ -103,7 +103,7 @@ You should see a list of 22 available tools.
 ### Create Your First Assistant
 
 ```bash
-curl -X POST "https://openai-assistants-mcp.jezweb.ai/mcp/YOUR_API_KEY" \
+curl -X POST "https://jezweb-mcp-core.jezweb.ai/mcp/YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -143,8 +143,8 @@ For advanced use cases, you can deploy your own instance:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/jezweb/openai-assistants-mcp.git
-cd openai-assistants-mcp
+git clone https://github.com/jezweb/jezweb-mcp-core.git
+cd jezweb-mcp-core
 ```
 
 2. Install dependencies:

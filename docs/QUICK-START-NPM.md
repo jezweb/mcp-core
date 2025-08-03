@@ -373,7 +373,7 @@ The migration is seamless:
 
 ```bash
 # Old package
-npx openai-assistants-mcp@latest
+npx jezweb-mcp-core@latest
 
 # New package (same functionality + multi-provider support)
 npx jezweb-mcp-core@latest

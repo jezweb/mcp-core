@@ -7,7 +7,7 @@ A production-ready Model Context Protocol (MCP) server featuring an **adaptable,
 Choose the deployment option that best fits your needs:
 
 ### 🚀 Option 1: Cloudflare Workers (Production Ready - v3.0 Unified Architecture)
-**Production URL**: `https://openai-assistants-mcp.jezweb.ai/mcp/{api-key}`
+**Production URL**: `https://jezweb-mcp-core.jezweb.ai/mcp/{api-key}`
 - ✅ **Adaptable Architecture** - Support for multiple LLM providers (OpenAI, Claude, etc.)
 - ✅ **Simple Configuration** - Environment-first configuration, no complex setup
 - ✅ **Lightweight & Fast** - Sub-100ms response times with global edge distribution
@@ -244,8 +244,8 @@ npm install -g mcp-proxy
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/jezweb/openai-assistants-mcp.git
-cd openai-assistants-mcp
+git clone https://github.com/jezweb/jezweb-mcp-core.git
+cd jezweb-mcp-core
 ```
 
 2. Install dependencies:
@@ -509,8 +509,8 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | npx jezweb-m
 
 1. Clone and install:
 ```bash
-git clone https://github.com/jezweb/openai-assistants-mcp.git
-cd openai-assistants-mcp
+git clone https://github.com/jezweb/jezweb-mcp-core.git
+cd jezweb-mcp-core
 npm install
 ```
 
@@ -594,13 +594,13 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🎯 Migration Guide
 
-### From OpenAI Assistants MCP v2.x
+### From Jezweb MCP Core v2.x
 
 The migration is seamless - just update your package name:
 
 ```bash
 # Old
-npx openai-assistants-mcp@latest
+npx jezweb-mcp-core@latest
 
 # New
 npx jezweb-mcp-core@latest

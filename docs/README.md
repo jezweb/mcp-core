@@ -175,7 +175,7 @@ This documentation covers all aspects of Jezweb MCP Core, the provider-agnostic 
 
 ## 🔄 Migration Path
 
-### From OpenAI Assistants MCP
+### From Jezweb MCP Core
 - **100% Backward Compatibility** - All existing functionality preserved
 - **Enhanced Capabilities** - Multi-provider support added
 - **Simplified Configuration** - Environment-first approach
